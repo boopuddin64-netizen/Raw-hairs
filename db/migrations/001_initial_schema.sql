@@ -302,12 +302,12 @@ FOR EACH ROW EXECUTE FUNCTION assert_ledger_transaction_balanced();
 
 -- Posted journals are immutable. Correct mistakes with a reversing journal.
 CREATE OR REPLACE FUNCTION reject_ledger_mutation() RETURNS trigger
-LANGUAGE plpgsql AS $
+LANGUAGE plpgsql AS $$
 BEGIN
   RAISE EXCEPTION 'Posted ledger records are immutable; create a reversing transaction'
     USING ERRCODE = 'object_not_in_prerequisite_state';
 END;
-$;
+$$;
 
 CREATE TRIGGER ledger_transactions_immutable
 BEFORE UPDATE OR DELETE ON ledger_transactions
