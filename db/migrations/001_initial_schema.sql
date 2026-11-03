@@ -273,8 +273,11 @@ DECLARE entry_count integer;
 DECLARE debit_total numeric;
 DECLARE credit_total numeric;
 BEGIN
-  target_id := COALESCE(NEW.transaction_id, OLD.transaction_id);
-  IF target_id IS NULL THEN target_id := COALESCE(NEW.id, OLD.id); END IF;
+  IF TG_TABLE_NAME = 'ledger_transactions' THEN
+    target_id := COALESCE(NEW.id, OLD.id);
+  ELSE
+    target_id := COALESCE(NEW.transaction_id, OLD.transaction_id);
+  END IF;
   SELECT count(*), COALESCE(sum(debit_kobo),0), COALESCE(sum(credit_kobo),0)
     INTO entry_count, debit_total, credit_total
   FROM ledger_entries WHERE transaction_id = target_id;
@@ -296,6 +299,24 @@ CREATE CONSTRAINT TRIGGER ledger_transaction_must_have_entries
 AFTER INSERT ON ledger_transactions
 DEFERRABLE INITIALLY DEFERRED
 FOR EACH ROW EXECUTE FUNCTION assert_ledger_transaction_balanced();
+
+-- Posted journals are immutable. Correct mistakes with a reversing journal.
+CREATE OR REPLACE FUNCTION reject_ledger_mutation() RETURNS trigger
+LANGUAGE plpgsql AS $
+BEGIN
+  RAISE EXCEPTION 'Posted ledger records are immutable; create a reversing transaction'
+    USING ERRCODE = 'object_not_in_prerequisite_state';
+END;
+$;
+
+CREATE TRIGGER ledger_transactions_immutable
+BEFORE UPDATE OR DELETE ON ledger_transactions
+FOR EACH ROW EXECUTE FUNCTION reject_ledger_mutation();
+
+CREATE TRIGGER ledger_entries_immutable
+BEFORE UPDATE OR DELETE ON ledger_entries
+FOR EACH ROW EXECUTE FUNCTION reject_ledger_mutation();
+
 
 CREATE TABLE international_requests (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
