@@ -170,7 +170,7 @@ Never prefix secrets with `VITE_`. Keep development and production values separa
 
 - Specification committed to `docs/IMPLEMENTATION_SPECIFICATION.md` on the working branch.
 - Added `.env.example` containing variable names only; no credentials or secret values are stored in Git.
-- Updated `.gitignore` to continue ignoring all real `.env* ` files while allowing the safe `.env.example` template.
+- Updated `.gitignore` to continue ignoring all real `.env*` files while allowing the safe `.env.example` template.
 - Audited Vercel project `raw_hairs`: framework is Vite; no project environment variables were present at audit time; SSO deployment protection is enabled for deployments other than custom domains; no custom production domain was listed.
 - Audited Neon project: PostgreSQL 18 in `aws-us-east-2`; only the owner role exists on the production branch; public connections are currently allowed; no IP allowlist is configured.
 - Attempted to enable Neon production-branch protection, but the current Neon plan rejected the operation because the protected-branch quota is exhausted/unsupported. No project or branch protection setting was changed.
