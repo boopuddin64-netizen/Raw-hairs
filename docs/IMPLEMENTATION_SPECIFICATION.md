@@ -28,7 +28,7 @@
 - Neon PostgreSQL is the system of record for products, variants, stock, customers, orders, payments, ledger, delivery, audit and notification events.
 - Firebase Authentication supplies customer and staff identity tokens.
 - Firebase Admin SDK is used only server-side to verify identity tokens and manage privileged identity operations.
-- Firebase Storage holds product imagery and explicitly authorized uploads.
+- Product image storage is deferred; product image fields remain optional until a storage provider is selected.
 - Paystack is accessed only by server-side code. The browser never receives the secret key.
 - Vercel environment variables hold server secrets. No secret is committed to Git.
 
@@ -102,7 +102,7 @@
 ### Phase 1 — Infrastructure and security
 1. Create a dedicated Firebase project for RAW HAIRS.
 2. Configure Firebase Authentication providers and authorized domains.
-3. Configure Firebase Storage and deny-by-default rules for private uploads.
+3. Defer product image storage; do not enable Firebase Storage or upgrade the Firebase billing plan for this phase.
 4. Configure Firebase Admin SDK credentials as Vercel server-side environment variables.
 5. Establish Neon development/production separation and restricted application database roles.
 6. Establish Vercel Preview and Production environment separation.
@@ -110,7 +110,7 @@
 8. Configure backup/recovery policy, logging, rate limits and secret rotation procedures.
 9. Protect production branches/repository deployment paths where plan capabilities permit.
 
-### Phase 2 — Backend foundation
+### Phase 1A — Customer authentication implementation\n- Firebase Web SDK is installed in the React/Vite frontend.\n- Customer email/password registration, sign-in, password reset, Google redirect sign-in and sign-out are implemented in the account page.\n- Browser Firebase configuration is supplied only through `VITE_FIREBASE_*` environment variables.\n- Staff authorization and customer order access remain unavailable until server-side token verification and role-protected APIs are implemented.\n- Vercel environment variables and end-to-end sign-in tests must be completed before this integration is considered verified.\n\n### Phase 2 — Backend foundation
 - Add TypeScript Vercel Functions, API validation, Firebase token verification, role authorization, Neon pool, error handling, audit logging and rate limiting.
 
 ### Phase 3 — Catalogue and inventory
