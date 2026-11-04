@@ -1,20 +1,38 @@
 :root {
-  --bg: #0a0a0b;
-  --surface: #151517;
-  --surface-2: #0f0f11;
-  --line: #2a2a2e;
-  --line-2: #3a3a3f;
-  --text: #f5eef1;
-  --soft: #e3d6dc;
-  --muted: #a89fa4;
-  --pink: #f472a8;
-  --pink-deep: #2a1520;
-  --ok: #7bd6a0;
-  --warn: #f0b35a;
-  --info: #8fb8f0;
-  --bad: #f07a7a;
-  --serif: 'Cormorant Garamond', Georgia, serif;
-  --sans: 'Jost', system-ui, sans-serif;
+  color-scheme: light;
+  --bg: #fbf8f6;
+  --surface: #ffffff;
+  --surface-2: #f5efed;
+  --line: #eee5e2;
+  --line-2: #dfd2ce;
+  --text: #40383b;
+  --soft: #65585d;
+  --muted: #887c80;
+  --pink: #b97891;
+  --pink-deep: #f5e9ed;
+  --ok: #568b70;
+  --warn: #b77b35;
+  --info: #6485a8;
+  --bad: #bd6666;
+  --serif: 'Playfair Display', Georgia, serif;
+  --sans: 'DM Sans', system-ui, sans-serif;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #191618;
+  --surface: #241f22;
+  --surface-2: #211c1f;
+  --line: #3b3237;
+  --line-2: #51444b;
+  --text: #f1e9ec;
+  --soft: #d9cbd1;
+  --muted: #b1a2a9;
+  --pink: #d49ab0;
+  --pink-deep: #382630;
+  --ok: #85c5a0;
+  --warn: #e1b273;
+  --info: #9dbce0;
+  --bad: #e39a9a;
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
@@ -50,7 +68,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .drawer .drawer-quiet { color: var(--muted); font-size: 14px; }
 
 /* buttons */
-.btn { min-height: 48px; border-radius: 2px; border: 1px solid transparent; font-weight: 600; font-size: 14px; letter-spacing: 0.1em; cursor: pointer; padding: 0 20px; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; text-transform: uppercase; }
+.btn { min-height: 48px; border-radius: 2px; border: 1px solid transparent; font-weight: 500; font-size: 14px; letter-spacing: 0.035em; cursor: pointer; padding: 0 20px; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; text-transform: none; }
 .btn-primary { background: var(--pink); color: #0a0a0b; }
 .btn-primary:hover { background: #ff8fbd; }
 .btn-outline { background: none; border-color: var(--pink); color: var(--pink); font-weight: 500; }
@@ -197,4 +215,40 @@ td input, td select { min-height: 44px; width: 100%; max-width: 140px; backgroun
 }
 @media (prefers-reduced-motion: no-preference) {
   .btn, .opt, .tab { transition: background 0.15s, border-color 0.15s; }
+}
+
+/* Softer boutique styling and accessible theme variants */
+body { font-size: 15px; letter-spacing: 0.005em; }
+h1, h2 { letter-spacing: -0.025em; }
+h3 { letter-spacing: 0; }
+.eyebrow { letter-spacing: 0.12em; }
+.wordmark { letter-spacing: 0.11em; }
+.header { background: var(--bg); }
+.theme-toggle {
+  min-width: 48px; min-height: 42px; padding: 3px 7px;
+  display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 0; border: 1px solid var(--line); border-radius: 22px;
+  color: var(--text); background: var(--surface); cursor: pointer;
+}
+.theme-toggle span { font-size: 18px; line-height: 20px; }
+.theme-toggle small { font-size: 9px; color: var(--muted); line-height: 12px; }
+.btn-primary { color: #fff; }
+.btn-primary:hover { filter: brightness(1.04); }
+.badge, .toast { color: #fff; }
+.photo { background: linear-gradient(150deg, #ead9df, #cbb5bd); }
+.photo-tag { color: #725c65; }
+.hero { background: linear-gradient(160deg, #ead9df 0%, #f4e9e8 58%, var(--bg) 100%); }
+.hero h1, .hero .lead { color: #493b41; }
+.hero-note { border-color: #c7aab5; color: #715964; }
+:root[data-theme='dark'] .photo { background: linear-gradient(150deg, #49333f, #2a2026); }
+:root[data-theme='dark'] .photo-tag { color: #d7b7c5; }
+:root[data-theme='dark'] .hero { background: linear-gradient(160deg, #49313e 0%, #2b2026 58%, var(--bg) 100%); }
+:root[data-theme='dark'] .hero h1, :root[data-theme='dark'] .hero .lead { color: #f1e9ec; }
+:root[data-theme='dark'] .hero-note { border-color: #765466; color: #dfbacb; }
+:root[data-theme='dark'] .btn-primary { color: #24171e; }
+:root[data-theme='dark'] .badge, :root[data-theme='dark'] .toast { color: #24171e; }
+@media (max-width: 420px) {
+  .header-row { gap: 0; }
+  .theme-toggle { min-width: 42px; padding-inline: 4px; }
+  .wordmark { font-size: 21px; letter-spacing: 0.08em; }
 }
