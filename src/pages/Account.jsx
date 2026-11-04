@@ -79,9 +79,9 @@ export default function Account() {
         <button className="btn btn-primary btn-block" type="submit" disabled={busy || !configured}>{busy ? 'PLEASE WAIT…' : mode === 'register' ? 'CREATE ACCOUNT' : mode === 'reset' ? 'SEND RESET EMAIL' : 'SIGN IN'}</button>
       </form>
 
-      {mode === 'login' && <>
+      {mode !== 'reset' && <>
         <button className="btn btn-ghost btn-block" style={{ marginTop: 10 }} disabled={busy || !configured} onClick={() => run(loginWithGoogle)}>CONTINUE WITH GOOGLE</button>
-        <button className="link-btn" style={{ width: '100%', background: 'none', border: 0, color: 'var(--pink)', cursor: 'pointer' }} onClick={() => { setMode('reset'); setMessage(''); }}>Forgot password?</button>
+        {mode === 'login' && <button className="link-btn" style={{ width: '100%', background: 'none', border: 0, color: 'var(--pink)', cursor: 'pointer' }} onClick={() => { setMode('reset'); setMessage(''); }}>Forgot password?</button>}
       </>}
 
       {message && <div className="notice" role="status" style={{ marginTop: 14 }}>{message}</div>}
