@@ -166,3 +166,21 @@ Never prefix secrets with `VITE_`. Keep development and production values separa
 - No automatic email sending until the email phase is approved.
 - No direct browser-to-Neon connections.
 - No production data migration or live Paystack activation without a separate approval.
+## 10. Phase 1 execution log (2026-11-04)
+
+- Specification committed to `docs/IMPLEMENTATION_SPECIFICATION.md` on the working branch.
+- Added `.env.example` containing variable names only; no credentials or secret values are stored in Git.
+- Updated `.gitignore` to continue ignoring all real `.env* ` files while allowing the safe `.env.example` template.
+- Audited Vercel project `raw_hairs`: framework is Vite; no project environment variables were present at audit time; SSO deployment protection is enabled for deployments other than custom domains; no custom production domain was listed.
+- Audited Neon project: PostgreSQL 18 in `aws-us-east-2`; only the owner role exists on the production branch; public connections are currently allowed; no IP allowlist is configured.
+- Attempted to enable Neon production-branch protection, but the current Neon plan rejected the operation because the protected-branch quota is exhausted/unsupported. No project or branch protection setting was changed.
+- Firebase project creation is pending connection of the Firebase integration and owner confirmation of project identity/billing region. No Firebase project or credentials have been created.
+- No Vercel environment variables were created because actual Firebase/Neon/Paystack credentials are not yet available.
+- Production database schema remains untouched. All schema tests remain isolated to `raw-hairs-schema-test`.
+
+### Phase 1 blockers / owner actions
+
+1. Connect the Firebase integration and create the dedicated RAW HAIRS Firebase project.
+2. Confirm the Firebase project ID and select the preferred project location for Storage (location choice can be difficult or impossible to change later).
+3. Review Neon plan limits and decide whether branch protection is needed via plan upgrade or rely on repository/deployment safeguards for now.
+4. Supply credentials only through the relevant provider dashboards and Vercel encrypted environment variables; never paste private keys into GitHub or public chat.
