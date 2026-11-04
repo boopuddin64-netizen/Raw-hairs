@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useStore, naira, stockLabel, isSoldOut } from './store';
 import { INSTAGRAM_URL, policyLinks } from './data';
+import { useTheme } from './ThemeContext';
 
 const PATHS = {
   menu: <path d="M4 7h16M4 12h16M4 17h16" />,
@@ -36,6 +37,7 @@ export function Chip({ tone = 'ok', children }) {
 
 export function Header() {
   const { cartCount } = useStore();
+  const { theme, toggleTheme } = useTheme();
   const nav = useNavigate();
   const [menu, setMenu] = useState(false);
   const [searching, setSearching] = useState(false);
@@ -53,6 +55,7 @@ export function Header() {
           <NavLink to="/help/contact">CONTACT</NavLink>
         </nav>
         <button className="icon-btn" aria-label="Search" onClick={() => setSearching(!searching)}><Icon name="search" /></button>
+        <button className="theme-toggle" type="button" aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`} onClick={toggleTheme}><span aria-hidden="true">{theme === 'light' ? '☾' : '☀'}</span><small>{theme === 'light' ? 'Dark' : 'Light'}</small></button>
         <Link to="/account" className="icon-btn" aria-label="Account"><Icon name="user" /></Link>
         <Link to="/cart" className="icon-btn badge-wrap" aria-label={`Shopping bag, ${cartCount} items`}>
           <Icon name="bag" />
