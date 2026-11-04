@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import { StoreProvider } from './store';
 import { AuthProvider } from './AuthContext';
+import { ThemeProvider } from './ThemeContext';
 import { Layout } from './components';
 import Home from './pages/Home';
 import Shop from './pages/Shop';
@@ -17,6 +18,7 @@ import './styles.css';
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
+    <ThemeProvider>
     <AuthProvider>
       <StoreProvider>
         <HashRouter>
@@ -37,5 +39,6 @@ createRoot(document.getElementById('root')).render(
         </HashRouter>
       </StoreProvider>
     </AuthProvider>
+    </ThemeProvider>
   </React.StrictMode>
 );
