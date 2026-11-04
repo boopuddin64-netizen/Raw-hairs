@@ -16,6 +16,8 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
+  const [customer, setCustomer] = useState(null);
+  const [profileStatus, setProfileStatus] = useState('idle');
   const [loading, setLoading] = useState(true);
   const [redirectError, setRedirectError] = useState('');
 
@@ -25,18 +27,53 @@ export function AuthProvider({ children }) {
       return undefined;
     }
 
+    let active = true;
+
     getRedirectResult(auth).catch((error) => {
-      setRedirectError(error.code || 'auth/redirect-failed');
+      if (active) setRedirectError(error.code || 'auth/redirect-failed');
     });
 
-    return onAuthStateChanged(auth, (nextUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (nextUser) => {
+      if (!active) return;
       setUser(nextUser);
-      setLoading(false);
+      setCustomer(null);
+
+      if (!nextUser) {
+        setProfileStatus('idle');
+        setLoading(false);
+        return;
+      }
+
+      setProfileStatus('syncing');
+      try {
+        const idToken = await nextUser.getIdToken();
+        const response = await fetch('/api/me', {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${idToken}` },
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || 'Account profile sync failed.');
+        if (active) {
+          setCustomer(data.customer || null);
+          setProfileStatus('synced');
+        }
+      } catch (error) {
+        if (active) setProfileStatus('error');
+      } finally {
+        if (active) setLoading(false);
+      }
     });
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, []);
 
   const value = {
     user,
+    customer,
+    profileStatus,
     loading,
     configured: firebaseConfigured,
     redirectError,
