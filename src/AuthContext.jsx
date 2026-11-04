@@ -1,12 +1,14 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import {
   GoogleAuthProvider,
+  browserLocalPersistence,
   createUserWithEmailAndPassword,
   getRedirectResult,
   onAuthStateChanged,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithRedirect,
+  setPersistence,
   signOut,
   updateProfile,
 } from 'firebase/auth';
@@ -29,7 +31,9 @@ export function AuthProvider({ children }) {
 
     let active = true;
 
-    getRedirectResult(auth).catch((error) => {
+    getRedirectResult(auth).then((result) => {
+      if (active && result?.user) setRedirectError('');
+    }).catch((error) => {
       if (active) setRedirectError(error.code || 'auth/redirect-failed');
     });
 
@@ -89,7 +93,10 @@ export function AuthProvider({ children }) {
     },
     async loginWithGoogle() {
       if (!auth) throw new Error('Firebase is not configured for this deployment.');
-      await signInWithRedirect(auth, new GoogleAuthProvider());
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      await setPersistence(auth, browserLocalPersistence);
+      await signInWithRedirect(auth, provider);
     },
     async resetPassword(email) {
       if (!auth) throw new Error('Firebase is not configured for this deployment.');
