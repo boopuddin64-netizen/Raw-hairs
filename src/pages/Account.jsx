@@ -19,7 +19,7 @@ function authMessage(error) {
 }
 
 export default function Account() {
-  const { user, loading, configured, redirectError, register, login, loginWithGoogle, resetPassword, logout } = useAuth();
+  const { user, customer, profileStatus, loading, configured, redirectError, register, login, loginWithGoogle, resetPassword, logout } = useAuth();
   const [mode, setMode] = useState('login');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -49,8 +49,9 @@ export default function Account() {
         <h1>Welcome{user.displayName ? `, ${user.displayName}` : ''}</h1>
         <p className="muted small" style={{ margin: '8px 0 20px' }}>{user.email}</p>
         <div className="notice" style={{ marginBottom: 16 }}>
-          You are signed in. Your order history will appear here when the secure order API is connected. No sample orders are shown as real customer data.
+          {profileStatus === 'syncing' && 'Securing your account profile…'}{profileStatus === 'synced' && 'Your customer profile is securely connected.'}{profileStatus === 'error' && 'You are signed in, but we could not sync your customer profile. Please refresh this page or try again later.'}{profileStatus === 'idle' && 'You are signed in. Your account is being checked.'}
         </div>
+        {customer?.id && <p className="muted small">Customer account connected · {customer.email || user.email}</p>}
         <button className="btn btn-ghost" disabled={busy} onClick={() => run(logout)}>Sign out</button>
       </div>
     );
