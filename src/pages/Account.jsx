@@ -14,6 +14,10 @@ function authMessage(error) {
     'auth/unauthorized-domain': 'This website domain is not authorized in Firebase Authentication.',
     'auth/popup-blocked': 'The sign-in window was blocked. Allow redirects and try again.',
     'auth/operation-not-allowed': 'This sign-in method is not enabled in Firebase Authentication.',
+    'auth/redirect-cancelled-by-user': 'Google sign-in was cancelled. Try again.',
+    'auth/redirect-operation-pending': 'A Google sign-in is already in progress. Wait a moment and try again.',
+    'auth/unauthorized-continue-uri': 'The Google sign-in return address is not authorized in Firebase.',
+    'auth/invalid-credential': 'Email or password is incorrect.',
   };
   return messages[code] || 'We could not complete that request. Please try again.';
 }
@@ -66,7 +70,7 @@ export default function Account() {
       </p>
 
       {!configured && <div className="notice" role="status" style={{ marginBottom: 16 }}>Firebase configuration is not yet set for this deployment. Sign-in will become available after the Vercel environment variables are added.</div>}
-      {redirectError && <div className="notice" role="alert" style={{ marginBottom: 16 }}>{authMessage({ code: redirectError })}</div>}
+      {redirectError && <div className="notice" role="alert" style={{ marginBottom: 16 }}>Google sign-in could not finish: {authMessage({ code: redirectError })} <span className="small">({redirectError})</span></div>}
 
       <form onSubmit={(event) => {
         event.preventDefault();
