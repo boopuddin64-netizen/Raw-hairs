@@ -36,7 +36,7 @@ createRoot(document.getElementById('root')).render(
             <Route path="account" element={<Account />} />
             <Route path="help/:topic" element={<Help />} />
             <Route path="admin" element={<StaffGate roles={["owner", "manager", "operations"]}><Admin /></StaffGate>} />
-            <Route path="rider" element={<StaffGate roles={["rider"]}><Rider /></StaffGate>} />
+            <Route path="rider" element={<StaffGate roles={["owner", "rider"]}><Rider /></StaffGate>} />
             <Route path="*" element={<Home />} />
           </Route>
         </Routes>
