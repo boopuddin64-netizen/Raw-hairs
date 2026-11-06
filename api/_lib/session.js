@@ -159,7 +159,6 @@ export function consumeGoogleState(req) {
   const value = cookies(req)[OAUTH_COOKIE];
   cookie(req, OAUTH_COOKIE, '', { clear: true });
   const data = readState(value);
-  flushCookies(req, { getHeader: () => null, setHeader: () => {} });
   return data;
 }
 async function verifyGoogleIdToken(idToken) {
