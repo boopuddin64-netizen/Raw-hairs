@@ -40,7 +40,7 @@ export function Icon({ name, size = 24 }) {
 
 export function Photo({ label = 'photo', src, className = '', children }) {
   const imageSrc = src || demoImageFor(label);
-  return <div className={`photo ${className} photo-demo`}><img src={imageSrc} alt={'Demo visual for ' + label} loading="lazy" />{children}</div>;
+  return <div className={`photo ${className} photo-demo`}><img src={imageSrc} alt={'Demo visual for ' + label} loading="lazy" decoding="async" onError={(event) => { event.currentTarget.style.display = "none"; }} />{children}</div>;
 }
 
 export function Chip({ tone = 'ok', children }) {
