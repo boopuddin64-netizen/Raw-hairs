@@ -1,4 +1,4 @@
-import { requireStaff } from '../_lib/authorization.js';
+import { requireStaffPermission } from '../_lib/authorization.js';
 
 function sendError(res, error) {
   const status = Number.isInteger(error.statusCode) ? error.statusCode : 500;
@@ -15,7 +15,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { staff, sql } = await requireStaff(req, ['owner', 'manager']);
+    const { staff, sql } = await requireStaffPermission(req, 'cod:manage');
 
     if (req.method === 'GET') {
       const rows = await sql`
