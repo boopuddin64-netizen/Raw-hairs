@@ -4,7 +4,9 @@ Premium, mobile-first wig boutique storefront. This is the **front-end concept b
 
 ## What works now (in the browser only)
 
-- Homepage: header with search, account and live bag count; hero; shop by style; new arrivals; best sellers; services; illustrative testimonials; Instagram section; trust links; footer; mobile bottom navigation
+- Homepage: product-first wig storefront, mannequin/display imagery, style collections, new arrivals, featured wigs, wig services and mobile navigation
+- Demo catalogue: 16 sample wig styles across straight, body wave, water wave, deep wave, loose wave, curly/kinky, bob and colour collections
+- Service menu: 8 sample wig-care and styling services
 - Shop: search, style filter, sorting, product pages with length options and quantity
 - Bag: quantity limits checked against stock, sold-out items cannot be bought, Nigeria / outside-Nigeria choice, international request form (no shipping fee is charged)
 - Services: available / temporarily unavailable / hidden states, booking request form
@@ -35,10 +37,10 @@ The build is static and can be hosted on any static host.
 - `api/admin/delivery-zones.js` provides owner/manager delivery-zone and COD-zone controls.
 - `db/migrations/001_initial_schema.sql` is the initial schema; `db/migrations/002_approved_commerce_rules.sql` adds approved staff roles, COD eligibility, 15-minute inventory reservations, delivery proof, 90-day evidence retention metadata, 48-hour returns and promotions.
 - Migration 002 has been applied and checked on an isolated Neon test branch only. It has not been applied to production.
-- API endpoints require Firebase ID tokens and a matching active server-side staff role.
+- Protected API endpoints verify Firebase ID tokens and look up the active staff role in Neon. Role permissions are checked server-side. The owner has full permissions; manager handles store operations and team controls; operations handles day-to-day catalogue/order/inventory/dispatch work; rider is limited to assigned delivery functions.\n- The current admin and rider dashboards are still local-data prototypes. The staff gate and permission foundation are in place, but order, catalogue, dispatch and rider mutation APIs still need implementation and tests before launch. Do not treat the current screens as production operations software.
 
-## Next steps
+## Frontend configuration and secret handling\n\n- The browser bundle must contain no database URL, Firebase Admin private key, Paystack secret key, webhook secret, service-role credential or other privileged token. Keep these in deployment server environment variables only; never prefix them with `VITE_`.\n- `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID` and `VITE_FIREBASE_APP_ID` are Firebase Web SDK configuration. The Firebase Web API key is public by design and is visible in the browser; it is not an admin credential. Restrict it to the approved website domains and required Firebase APIs in Google Cloud. If the requirement is literally zero API-key material in the browser, Firebase client authentication must be replaced with a server-managed authentication/session flow before launch.\n- Do not place secrets in source files, local storage, frontend environment variables or client-side requests.\n\n## Next steps
 
 Connect the backend to the admin/customer interfaces, implement Paystack and WhatsApp services, add delivery evidence storage and scheduled retention cleanup, and run end-to-end security and checkout tests.
 
-Sample data lives in `src/data.js`. Replace it with approved business data once the backend exists. Demo photography is sourced from Unsplash under the Unsplash License (credits: Dellon Thomas, Mahdi Chaghari, Kamyar Ghalamchi, Ninthgrid and Patrik Velich).
+Sample data lives in `src/data.js`. Replace it with approved business data once the backend exists. Temporary mannequin image URLs are defined in `src/components.jsx` and `src/premium.css`; replace them with approved RAW HAIRS image assets before launch.
