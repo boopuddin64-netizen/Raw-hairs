@@ -17,6 +17,7 @@ import Rider from './pages/Rider';
 import StaffGate from './StaffGate';
 import './styles.css';
 import './premium.css';
+import './staff-access.css';
 import './standard.css';
 
 createRoot(document.getElementById('root')).render(
