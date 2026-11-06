@@ -1,125 +1,92 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useStore, stockLabel } from '../store';
 import { Chip } from '../components';
 
-const TABS = ['Overview', 'Products', 'Services', 'Requests', 'Riders'];
+const NAV = [
+  ['Overview', '◫', 'Your business at a glance'],
+  ['Products', '◇', 'Catalogue and inventory'],
+  ['Services', '✳', 'Bookings and care services'],
+  ['Enquiries', '✉', 'Customer requests'],
+  ['Orders', '▤', 'Order activity'],
+  ['Team', '♙', 'Rider access and dispatch'],
+];
+
+function money(value) {
+  return value == null || value === '' ? 'Not set' : '₦' + Number(value).toLocaleString('en-NG');
+}
+function Metric({ label, value, note, icon, tone = '' }) {
+  return <article className="adm-metric glass-panel"><div className="adm-metric-top"><span>{label}</span><span className="adm-metric-icon">{icon}</span></div><strong className={tone}>{value}</strong><small>{note}</small></article>;
+}
+function SectionTitle({ kicker, title, description, action }) {
+  return <div className="adm-section-title"><div><span className="adm-kicker">{kicker}</span><h2>{title}</h2>{description && <p>{description}</p>}</div>{action}</div>;
+}
+function Empty({ title, text }) {
+  return <div className="adm-empty"><span className="adm-empty-mark">✳</span><strong>{title}</strong><p>{text}</p></div>;
+}
 
 export default function Admin() {
   const store = useStore();
   const { state } = store;
   const [tab, setTab] = useState('Overview');
-  const [rider, setRider] = useState('');
-
+  const [query, setQuery] = useState('');
+  const [riderName, setRiderName] = useState('');
+  const [notice, setNotice] = useState('');
   const low = state.products.filter((p) => p.available && p.stock > 0 && p.stock <= 2).length;
   const soldOut = state.products.filter((p) => !p.available || p.stock <= 0).length;
+  const openRequests = state.requests.length + state.bookings.length;
+  const filteredProducts = useMemo(() => state.products.filter((p) => (p.name + ' ' + p.category).toLowerCase().includes(query.toLowerCase())), [state.products, query]);
+  const setDemoNotice = (message) => { setNotice(message); window.setTimeout(() => setNotice(''), 2800); };
 
   return (
-    <div className="wrap page">
-      <p className="eyebrow">Owner admin · demo</p>
-      <h1>Manage RAW HAIRS</h1>
-      <div className="notice" style={{ margin: '12px 0 16px' }}>
-        Concept demo. There is no sign-in, no server and no audit log yet: changes are saved only in this browser. The real admin will require a protected login with two-step verification.
-      </div>
-      <div className="tabs" role="tablist">
-        {TABS.map((t) => <button key={t} role="tab" className="tab" aria-selected={tab === t} onClick={() => setTab(t)}>{t}</button>)}
-      </div>
+    <div className="admin-shell">
+      <aside className="admin-sidebar">
+        <a className="admin-brand" href="#/"><span className="admin-brand-symbol">R</span><span><b>RAW HAIRS</b><small>STUDIO / CONTROL</small></span></a>
+        <div className="admin-workspace"><span className="admin-avatar">RH</span><span><b>Owner workspace</b><small>Demo environment</small></span><span className="admin-live-dot" /></div>
+        <span className="admin-nav-label">WORKSPACE</span>
+        <nav className="admin-nav" aria-label="Admin navigation">
+          {NAV.map(([name, icon, desc]) => <button key={name} className={tab === name ? 'active' : ''} onClick={() => { setTab(name); setQuery(''); }} title={desc}><span className="admin-nav-icon">{icon}</span><span>{name}</span>{name === 'Enquiries' && openRequests > 0 && <i>{openRequests}</i>}</button>)}
+        </nav>
+        <div className="admin-sidebar-bottom"><div className="admin-demo-note"><span className="admin-live-dot" /> DEMO MODE <p>All changes stay in this browser.</p></div><a href="#/" className="admin-back-link">↗ View customer storefront</a></div>
+      </aside>
 
-      {tab === 'Overview' && (
-        <>
-          <div className="stats">
-            <div className="stat"><span className="muted small">Products</span><b>{state.products.length}</b></div>
-            <div className="stat"><span className="muted small">Low stock</span><b style={{ color: 'var(--warn)' }}>{low}</b></div>
-            <div className="stat"><span className="muted small">Sold out or hidden</span><b style={{ color: 'var(--bad)' }}>{soldOut}</b></div>
-            <div className="stat"><span className="muted small">Open requests</span><b style={{ color: 'var(--info)' }}>{state.requests.length + state.bookings.length}</b></div>
-          </div>
-          <button className="btn btn-ghost" onClick={() => { if (window.confirm('Reset all demo data in this browser?')) store.reset(); }}>Reset demo data</button>
-        </>
-      )}
+      <main className="admin-main">
+        <header className="admin-topbar"><div className="admin-breadcrumb"><span>Workspace</span><b>/</b><strong>{tab}</strong></div><div className="admin-top-actions"><span className="admin-date-label">PREVIEW ENVIRONMENT</span><span className="admin-owner-pill"><span className="admin-avatar small-avatar">P</span> Owner</span></div></header>
+        <div className="admin-content">
+          <div className="admin-welcome"><div><span className="adm-kicker">THURSDAY, YOUR STUDIO OVERVIEW</span><h1>{tab === 'Overview' ? 'Good day. Here’s your overview.' : tab}</h1><p>{tab === 'Overview' ? 'A clear picture of your RAW HAIRS demo store, all in one place.' : NAV.find((item) => item[0] === tab)?.[2]}</p></div><div className="admin-welcome-actions"><span className="admin-status-pill"><i /> Prototype active</span><button className="adm-button ghost" onClick={() => { store.reset(); setDemoNotice('Demo data has been reset in this browser.'); }}>↻ Reset demo</button></div></div>
+          {notice && <div className="adm-toast" role="status">{notice}</div>}
 
-      {tab === 'Products' && (
-        <div className="table-wrap">
-          <table>
-            <thead><tr><th>PRODUCT</th><th>PRICE (₦)</th><th>STOCK</th><th>STATUS</th><th>FEATURED</th><th>AVAILABLE</th></tr></thead>
-            <tbody>
-              {state.products.map((p) => (
-                <tr key={p.id}>
-                  <td>{p.name}</td>
-                  <td><input aria-label={`Price for ${p.name}`} inputMode="numeric" value={p.price ?? ''} placeholder="not set" onChange={(e) => store.patchProduct(p.id, { price: e.target.value === '' ? null : Math.max(0, Number(e.target.value) || 0) })} /></td>
-                  <td><input aria-label={`Stock for ${p.name}`} type="number" min="0" value={p.stock} onChange={(e) => store.patchProduct(p.id, { stock: Math.max(0, parseInt(e.target.value || '0', 10)) })} /></td>
-                  <td><Chip tone={!p.available || p.stock <= 0 ? 'muted' : p.stock <= 2 ? 'warn' : 'ok'}>{stockLabel(p)}</Chip></td>
-                  <td><input type="checkbox" style={{ width: 24, minHeight: 24 }} aria-label={`Feature ${p.name}`} checked={p.featured} onChange={(e) => store.patchProduct(p.id, { featured: e.target.checked })} /></td>
-                  <td><input type="checkbox" style={{ width: 24, minHeight: 24 }} aria-label={`Available: ${p.name}`} checked={p.available} onChange={(e) => store.patchProduct(p.id, { available: e.target.checked })} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p className="muted small" style={{ padding: '8px 0' }}>Zero stock shows SOLD OUT on the shop automatically. Real stock history and add/edit/archive of products come with the backend.</p>
-        </div>
-      )}
-
-      {tab === 'Services' && (
-        <div className="table-wrap">
-          <table>
-            <thead><tr><th>SERVICE</th><th>FROM PRICE (₦)</th><th>AVAILABILITY</th></tr></thead>
-            <tbody>
-              {state.services.map((s) => (
-                <tr key={s.id}>
-                  <td>{s.name}</td>
-                  <td><input aria-label={`Price for ${s.name}`} inputMode="numeric" value={s.price ?? ''} placeholder="not set" onChange={(e) => store.patchService(s.id, { price: e.target.value === '' ? null : Math.max(0, Number(e.target.value) || 0) })} /></td>
-                  <td>
-                    <select aria-label={`Availability for ${s.name}`} value={s.status} onChange={(e) => store.setServiceStatus(s.id, e.target.value)}>
-                      <option value="available">Available</option>
-                      <option value="paused">Temporarily unavailable</option>
-                      <option value="hidden">Hidden</option>
-                    </select>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {tab === 'Requests' && (
-        <div className="stack">
-          <h2 style={{ fontSize: 24 }}>International requests</h2>
-          {state.requests.length === 0 && <p className="muted small">None yet. Send one from the cart by choosing "Outside Nigeria".</p>}
-          {state.requests.map((r) => (
-            <article key={r.id} className="row-card" style={{ flexDirection: 'column', gap: 4 }}>
-              <div className="row-top"><h3>{r.id} · {r.country}</h3><Chip tone="info">Awaiting your quote</Chip></div>
-              <span className="small">{r.name} · WhatsApp {r.whatsapp}</span>
-              <span className="muted small">{r.address}</span>
-              <span className="muted small">{r.lines.reduce((a, l) => a + l.qty, 0)} item(s) requested</span>
-              <a className="link-btn" style={{ justifyContent: 'flex-start' }} href={`https://wa.me/${r.whatsapp.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer noopener">Open WhatsApp</a>
-            </article>
-          ))}
-          <h2 style={{ fontSize: 24, marginTop: 12 }}>Service bookings</h2>
-          {state.bookings.length === 0 && <p className="muted small">None yet.</p>}
-          {state.bookings.map((b) => (
-            <article key={b.id} className="row-card" style={{ flexDirection: 'column', gap: 4 }}>
-              <div className="row-top"><h3>{b.id} · {b.service}</h3><Chip tone="info">New</Chip></div>
-              <span className="small">{b.name} · WhatsApp {b.whatsapp}</span>
-              <span className="muted small">{b.message}</span>
-            </article>
-          ))}
-        </div>
-      )}
-
-      {tab === 'Riders' && (
-        <div className="stack" style={{ maxWidth: 560 }}>
-          {state.riders.map((r) => (
-            <div key={r.id} className="row-card" style={{ alignItems: 'center', justifyContent: 'space-between' }}>
-              <div><h3>{r.name}</h3><span className="muted small">{r.status === 'active' ? 'Active' : r.status === 'invited' ? 'Invited, not yet joined' : 'Deactivated'}</span></div>
-              <button className="btn btn-ghost" onClick={() => store.setRiderStatus(r.id, r.status === 'deactivated' ? 'active' : 'deactivated')}>{r.status === 'deactivated' ? 'Reactivate' : 'Deactivate'}</button>
+          {tab === 'Overview' && <>
+            <div className="adm-metrics-grid">
+              <Metric label="Catalogue items" value={state.products.length} note="Across all sample collections" icon="◇" />
+              <Metric label="Low stock alerts" value={low} note="Items with 1–2 units remaining" icon="!" tone="warning-text" />
+              <Metric label="Unavailable items" value={soldOut} note="Sold out or hidden from shop" icon="◌" tone="muted-text" />
+              <Metric label="Open enquiries" value={openRequests} note="Bookings and international requests" icon="✉" tone="accent-text" />
             </div>
-          ))}
-          <form onSubmit={(e) => { e.preventDefault(); if (rider.trim()) { store.inviteRider(rider.trim()); setRider(''); } }}>
-            <div className="field"><label htmlFor="rn">Rider name</label><input id="rn" value={rider} onChange={(e) => setRider(e.target.value)} /></div>
-            <button className="btn btn-outline" type="submit">Invite a rider</button>
-          </form>
-          <p className="muted small">Real invites are sent by email and riders set up their own sign-in. Not connected in this demo.</p>
+            <div className="adm-overview-grid">
+              <section className="glass-panel adm-panel"><SectionTitle kicker="INVENTORY HEALTH" title="Stock overview" description="A live view of sample stock levels." action={<button className="adm-text-button" onClick={() => setTab('Products')}>Manage inventory ↗</button>} />
+                <div className="adm-stock-list">{state.products.slice(0, 5).map((p) => <div className="adm-stock-row" key={p.id}><span className="adm-product-swatch">{p.name.slice(0, 1)}</span><span className="adm-stock-name"><b>{p.name}</b><small>{p.spec}</small></span><div className="adm-stock-meter"><i style={{ width: Math.min(100, p.stock / 8 * 100) + '%' }} /></div><strong>{p.stock} <small>units</small></strong><Chip tone={!p.available || p.stock === 0 ? 'muted' : p.stock <= 2 ? 'warn' : 'ok'}>{stockLabel(p)}</Chip></div>)}</div>
+              </section>
+              <section className="glass-panel adm-panel"><SectionTitle kicker="QUICK ACTIONS" title="Studio shortcuts" description="Jump into common management tasks." />
+                <div className="adm-shortcuts"><button onClick={() => setTab('Products')}><span>◇</span><b>Update catalogue</b><small>Prices, stock and visibility</small><i>↗</i></button><button onClick={() => setTab('Services')}><span>✳</span><b>Manage services</b><small>Availability and starting prices</small><i>↗</i></button><button onClick={() => setTab('Enquiries')}><span>✉</span><b>Review enquiries</b><small>Bookings and shipping requests</small><i>↗</i></button><button onClick={() => setTab('Team')}><span>♙</span><b>Manage delivery team</b><small>Rider status and invitations</small><i>↗</i></button></div>
+              </section>
+            </div>
+            <section className="glass-panel adm-panel adm-activity"><SectionTitle kicker="RECENT ACTIVITY" title="Order pulse" description="Sample order activity for the client walkthrough." action={<button className="adm-text-button" onClick={() => setTab('Orders')}>View all orders ↗</button>} />
+              <div className="adm-table-wrap"><table className="adm-table"><thead><tr><th>ORDER</th><th>ITEM</th><th>STATUS</th><th>PAYMENT / NOTE</th></tr></thead><tbody>{(state.orders || []).slice(0, 4).map((o) => <tr key={o.id}><td><b>{o.id}</b></td><td>{o.items}</td><td><Chip tone={o.status === 'Delivered' ? 'ok' : 'info'}>{o.status}</Chip></td><td>{o.note}</td></tr>)}</tbody></table></div>
+            </section>
+            <p className="adm-footnote">Illustrative prototype data only. Revenue, conversion and customer analytics will be connected after the business rules and backend are approved.</p>
+          </>}
+
+          {tab === 'Products' && <section className="glass-panel adm-panel"><SectionTitle kicker="CATALOGUE CONTROL" title="Products & inventory" description="Edit sample product prices, stock and storefront visibility." action={<span className="adm-count">{state.products.length} sample items</span>} /><div className="adm-toolbar"><label className="adm-search">⌕ <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search products or categories" /></label><span className="adm-hint">Edits update the customer storefront instantly.</span></div><div className="adm-table-wrap"><table className="adm-table"><thead><tr><th>PRODUCT</th><th>PRICE (₦)</th><th>STOCK</th><th>STATUS</th><th>FEATURED</th><th>VISIBLE</th></tr></thead><tbody>{filteredProducts.map((p) => <tr key={p.id}><td><div className="adm-product-cell"><span className="adm-product-swatch">{p.name.slice(0, 1)}</span><span><b>{p.name}</b><small>{p.spec} · {p.lengths.join(', ')} in</small></span></div></td><td><input className="adm-input" aria-label={'Price for ' + p.name} inputMode="numeric" value={p.price ?? ''} placeholder="Not set" onChange={(e) => store.patchProduct(p.id, { price: e.target.value === '' ? null : Math.max(0, Number(e.target.value) || 0) })} /></td><td><input className="adm-input compact" aria-label={'Stock for ' + p.name} type="number" min="0" value={p.stock} onChange={(e) => store.patchProduct(p.id, { stock: Math.max(0, parseInt(e.target.value || '0', 10)) })} /></td><td><Chip tone={!p.available || p.stock <= 0 ? 'muted' : p.stock <= 2 ? 'warn' : 'ok'}>{stockLabel(p)}</Chip></td><td><input type="checkbox" aria-label={'Feature ' + p.name} checked={p.featured} onChange={(e) => store.patchProduct(p.id, { featured: e.target.checked })} /></td><td><input type="checkbox" aria-label={'Show ' + p.name} checked={p.available} onChange={(e) => store.patchProduct(p.id, { available: e.target.checked })} /></td></tr>)}</tbody></table></div>{filteredProducts.length === 0 && <Empty title="No matching products" text="Try another product name or category." />}<p className="adm-footnote">Product creation, image uploads, variants, bulk actions and stock history are backend-phase decisions.</p></section>}
+
+          {tab === 'Services' && <section className="glass-panel adm-panel"><SectionTitle kicker="SERVICE MENU" title="Care & styling services" description="Control the services customers can enquire about." /><div className="adm-service-grid">{state.services.map((s) => <article className="adm-service-card" key={s.id}><div className="adm-service-symbol">✳</div><div><b>{s.name}</b><p>{s.desc}</p></div><label>Starting price <input className="adm-input" inputMode="numeric" aria-label={'Price for ' + s.name} value={s.price ?? ''} placeholder="Not set" onChange={(e) => store.patchService(s.id, { price: e.target.value === '' ? null : Math.max(0, Number(e.target.value) || 0) })} /></label><label>Visibility<select className="adm-input" value={s.status} onChange={(e) => store.setServiceStatus(s.id, e.target.value)}><option value="available">Available</option><option value="paused">Temporarily unavailable</option><option value="hidden">Hidden</option></select></label></article>)}</div></section>}
+
+          {tab === 'Enquiries' && <div className="adm-overview-grid"><section className="glass-panel adm-panel"><SectionTitle kicker="CROSS-BORDER" title="International requests" description="Customers asking for a shipping quote." />{state.requests.length === 0 ? <Empty title="No shipping requests yet" text="International cart requests will appear here in the demo." /> : state.requests.map((r) => <article className="adm-request-card" key={r.id}><div><b>{r.id} · {r.country}</b><Chip tone="info">Awaiting quote</Chip></div><p>{r.name} · {r.whatsapp}</p><small>{r.address}</small><small>{r.lines.reduce((a, l) => a + l.qty, 0)} item(s)</small><a href={'https://wa.me/' + r.whatsapp.replace(/[^0-9]/g, '')} target="_blank" rel="noreferrer noopener">Open WhatsApp ↗</a></article>)}</section><section className="glass-panel adm-panel"><SectionTitle kicker="WIG CARE" title="Service bookings" description="Incoming customer booking requests." />{state.bookings.length === 0 ? <Empty title="No bookings yet" text="New service enquiries from the customer site will appear here." /> : state.bookings.map((b) => <article className="adm-request-card" key={b.id}><div><b>{b.id} · {b.service}</b><Chip tone="info">New</Chip></div><p>{b.name} · {b.whatsapp}</p><small>{b.message || 'No extra details provided.'}</small></article>)}</section></div>}
+
+          {tab === 'Orders' && <section className="glass-panel adm-panel"><SectionTitle kicker="FULFILMENT" title="Orders" description="A sample order ledger for the customer journey walkthrough." /><div className="adm-table-wrap"><table className="adm-table"><thead><tr><th>ORDER</th><th>ITEMS</th><th>FULFILMENT</th><th>PAYMENT</th></tr></thead><tbody>{(state.orders || []).map((o) => <tr key={o.id}><td><b>{o.id}</b></td><td>{o.items}</td><td><Chip tone={o.status === 'Delivered' ? 'ok' : 'info'}>{o.status}</Chip></td><td>{o.note}</td></tr>)}</tbody></table></div><p className="adm-footnote">Order status changes, refunds, payment reconciliation and customer notifications are not connected in this prototype.</p></section>}
+
+          {tab === 'Team' && <div className="adm-overview-grid"><section className="glass-panel adm-panel"><SectionTitle kicker="DELIVERY NETWORK" title="Rider roster" description="Manage the sample delivery team." />{state.riders.map((r) => <div className="adm-team-row" key={r.id}><span className="adm-avatar">{r.name.slice(0, 1).toUpperCase()}</span><span><b>{r.name}</b><small>{r.status === 'active' ? 'Active rider' : r.status === 'invited' ? 'Invitation pending' : 'Access deactivated'}</small></span><Chip tone={r.status === 'active' ? 'ok' : r.status === 'invited' ? 'info' : 'muted'}>{r.status}</Chip><button className="adm-button ghost" onClick={() => store.setRiderStatus(r.id, r.status === 'deactivated' ? 'active' : 'deactivated')}>{r.status === 'deactivated' ? 'Reactivate' : 'Deactivate'}</button></div>)}<form className="adm-invite-form" onSubmit={(e) => { e.preventDefault(); if (riderName.trim()) { store.inviteRider(riderName.trim()); setRiderName(''); setDemoNotice('Rider added to the local demo roster.'); } }}><label htmlFor="adm-rider-name">Add a rider to the demo roster</label><div><input id="adm-rider-name" className="adm-input" value={riderName} onChange={(e) => setRiderName(e.target.value)} placeholder="Rider display name" /><button className="adm-button primary" type="submit">Add rider +</button></div></form></section><section className="glass-panel adm-panel"><SectionTitle kicker="DISPATCH PREVIEW" title="Delivery activity" description="Sample jobs currently visible in the driver demo." />{state.jobs.map((j) => <div className="adm-job-row" key={j.id}><span><b>{j.id}</b><small>{j.customer} · {j.pack}</small></span><Chip tone={j.step >= 3 ? 'ok' : 'info'}>{['Assigned','Picked up','On the way','Delivered'][j.step]}</Chip></div>)}<a className="adm-text-button" href="#/rider">Open driver portal ↗</a></section></div>}
         </div>
-      )}
+      </main>
     </div>
   );
 }
