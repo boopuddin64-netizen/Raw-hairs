@@ -17,21 +17,31 @@ const PATHS = {
   back: <path d="M15 5l-7 7 7 7" />,
 };
 
+// Temporary mannequin-only product visuals for the demo catalogue.
+// Replace with RAW HAIRS-owned/licensed photos before commercial launch.
 const DEMO_IMAGES = {
-  body: 'https://images.unsplash.com/photo-1645736279976-59f8fd22720c?auto=format&fit=crop&w=1100&q=85',
-  straight: 'https://images.unsplash.com/photo-1658747773643-707db5889b17?auto=format&fit=crop&w=1100&q=85',
-  curly: 'https://images.unsplash.com/photo-1649312555826-e42566d05d15?auto=format&fit=crop&w=1100&q=85',
-  bob: 'https://images.unsplash.com/photo-1739269552542-eba740011c04?auto=format&fit=crop&w=1100&q=85',
-  blonde: 'https://images.unsplash.com/photo-1638109607416-1b1bda134de3?auto=format&fit=crop&w=1100&q=85',
+  body: 'https://haircube.net/cdn/shop/products/2_9cd72cc4-9d77-49ee-99de-a360e1d37803_1200x1200.jpg?v=1736856846',
+  straight: 'https://www.blackshowhair.com/cdn/shop/files/613blondestraighthairbobwigtransparentlace1.jpg?v=1732785149',
+  deep: 'https://www.gosupps.com/media/catalog/product/cache/25/image/1500x/040ec09b1e35df139433887a97daa66f/5/1/51w6vglDNrL._SL1200_.jpg',
+  bob: 'https://www.loxxofhair.com/cdn/shop/files/4x4613BobWig-HDLace.png?v=1722916990',
+  water: 'https://www.elephantwig.com/wp-content/uploads/2024/12/ELEPHANT-WIGS-CATALOGUE.pdf',
+  blonde: 'https://superlovehair.com/cdn/shop/files/13x4-lace-front-human-hair-wig-613-honey-blonde-bob-wigs-brazilian-remy-straight-bob-wig-949083.jpg?v=1714289042',
+  kinky: 'https://www.haniecomb.com/gallery-2',
+  burgundy: 'https://www.blackshowhair.com/cdn/shop/files/613blondestraighthairbobwigtransparentlace1.jpg?v=1732785149',
+  loose: 'https://www.gosupps.com/media/catalog/product/cache/25/image/1500x/040ec09b1e35df139433887a97daa66f/5/1/51w6vglDNrL._SL1200_.jpg',
+  pixie: 'https://www.loxxofhair.com/cdn/shop/files/4x4613BobWig-HDLace.png?v=1722916990',
+  ombre: 'https://i.etsystatic.com/20041168/r/il/e7b724/7942081959/il_fullxfull.7942081959_6m7z.jpg',
+  highlight: 'https://www.blackshowhair.com/cdn/shop/files/613blondestraighthairbobwigtransparentlace1.jpg?v=1732785149',
 };
 function demoImageFor(label) {
   const value = String(label).toLowerCase();
-  if (value.includes('curly') || value.includes('deep wave') || value.includes('restoration')) return DEMO_IMAGES.curly;
-  if (value.includes('bob') || value.includes('burgundy')) return DEMO_IMAGES.bob;
-  if (value.includes('colored')) return DEMO_IMAGES.blonde;
-  if (value.includes('blonde')) return DEMO_IMAGES.blonde;
-  if (value.includes('straight') || value.includes('customization')) return DEMO_IMAGES.straight;
-  if (/^[1-4]$/.test(value)) return [DEMO_IMAGES.body, DEMO_IMAGES.straight, DEMO_IMAGES.curly, DEMO_IMAGES.bob][Number(value) - 1];
+  if (value.includes('deep')) return DEMO_IMAGES.deep;
+  if (value.includes('water')) return DEMO_IMAGES.water;
+  if (value.includes('kinky') || value.includes('curly') || value.includes('afro')) return DEMO_IMAGES.kinky;
+  if (value.includes('bob') || value.includes('burgundy') || value.includes('pixie')) return DEMO_IMAGES.bob;
+  if (value.includes('blonde') || value.includes('colour') || value.includes('color') || value.includes('highlight')) return DEMO_IMAGES.blonde;
+  if (value.includes('straight')) return DEMO_IMAGES.straight;
+  if (value.includes('loose')) return DEMO_IMAGES.loose;
   return DEMO_IMAGES.body;
 }
 
@@ -94,7 +104,7 @@ export function ProductCard({ p, onAdded }) {
   const store = useStore();
   const out = isSoldOut(p);
   const add = () => { const r = store.addToCart(p.id, p.lengths[Math.min(1, p.lengths.length - 1)]); onAdded && onAdded(r.message); };
-  return <article className="card"><div className="card-media"><Link to={`/product/${p.id}`} aria-label={`View ${p.name}`}><Photo label={p.name} className="fill">{out && <span className="soldout">SOLD OUT</span>}</Photo></Link><button className="icon-btn wish" aria-label="Save to wishlist"><Icon name="heart" size={22} /></button></div><div className="card-body"><h3>{p.name}</h3><span className="muted small">{p.spec} · {p.lengths[0]}–{p.lengths[p.lengths.length - 1]} in</span><span className="price">{naira(p.price)}</span><span className="muted small">{stockLabel(p)}</span>{out ? <button className="btn btn-disabled" disabled>SOLD OUT</button> : <button className="btn btn-primary" onClick={add}>ADD TO BAG</button>}<Link to={`/product/${p.id}`} className="link-btn">Details</Link></div></article>;
+  return <article className="card"><div className="card-media"><Link to={`/product/${p.id}`} aria-label={`View ${p.name}`}><Photo label={p.name} src={p.image && DEMO_IMAGES[p.image]} className="fill">{out && <span className="soldout">SOLD OUT</span>}</Photo></Link><button className="icon-btn wish" aria-label="Save to wishlist"><Icon name="heart" size={22} /></button></div><div className="card-body"><h3>{p.name}</h3><span className="muted small">{p.spec} · {p.lengths[0]}–{p.lengths[p.lengths.length - 1]} in</span><span className="price">{naira(p.price)}</span><span className="muted small">{stockLabel(p)}</span>{out ? <button className="btn btn-disabled" disabled>SOLD OUT</button> : <button className="btn btn-primary" onClick={add}>ADD TO BAG</button>}<Link to={`/product/${p.id}`} className="link-btn">Details</Link></div></article>;
 }
 
 export function useToast() {
