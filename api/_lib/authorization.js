@@ -1,4 +1,4 @@
-import { requireFirebaseUser } from './firebase.js';
+import { assertCsrf, requireFirebaseUser } from './firebase.js';
 import { getDb } from './db.js';
 
 // Permissions are enforced by the API, never trusted from client-supplied roles.
@@ -18,6 +18,7 @@ export const STAFF_ROLE_PERMISSIONS = Object.freeze({
 });
 
 export async function getStaffContext(req) {
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) assertCsrf(req);
   const identity = await requireFirebaseUser(req);
   const sql = getDb();
   const rows = await sql`
