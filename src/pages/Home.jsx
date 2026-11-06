@@ -19,7 +19,7 @@ export default function Home() {
         <div className="hero-inner">
           <p className="eyebrow">The collection</p>
           <h1>Your Crown.<br />Your Confidence.</h1>
-          <p className="lead">Wigs made to be worn, loved and noticed. Shop online or visit us in person.</p>
+          <p className="lead">Explore premium wig textures, lengths and finishes. Find your next unit or book a wig-care service.</p>
           <div className="hero-actions">
             <Link to="/shop" className="btn btn-primary btn-lg">Shop collection</Link>
             <Link to="/services" className="btn btn-outline btn-lg">Explore our services</Link>
@@ -91,7 +91,7 @@ export default function Home() {
           <p className="note">@raw.hairs on Instagram</p>
           <div className="insta" aria-hidden="true">{[1, 2, 3, 4, 5, 6].map((n) => <div key={n} />)}</div>
           <a className="btn btn-outline" href={INSTAGRAM_URL} target="_blank" rel="noreferrer noopener">View on Instagram</a>
-          <p className="muted small" style={{ marginTop: 10 }}>Illustrative campaign imagery for this client presentation.</p>
+          <p className="muted small" style={{ marginTop: 10 }}>Wig display previews only. Replace with approved RAW HAIRS product photography before launch.</p>
         </section>
 
         <section className="section" aria-labelledby="h-trust">
