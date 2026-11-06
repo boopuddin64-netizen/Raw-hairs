@@ -13,14 +13,14 @@
 @keyframes rise-in { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 .photo-demo{background:#e9dce1}.photo-demo img{object-fit:cover}
-.hero{background-image:linear-gradient(90deg,rgba(22,13,18,.82),rgba(22,13,18,.38) 58%,rgba(22,13,18,.08)),url('https://images.unsplash.com/photo-1645736279976-59f8fd22720c?auto=format&fit=crop&w=2200&q=90');background-size:cover;background-position:center 34%}
+.hero{background-image:linear-gradient(90deg,rgba(22,18,15,.78),rgba(22,18,15,.42) 58%,rgba(22,18,15,.12)),url('https://rawafhair.com/cdn/shop/files/HairWigMannequins10.jpg?v=1763403375');background-size:cover;background-position:center 35%}
 .hero h1,.hero .lead{color:#fff;text-shadow:0 2px 20px rgba(0,0,0,.2)}.hero .eyebrow{color:#f1c7d8}
 .hero-note{top:18px;left:auto;right:20px;width:max-content;max-width:calc(100% - 40px);background:rgba(22,13,18,.48);border:1px solid rgba(255,255,255,.26);color:#fff;backdrop-filter:blur(12px)}
 .hero .btn-outline{color:#fff;border-color:rgba(255,255,255,.7)}
 .insta div{background-size:cover;background-position:center}
-.insta div:nth-child(1),.insta div:nth-child(4){background-image:url('https://images.unsplash.com/photo-1645736279976-59f8fd22720c?auto=format&fit=crop&w=500&q=75')}
-.insta div:nth-child(2),.insta div:nth-child(5){background-image:url('https://images.unsplash.com/photo-1658747773643-707db5889b17?auto=format&fit=crop&w=500&q=75')}
-.insta div:nth-child(3),.insta div:nth-child(6){background-image:url('https://images.unsplash.com/photo-1739269552542-eba740011c04?auto=format&fit=crop&w=500&q=75')}
+.insta div:nth-child(1),.insta div:nth-child(4){background-image:url('https://rawafhair.com/cdn/shop/files/HairWigMannequins10.jpg?v=1763403375')}
+.insta div:nth-child(2),.insta div:nth-child(5){background-image:url('https://starhairus.com/cdn/shop/files/1_6b1a9c91-bf50-46c6-83c1-66e42795bac9.jpg?v=1733490948')}
+.insta div:nth-child(3),.insta div:nth-child(6){background-image:url('https://www.wigtypes.com/cdn/shop/files/sensationnel-curls-kinks-kinky-curly-18c-240625111410.jpg?v=1719337452')}
 
 /* ADMIN — warm translucent glass studio */
 .admin-shell{--adm-ink:#30232d;--adm-muted:#837681;--adm-pink:#b77d99;min-height:100vh;display:flex;color:var(--adm-ink);background:radial-gradient(ellipse at 72% 2%,rgba(231,195,211,.42),transparent 38%),radial-gradient(ellipse at 14% 88%,rgba(205,220,232,.36),transparent 35%),linear-gradient(135deg,#f8f5f7,#f4eff3 55%,#f8f7f8);font-family:var(--sans)}
