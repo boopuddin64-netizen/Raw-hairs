@@ -1,10 +1,10 @@
-import { assertCsrf, destroySession } from '../_lib/session.js';
+import { assertCsrf, destroyFirebaseSession } from '../_lib/firebase.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
   try {
     assertCsrf(req);
-    await destroySession(req, res);
+    await destroyFirebaseSession(req, res);
     return res.status(200).json({ ok: true });
   } catch (error) {
     const status = Number.isInteger(error.statusCode) ? error.statusCode : 500;
