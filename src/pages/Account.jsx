@@ -6,7 +6,7 @@ function authMessage(error) {
 }
 
 export default function Account() {
-  const { user, customer, profileStatus, loading, configured, redirectError, register, login, loginWithGoogle, resetPassword, logout } = useAuth();
+  const { user, customer, profileStatus, loading, configured, googleEnabled, register, login, loginWithGoogle, resetPassword, logout } = useAuth();
   const [mode, setMode] = useState('login');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -19,7 +19,7 @@ export default function Account() {
     setMessage('');
     try {
       await action();
-      if (mode === 'reset') setMessage('Password reset email sent. Check your inbox.');
+      if (mode === 'reset') setMessage('If an account exists for that email, a password reset message will be sent. Check your inbox.');
     } catch (error) {
       setMessage(authMessage(error));
     } finally {
@@ -53,7 +53,6 @@ export default function Account() {
       </p>
 
       {!configured && <div className="notice" role="status" style={{ marginBottom: 16 }}>Secure sign-in is not yet configured for this deployment. Please contact the store administrator.</div>}
-      {redirectError && <div className="notice" role="alert" style={{ marginBottom: 16 }}>Google sign-in could not finish: {authMessage({ code: redirectError })} <span className="small">({redirectError})</span></div>}
 
       <form onSubmit={(event) => {
         event.preventDefault();
