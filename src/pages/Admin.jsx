@@ -11,9 +11,6 @@ const NAV = [
   ['Team', '♙', 'Rider access and dispatch'],
 ];
 
-function money(value) {
-  return value == null || value === '' ? 'Not set' : '₦' + Number(value).toLocaleString('en-NG');
-}
 function Metric({ label, value, note, icon, tone = '' }) {
   return <article className="adm-metric glass-panel"><div className="adm-metric-top"><span>{label}</span><span className="adm-metric-icon">{icon}</span></div><strong className={tone}>{value}</strong><small>{note}</small></article>;
 }
