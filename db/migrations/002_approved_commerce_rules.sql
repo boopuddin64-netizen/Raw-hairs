@@ -336,6 +336,35 @@ CREATE INDEX delivery_evidence_expiry_idx
 CREATE INDEX delivery_evidence_job_idx
   ON delivery_evidence(delivery_job_id, uploaded_at DESC);
 
+-- The order may be marked customer-confirmed only after OTP verification and
+-- at least one uploaded private delivery photograph are both present.
+CREATE OR REPLACE FUNCTION enforce_delivery_confirmation_evidence() RETURNS trigger
+LANGUAGE plpgsql AS $
+BEGIN
+  IF NEW.confirmed_at IS NOT NULL OR NEW.customer_confirmed_at IS NOT NULL THEN
+    IF NEW.otp_verified_at IS NULL THEN
+      RAISE EXCEPTION 'Customer OTP verification is required to confirm delivery'
+        USING ERRCODE = 'check_violation';
+    END IF;
+    IF NOT EXISTS (
+      SELECT 1 FROM delivery_evidence
+      WHERE delivery_job_id = NEW.id AND evidence_type = 'delivery_photo'
+        AND storage_deleted_at IS NULL
+    ) THEN
+      RAISE EXCEPTION 'Delivery photo proof is required to confirm delivery'
+        USING ERRCODE = 'check_violation';
+    END IF;
+    NEW.confirmed_at := COALESCE(NEW.confirmed_at, now());
+    NEW.customer_confirmed_at := COALESCE(NEW.customer_confirmed_at, NEW.confirmed_at);
+  END IF;
+  RETURN NEW;
+END;
+$;
+
+CREATE TRIGGER delivery_confirmation_requires_proof
+BEFORE UPDATE OF confirmed_at, customer_confirmed_at ON delivery_jobs
+FOR EACH ROW EXECUTE FUNCTION enforce_delivery_confirmation_evidence();
+
 -- ---------------------------------------------------------------------------
 -- Returns: request window is 48 hours after delivery. Every request requires
 -- an administrator decision; policy eligibility is not auto-approved.
