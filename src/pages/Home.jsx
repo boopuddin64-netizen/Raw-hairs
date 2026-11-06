@@ -79,9 +79,10 @@ export default function Home() {
 
         <section className="section" aria-labelledby="h-rev">
           <div className="section-head"><h2 id="h-rev">Kind words</h2></div>
-          <div className="placeholder-box">
-            <span className="big">Real customer reviews go here.</span>
-            <span className="muted small">Development placeholder. Add only reviews RAW HAIRS supplies with the customer's permission. Nothing is invented.</span>
+          <div className="demo-reviews">
+            <article><span>★★★★★</span><p>“The finish, movement and overall look are everything.”</p><b>Demo customer story</b><small>Sample testimonial · illustrative only</small></article>
+            <article><span>★★★★★</span><p>“A beautiful everyday style with a polished feel.”</p><b>Demo customer story</b><small>Sample testimonial · illustrative only</small></article>
+            <article><span>★★★★★</span><p>“The care and attention to detail make the difference.”</p><b>Demo customer story</b><small>Sample testimonial · illustrative only</small></article>
           </div>
         </section>
 
