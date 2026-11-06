@@ -30,7 +30,7 @@ export default function Product() {
       <div className="pdp" style={{ marginTop: 12 }}>
         <div>
           <Photo label={`${p.name} main photograph`} className="pdp-photo">{out && <span className="soldout">SOLD OUT</span>}</Photo>
-          <div className="thumbs" aria-hidden="true">{[1, 2, 3, 4].map((n) => <Photo key={n} label={`${n}`} />)}</div>
+          <div className="thumbs" aria-hidden="true">{[1, 2, 3, 4].map((n) => <Photo key={n} label={p.name} />)}</div>
         </div>
         <div className="stack">
           <p className="eyebrow">{cat ? cat.name : ''}</p>
