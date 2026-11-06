@@ -77,15 +77,6 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="section" aria-labelledby="h-rev">
-          <div className="section-head"><h2 id="h-rev">Kind words</h2></div>
-          <div className="demo-reviews">
-            <article><span>★★★★★</span><p>“The finish, movement and overall look are everything.”</p><b>Demo customer story</b><small>Sample testimonial · illustrative only</small></article>
-            <article><span>★★★★★</span><p>“A beautiful everyday style with a polished feel.”</p><b>Demo customer story</b><small>Sample testimonial · illustrative only</small></article>
-            <article><span>★★★★★</span><p>“The care and attention to detail make the difference.”</p><b>Demo customer story</b><small>Sample testimonial · illustrative only</small></article>
-          </div>
-        </section>
-
         <section className="section" aria-labelledby="h-ig">
           <div className="section-head"><h2 id="h-ig">Follow RAW HAIRS</h2></div>
           <p className="note">@raw.hairs on Instagram</p>
