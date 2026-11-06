@@ -2,23 +2,23 @@
 
 **Status:** Approved architecture and business rules; Phase 1 in progress  
 **Repository:** `boopuddin64-netizen/Raw-hairs`  
-**Working branch:** `production-readiness/phase-1-2`  
+**Working branch:** `demo/premium-ui-overhaul` (frontend + approved commerce rules)  
 **Production safety:** No production database migration, credential rotation, or live payment activation is authorized by this specification.
 
 ## 1. Product and operating decisions
 
 - Customer identity: Firebase accounts and guest checkout are both supported.
 - Checkout: registered customers and guests.
-- Payments: Paystack online payment and manual bank transfer.
+- Payments: Paystack online payment, manual bank transfer and restricted cash on delivery (COD). COD requires both an admin-approved customer and an enabled delivery zone.
 - Manual transfers require explicit administrator verification.
 - Online orders require administrator approval after verified payment and before fulfilment.
 - Inventory: manual stock adjustments plus automatic sale deductions.
 - Stock reservation: 15 minutes for an unpaid checkout; expiry releases reserved stock.
-- Delivery: admin-managed assignment and status tracking; no third-party integration in the initial release.
+- Delivery: admin assigns internal drivers or manually assigns third-party providers and records tracking/status updates. Automated provider APIs are deferred.
 - International orders: request-and-quotation workflow; admin prepares quote, customer accepts, then payment/fulfilment proceeds.
 - Currency: NGN only. Store all monetary values as integer kobo.
-- Initial staff access: owner and one designated admin. Additional staff creation is controlled by the owner.
-- Email notifications: deferred until core workflows are stable. Notification outbox remains the future integration point.
+- Initial staff access: one owner and one manager. The manager handles operations initially; an operations role is reserved for future staff. Drivers can access assigned jobs only.
+- Notifications: WhatsApp first for order and delivery updates; email is deferred. The notification outbox is the delivery/retry mechanism.
 - Backend hosting: Vercel Functions in the existing Vercel project; no separate always-on server for initial release.
 
 ## 2. Target architecture
@@ -37,8 +37,8 @@
 - Public visitors may read only published product/catalogue data and public content.
 - Guest checkout uses a cryptographically random, high-entropy order access token. Store only its hash; reveal the raw token once to the guest.
 - Authenticated customers may read their own profile and orders only.
-- Staff roles are `owner`, `admin`, and `rider`; roles are stored server-side and are not trusted from client-supplied claims alone.
-- Initial staff roster: one owner and one designated admin. The owner grants or revokes staff access.
+- Staff roles are `owner`, `manager`, `operations`, and `rider`; roles are stored server-side and are not trusted from client-supplied claims alone. Only one active owner and one active manager are permitted initially.
+- Initial staff roster: one owner and one manager. The owner grants or revokes staff access. Operations remains a reserved role; the manager performs those duties initially.
 - Riders can access only assigned delivery jobs and permitted delivery updates.
 - All privileged writes pass through backend authorization and validation.
 - Neon credentials and Firebase Admin credentials are server-only. Browser bundles contain no privileged secrets.
@@ -55,6 +55,7 @@
 - Paid online orders enter `paid_awaiting_admin_approval`; admin approval is required before fulfilment.
 - Manual transfer orders remain pending until an admin verifies funds against the business bank account.
 - A transfer screenshot or customer claim is never proof of payment.
+- COD is offered only when both the customer has an active owner/manager approval and the selected delivery zone has COD enabled. The server checks both at checkout.
 
 ### Inventory
 - Stock is tracked per product variant.
@@ -79,11 +80,18 @@
 - Admin creates/assigns delivery jobs and manages rider assignments.
 - Riders authenticate and can access only their assigned jobs.
 - Delivery transitions are validated and event-logged.
-- Customer delivery confirmation uses a secure, expiring confirmation token.
+- Delivery confirmation requires both a secure, expiring customer OTP and a delivery photo. The database rejects confirmation unless both are recorded.
+- Delivery photos are stored in private object storage and retained for 90 days; a scheduled deletion worker must remove expired objects and record deletion.
+- Admin manually assigns third-party providers and records their tracking/status updates; no provider API integration is in the initial release.
+
+### Returns and exchanges
+- A customer may submit a return/exchange request within 48 hours of OTP- and photo-confirmed delivery.
+- Owner or manager reviews each request and decides under the published returns policy; approval is never automatic.
 
 ### International requests
 - Customer submits destination and requested items.
 - Admin reviews and prepares a NGN quotation with expiry.
+- Owner or manager explicitly approves the quotation before it is sent.
 - Customer accepts or declines.
 - Payment and fulfilment start only after acceptance and payment verification.
 
@@ -93,6 +101,7 @@
 - Production branch remains `production`.
 - Existing isolated schema test branch: `raw-hairs-schema-test`.
 - Existing migration `001_initial_schema.sql` has been executed successfully on the isolated branch only.
+- Migration `002_approved_commerce_rules.sql` is committed to the development branch. It adds owner/manager/operations roles, COD eligibility, delivery zones, atomic 15-minute stock reservations, OTP/photo delivery evidence, 90-day evidence expiry metadata, 48-hour return requests and promotions. It has NOT been applied to any database.
 - Do not apply the migration to production until application-level security, workflow tests, backup/recovery checks and explicit production approval are complete.
 - Future schema changes are versioned, reviewed, tested on a disposable/development branch, then promoted only after approval.
 - Never use the production database for destructive tests.
@@ -110,7 +119,14 @@
 8. Configure backup/recovery policy, logging, rate limits and secret rotation procedures.
 9. Protect production branches/repository deployment paths where plan capabilities permit.
 
-### Phase 1A — Customer authentication implementation\n- Firebase Web SDK is installed in the React/Vite frontend.\n- Customer email/password registration, sign-in, password reset, Google redirect sign-in and sign-out are implemented in the account page.\n- Browser Firebase configuration is supplied only through `VITE_FIREBASE_*` environment variables.\n- Staff authorization and customer order access remain unavailable until server-side token verification and role-protected APIs are implemented.\n- Vercel environment variables and end-to-end sign-in tests must be completed before this integration is considered verified.\n\n### Phase 2 — Backend foundation
+### Phase 1A — Customer authentication implementation
+- Firebase Web SDK is installed in the React/Vite frontend.
+- Customer email/password registration, sign-in, password reset, Google redirect sign-in and sign-out are implemented in the account page.
+- Browser Firebase configuration is supplied only through `VITE_FIREBASE_*` environment variables.
+- Staff authorization and customer order access remain unavailable until server-side token verification and role-protected APIs are implemented.
+- Vercel environment variables and end-to-end sign-in tests must be completed before this integration is considered verified.
+
+### Phase 2 — Backend foundation
 - Add TypeScript Vercel Functions, API validation, Firebase token verification, role authorization, Neon pool, error handling, audit logging and rate limiting.
 
 ### Phase 3 — Catalogue and inventory
@@ -122,8 +138,8 @@
 ### Phase 5 — Payments and finance
 - Paystack integration, manual transfer verification, webhook idempotency, refunds, ledger posting and reconciliation.
 
-### Phase 6 — Delivery and international requests
-- Admin assignment, rider access, delivery events, customer confirmation and quotation workflow.
+### Phase 6 — Delivery, returns and international requests
+- Internal rider assignment, manually tracked third-party providers, OTP + photo proof, 90-day evidence retention, 48-hour returns with admin decisions, and approved international quotations.
 
 ### Phase 7 — Verification and launch
 - Security tests, end-to-end tests, payment sandbox, concurrency tests, operational monitoring, backup restore drill and controlled production release.
@@ -162,8 +178,8 @@ Never prefix secrets with `VITE_`. Keep development and production values separa
 ## 9. Explicit exclusions for initial release
 
 - No multi-currency checkout.
-- No automated third-party delivery integration.
-- No automatic email sending until the email phase is approved.
+- No automated third-party delivery API integration in the initial release; admin assignment and manual tracking are supported.
+- No automatic email sending in the initial release; WhatsApp is the first notification channel.
 - No direct browser-to-Neon connections.
 - No production data migration or live Paystack activation without a separate approval.
 ## 10. Phase 1 execution log (2026-11-04)

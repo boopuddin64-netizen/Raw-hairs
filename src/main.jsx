@@ -15,6 +15,7 @@ import Help from './pages/Help';
 import Admin from './pages/Admin';
 import Rider from './pages/Rider';
 import './styles.css';
+import './premium.css';
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
