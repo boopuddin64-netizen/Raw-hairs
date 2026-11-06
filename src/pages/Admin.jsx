@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useStore, stockLabel } from '../store';
 import { Chip } from '../components';
+import StaffManagement from '../components/StaffManagement';
 
 const NAV = [
   ['Overview', '◫', 'Your business at a glance'],
@@ -9,6 +10,7 @@ const NAV = [
   ['Enquiries', '✉', 'Customer requests'],
   ['Orders', '▤', 'Order activity'],
   ['Team', '♙', 'Rider access and dispatch'],
+  ['Staff & Access', '♧', 'Staff accounts and permissions'],
 ];
 
 function Metric({ label, value, note, icon, tone = '' }) {
@@ -26,10 +28,11 @@ export default function Admin({ staffRole = 'manager' }) {
   const { state } = store;
   const [tab, setTab] = useState('Overview');
   const canManageTeam = staffRole === 'owner' || staffRole === 'manager';
+  const canManageStaff = staffRole === 'owner';
   const canManageCatalogue = staffRole === 'owner' || staffRole === 'manager';
   const canManageServices = staffRole === 'owner' || staffRole === 'manager';
   const canManageInventory = ['owner', 'manager', 'operations'].includes(staffRole);
-  const visibleNav = NAV.filter(([name]) => name !== 'Team' || canManageTeam);
+  const visibleNav = NAV.filter(([name]) => (name !== 'Team' || canManageTeam) && (name !== 'Staff & Access' || canManageStaff));
   const [query, setQuery] = useState('');
   const [riderName, setRiderName] = useState('');
   const [notice, setNotice] = useState('');
@@ -85,6 +88,8 @@ export default function Admin({ staffRole = 'manager' }) {
           {tab === 'Enquiries' && <div className="adm-overview-grid"><section className="glass-panel adm-panel"><SectionTitle kicker="CROSS-BORDER" title="International requests" description="Customers asking for a shipping quote." />{state.requests.length === 0 ? <Empty title="No shipping requests yet" text="International cart requests will appear here in the demo." /> : state.requests.map((r) => <article className="adm-request-card" key={r.id}><div><b>{r.id} · {r.country}</b><Chip tone="info">Awaiting quote</Chip></div><p>{r.name} · {r.whatsapp}</p><small>{r.address}</small><small>{r.lines.reduce((a, l) => a + l.qty, 0)} item(s)</small><a href={'https://wa.me/' + r.whatsapp.replace(/[^0-9]/g, '')} target="_blank" rel="noreferrer noopener">Open WhatsApp ↗</a></article>)}</section><section className="glass-panel adm-panel"><SectionTitle kicker="WIG CARE" title="Service bookings" description="Incoming customer booking requests." />{state.bookings.length === 0 ? <Empty title="No bookings yet" text="New service enquiries from the customer site will appear here." /> : state.bookings.map((b) => <article className="adm-request-card" key={b.id}><div><b>{b.id} · {b.service}</b><Chip tone="info">New</Chip></div><p>{b.name} · {b.whatsapp}</p><small>{b.message || 'No extra details provided.'}</small></article>)}</section></div>}
 
           {tab === 'Orders' && <section className="glass-panel adm-panel"><SectionTitle kicker="FULFILMENT" title="Orders" description="A sample order ledger for the customer journey walkthrough." /><div className="adm-table-wrap"><table className="adm-table"><thead><tr><th>ORDER</th><th>ITEMS</th><th>FULFILMENT</th><th>PAYMENT</th></tr></thead><tbody>{(state.orders || []).map((o) => <tr key={o.id}><td><b>{o.id}</b></td><td>{o.items}</td><td><Chip tone={o.status === 'Delivered' ? 'ok' : 'info'}>{o.status}</Chip></td><td>{o.note}</td></tr>)}</tbody></table></div><p className="adm-footnote">Order status changes, refunds, payment reconciliation and customer notifications are not connected in this prototype.</p></section>}
+
+          {tab === 'Staff & Access' && canManageStaff && <StaffManagement />}
 
           {tab === 'Team' && canManageTeam && <div className="adm-overview-grid"><section className="glass-panel adm-panel"><SectionTitle kicker="DELIVERY NETWORK" title="Rider roster" description="Manage the sample delivery team." />{state.riders.map((r) => <div className="adm-team-row" key={r.id}><span className="adm-avatar">{r.name.slice(0, 1).toUpperCase()}</span><span><b>{r.name}</b><small>{r.status === 'active' ? 'Active rider' : r.status === 'invited' ? 'Invitation pending' : 'Access deactivated'}</small></span><Chip tone={r.status === 'active' ? 'ok' : r.status === 'invited' ? 'info' : 'muted'}>{r.status}</Chip><button className="adm-button ghost" onClick={() => store.setRiderStatus(r.id, r.status === 'deactivated' ? 'active' : 'deactivated')}>{r.status === 'deactivated' ? 'Reactivate' : 'Deactivate'}</button></div>)}<form className="adm-invite-form" onSubmit={(e) => { e.preventDefault(); if (riderName.trim()) { store.inviteRider(riderName.trim()); setRiderName(''); setDemoNotice('Rider added to the local demo roster.'); } }}><label htmlFor="adm-rider-name">Add a rider to the demo roster</label><div><input id="adm-rider-name" className="adm-input" value={riderName} onChange={(e) => setRiderName(e.target.value)} placeholder="Rider display name" /><button className="adm-button primary" type="submit">Add rider +</button></div></form></section><section className="glass-panel adm-panel"><SectionTitle kicker="DISPATCH PREVIEW" title="Delivery activity" description="Sample jobs currently visible in the driver demo." />{state.jobs.map((j) => <div className="adm-job-row" key={j.id}><span><b>{j.id}</b><small>{j.customer} · {j.pack}</small></span><Chip tone={j.step >= 3 ? 'ok' : 'info'}>{['Assigned','Picked up','On the way','Delivered'][j.step]}</Chip></div>)}<a className="adm-text-button" href="#/rider">Open driver portal ↗</a></section></div>}
         </div>
