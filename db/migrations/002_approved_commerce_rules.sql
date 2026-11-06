@@ -250,7 +250,7 @@ CREATE OR REPLACE FUNCTION consume_inventory_reservation(
   p_reservation_id uuid,
   p_order_id uuid
 ) RETURNS boolean
-LANGUAGE plpgsql AS $
+LANGUAGE plpgsql AS $$
 DECLARE reservation_row record;
 DECLARE item record;
 BEGIN
@@ -305,7 +305,7 @@ BEGIN
 
   RETURN true;
 END;
-$;
+$$;
 
 -- ---------------------------------------------------------------------------
 -- Delivery proof: private object keys only. Evidence expires after 90 days.
@@ -339,7 +339,7 @@ CREATE INDEX delivery_evidence_job_idx
 -- The order may be marked customer-confirmed only after OTP verification and
 -- at least one uploaded private delivery photograph are both present.
 CREATE OR REPLACE FUNCTION enforce_delivery_confirmation_evidence() RETURNS trigger
-LANGUAGE plpgsql AS $
+LANGUAGE plpgsql AS $$
 BEGIN
   IF NEW.confirmed_at IS NOT NULL OR NEW.customer_confirmed_at IS NOT NULL THEN
     IF NEW.otp_verified_at IS NULL THEN
@@ -359,7 +359,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$;
+$$;
 
 CREATE TRIGGER delivery_confirmation_requires_proof
 BEFORE UPDATE OF confirmed_at, customer_confirmed_at ON delivery_jobs
