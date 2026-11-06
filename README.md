@@ -4,19 +4,19 @@ Premium, mobile-first wig boutique storefront. This is the **front-end concept b
 
 ## What works now (in the browser only)
 
-- Homepage: header with search, account and live bag count; hero; shop by style; new arrivals; best sellers; services; testimonials placeholder; Instagram section; trust links; footer; mobile bottom navigation
+- Homepage: header with search, account and live bag count; hero; shop by style; new arrivals; best sellers; services; illustrative testimonials; Instagram section; trust links; footer; mobile bottom navigation
 - Shop: search, style filter, sorting, product pages with length options and quantity
 - Bag: quantity limits checked against stock, sold-out items cannot be bought, Nigeria / outside-Nigeria choice, international request form (no shipping fee is charged)
 - Services: available / temporarily unavailable / hidden states, booking request form
-- Account page, policy pages, owner admin demo (`#/admin`), rider demo (`#/rider`)
+- Account page, policy pages, redesigned owner admin studio (`#/admin`) and mobile-first driver portal (`#/rider`)
 
 ## What does NOT exist yet
 
-No payments (Paystack), no sign-in or accounts, no real database, no real stock control or audit log, no emails, no live Instagram feed. Buttons for these show a "not connected yet" message. The admin and rider pages have no login and save changes only in the visitor's browser. Do not treat any of this as production-ready.
+No production payments (Paystack), no production authentication, no backend database, no real stock control or audit log, no real email delivery, no live Instagram feed, no live map routing or dispatch. Admin and driver screens are demonstration interfaces; changes are local to this browser. Do not treat this as production-ready.
 
 ## Needs real content from RAW HAIRS
 
-Logo and brand colours (the pink-on-black look is provisional and unverified), authentic photographs (placeholders are shown), the styles actually sold, prices, services, delivery / returns / privacy / terms wording, contact details and genuine customer reviews. Items in `[SQUARE BRACKETS]` are placeholders.
+Approved logo and brand system, authentic RAW HAIRS product and campaign photographs, confirmed product styles/specifications, prices, services, delivery / returns / privacy / terms wording, contact details and genuine customer reviews. Current external photos and testimonials are illustrative demo assets only. Items in `[SQUARE BRACKETS]` are placeholders.
 
 ## Run it
 
@@ -32,4 +32,4 @@ The build is static and can be hosted on any static host.
 
 Approve the architecture, security and cost plan, then build the backend: Postgres, server-side Paystack payments with verified webhooks, accounts, admin and rider roles, and real stock handling.
 
-Sample data lives in `src/data.js`. Replace it with real data once the backend exists.
+Sample data lives in `src/data.js`. Replace it with approved business data once the backend exists. Demo photography is sourced from Unsplash under the Unsplash License (credits: Dellon Thomas, Mahdi Chaghari, Kamyar Ghalamchi, Ninthgrid and Patrik Velich).
