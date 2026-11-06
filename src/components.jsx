@@ -28,6 +28,7 @@ function demoImageFor(label) {
   const value = String(label).toLowerCase();
   if (value.includes('curly') || value.includes('deep wave') || value.includes('restoration')) return DEMO_IMAGES.curly;
   if (value.includes('bob') || value.includes('burgundy')) return DEMO_IMAGES.bob;
+  if (value.includes('colored')) return DEMO_IMAGES.blonde;
   if (value.includes('blonde')) return DEMO_IMAGES.blonde;
   if (value.includes('straight') || value.includes('customization')) return DEMO_IMAGES.straight;
   if (/^[1-4]$/.test(value)) return [DEMO_IMAGES.body, DEMO_IMAGES.straight, DEMO_IMAGES.curly, DEMO_IMAGES.bob][Number(value) - 1];
