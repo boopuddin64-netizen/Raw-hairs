@@ -41,6 +41,9 @@ export function flushAuthCookies(req, res) {
   res.setHeader('Set-Cookie', [...(Array.isArray(current) ? current : current ? [current] : []), ...req._rawHairsCookies]);
 }
 export function issueCsrf(req) {
+  // Reuse a valid existing token so a second tab or concurrent request does not invalidate this one.
+  const existing = cookieMap(req)[CSRF_COOKIE];
+  if (typeof existing === 'string' && /^[A-Za-z0-9_-]{43}$/.test(existing)) return existing;
   const token = randomBytes(32).toString('base64url');
   pushCookie(req, CSRF_COOKIE, token, { httpOnly: false, maxAge: SESSION_MS / 1000 });
   return token;

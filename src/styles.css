@@ -168,7 +168,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 /* admin */
 .tabs { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 12px; }
 .tab { flex: 0 0 auto; min-height: 44px; padding: 0 18px; border-radius: 22px; border: 1px solid var(--line-2); background: none; cursor: pointer; }
-.tab[aria-selected='true'] { background: var(--pink); border-color: var(--pink); color: #0a0a0b; font-weight: 600; }
+.tab[aria-pressed='true'] { background: var(--pink); border-color: var(--pink); color: #0a0a0b; font-weight: 600; }
 .table-wrap { overflow-x: auto; background: var(--surface); border-radius: 4px; padding: 8px 16px; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 640px; }
 th { text-align: left; color: var(--muted); font-size: 12px; letter-spacing: 0.08em; font-weight: 500; padding: 10px 8px; }

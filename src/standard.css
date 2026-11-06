@@ -106,7 +106,7 @@ a { color:inherit; }
 /* Shop and product detail */
 .tabs { gap:8px; padding:8px 0 18px; }
 .tab { min-height:36px; padding:0 15px; border-radius:2px; border:1px solid var(--line-2); font-size:10px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; }
-.tab[aria-selected='true'] { background:#292522; border-color:#292522; color:#fff; }
+.tab[aria-pressed='true'] { background:#292522; border-color:#292522; color:#fff; }
 .pdp { gap:clamp(28px,5vw,70px); }
 .pdp-photo { height:auto; aspect-ratio:4/5; border:0; border-radius:0; }
 .thumbs .photo { border:0; border-radius:2px; }
@@ -294,3 +294,16 @@ a { color:inherit; }
 /* Product imagery should read as catalogue photography, not lifestyle editorial. */
 .photo-demo img{object-fit:contain;background:#f7f5f2}
 .hero{background-position:center 38%}
+
+/* Code-fix pass: contrast, card length picker, photo fallback, wishlist state */
+.hero p.lead { color: #f5efea; }
+.bottom-nav a { color: #6a5e63; }
+.bottom-nav a.active { color: var(--pink); }
+:root[data-theme='dark'] .bottom-nav a { color: #c9bec4; }
+:root[data-theme='dark'] .bottom-nav a.active { color: var(--pink); }
+.photo { position: relative; }
+.photo-fallback { position: absolute; inset: 0; display: grid; place-items: center; padding: 12px; text-align: center; font-size: 11px; letter-spacing: .14em; color: #725c65; }
+:root[data-theme='dark'] .photo-fallback { color: #d7b7c5; }
+.card-len { width: 100%; min-height: 44px; padding: 0 10px; border: 1px solid var(--line-2); border-radius: 3px; background: var(--surface); color: var(--text); }
+.wish[aria-pressed='true'] { color: #c2417a; }
+#book { scroll-margin-top: 76px; }

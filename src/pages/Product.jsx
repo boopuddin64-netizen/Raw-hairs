@@ -36,7 +36,7 @@ export default function Product() {
           <p className="eyebrow">{cat ? cat.name : ''}</p>
           <h1>{p.name}</h1>
           <div><span className="price" style={{ fontSize: 26 }}>{naira(p.price)}</span> <span className="muted small">Price in Naira · fees shown at checkout</span></div>
-          <span style={{ color: out ? 'var(--bad)' : p.stock <= 2 ? 'var(--warn)' : 'var(--ok)' }}>● {stockLabel(p)}{!out && p.stock > 2 ? ` · ${p.stock} available` : ''}</span>
+          <span style={{ color: out ? 'var(--bad)' : p.stock <= 2 ? 'var(--warn)' : 'var(--ok)' }}>● {stockLabel(p)}</span>
 
           {!out && (
             <>

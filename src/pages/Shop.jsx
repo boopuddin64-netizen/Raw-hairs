@@ -14,7 +14,7 @@ export default function Shop() {
   const set = (k, v) => {
     const next = new URLSearchParams(params);
     if (!v || v === 'all') next.delete(k); else next.set(k, v);
-    setParams(next);
+    setParams(next, { replace: k === 'q' });
   };
 
   let list = state.products.filter((p) => p.available !== undefined);
@@ -33,7 +33,7 @@ export default function Shop() {
       </form>
       <div className="tabs" role="group" aria-label="Filter by style">
         {[{ id: 'all', name: 'All' }, ...categories].map((c) => (
-          <button key={c.id} className="tab" aria-selected={cat === c.id} onClick={() => set('cat', c.id)}>{c.name}</button>
+          <button key={c.id} className="tab" aria-pressed={cat === c.id} onClick={() => set('cat', c.id)}>{c.name}</button>
         ))}
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '4px 0 12px' }}>

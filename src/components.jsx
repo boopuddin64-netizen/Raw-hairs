@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useStore, naira, stockLabel, isSoldOut } from './store';
 import { INSTAGRAM_URL, policyLinks } from './data';
@@ -45,13 +45,14 @@ function demoImageFor(label) {
   return DEMO_IMAGES.body;
 }
 
-export function Icon({ name, size = 24 }) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">{PATHS[name]}</svg>;
+export function Icon({ name, size = 24, filled = false }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.6" aria-hidden="true">{PATHS[name]}</svg>;
 }
 
 export function Photo({ label = 'photo', src, className = '', children }) {
   const imageSrc = src || demoImageFor(label);
-  return <div className={`photo ${className} photo-demo`}><img src={imageSrc} alt={'Demo visual for ' + label} loading="lazy" decoding="async" onError={(event) => { event.currentTarget.style.display = "none"; }} />{children}</div>;
+  const [failed, setFailed] = useState(false);
+  return <div className={`photo ${className} photo-demo`}>{failed ? <span className="photo-fallback" role="img" aria-label={`Photo coming soon for ${label}`}>PHOTO COMING SOON</span> : <img src={imageSrc} alt={'Demo visual for ' + label} loading="lazy" decoding="async" onError={() => setFailed(true)} />}{children}</div>;
 }
 
 export function Chip({ tone = 'ok', children }) {
@@ -65,6 +66,11 @@ export function Header() {
   const [menu, setMenu] = useState(false);
   const [searching, setSearching] = useState(false);
   const [q, setQ] = useState('');
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') { setMenu(false); setSearching(false); } };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
   const submit = (e) => { e.preventDefault(); setSearching(false); nav(`/shop?q=${encodeURIComponent(q)}`); };
 
   return (
@@ -79,7 +85,7 @@ export function Header() {
         <Link to="/cart" className="icon-btn badge-wrap" aria-label={`Shopping bag, ${cartCount} items`}><Icon name="bag" />{cartCount > 0 && <span className="badge">{cartCount}</span>}</Link>
       </div>
       {searching && <form className="search-row" onSubmit={submit} role="search"><label htmlFor="hdr-q" className="sr-only">Search wigs</label><input id="hdr-q" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by style, length or colour" /><button className="btn btn-primary" type="submit">Search</button></form>}
-      {menu && <nav className="drawer" aria-label="Menu" onClick={() => setMenu(false)}><Link to="/shop">Shop all wigs</Link><Link to="/services">Wig services</Link>{policyLinks.map((p) => <Link key={p.id} to={`/help/${p.id}`}>{p.label}</Link>)}<a href={INSTAGRAM_URL} target="_blank" rel="noreferrer noopener">Instagram</a><Link to="/admin" className="drawer-quiet">Owner admin (demo)</Link><Link to="/rider" className="drawer-quiet">Rider (demo)</Link></nav>}
+      {menu && <nav className="drawer" aria-label="Menu" onClick={() => setMenu(false)}><Link to="/shop">Shop all wigs</Link><Link to="/services">Wig services</Link>{policyLinks.map((p) => <Link key={p.id} to={`/help/${p.id}`}>{p.label}</Link>)}<a href={INSTAGRAM_URL} target="_blank" rel="noreferrer noopener">Instagram</a></nav>}
     </header>
   );
 }
@@ -97,19 +103,23 @@ export function Footer() {
 export function Layout() {
   const { pathname } = useLocation();
   if (pathname === '/admin' || pathname === '/rider') return <Outlet />;
-  return <><a href="#main" className="skip">Skip to content</a><Header /><main id="main"><Outlet /></main><Footer /><BottomNav /></>;
+  return <><a href="#main" className="skip" onClick={(e) => { e.preventDefault(); const m = document.getElementById('main'); if (m) { m.focus(); m.scrollIntoView(); } }}>Skip to content</a><Header /><main id="main" tabIndex={-1}><Outlet /></main><Footer /><BottomNav /></>;
 }
 
 export function ProductCard({ p, onAdded }) {
   const store = useStore();
   const out = isSoldOut(p);
-  const add = () => { const r = store.addToCart(p.id, p.lengths[Math.min(1, p.lengths.length - 1)]); onAdded && onAdded(r.message); };
-  return <article className="card"><div className="card-media"><Link to={`/product/${p.id}`} aria-label={`View ${p.name}`}><Photo label={p.name} src={p.image && DEMO_IMAGES[p.image]} className="fill">{out && <span className="soldout">SOLD OUT</span>}</Photo></Link><button className="icon-btn wish" aria-label="Save to wishlist"><Icon name="heart" size={22} /></button></div><div className="card-body"><h3>{p.name}</h3><span className="muted small">{p.spec} · {p.lengths[0]}–{p.lengths[p.lengths.length - 1]} in</span><span className="price">{naira(p.price)}</span><span className="muted small">{stockLabel(p)}</span>{out ? <button className="btn btn-disabled" disabled>SOLD OUT</button> : <button className="btn btn-primary" onClick={add}>ADD TO BAG</button>}<Link to={`/product/${p.id}`} className="link-btn">Details</Link></div></article>;
+  const [len, setLen] = useState(p.lengths[Math.min(1, p.lengths.length - 1)]);
+  const wished = store.isWished(p.id);
+  const add = () => { const r = store.addToCart(p.id, len); onAdded && onAdded(r.ok ? `Added ${len} in to your bag.` : r.message); };
+  return <article className="card"><div className="card-media"><Link to={`/product/${p.id}`} aria-label={`View ${p.name}`}><Photo label={p.name} src={p.image && DEMO_IMAGES[p.image]} className="fill">{out && <span className="soldout">SOLD OUT</span>}</Photo></Link><button className="icon-btn wish" aria-label={wished ? `Remove ${p.name} from wishlist` : `Save ${p.name} to wishlist`} aria-pressed={wished} onClick={() => { store.toggleWishlist(p.id); onAdded && onAdded(wished ? 'Removed from your wishlist.' : 'Saved to your wishlist.'); }}><Icon name="heart" size={22} filled={wished} /></button></div><div className="card-body"><h3>{p.name}</h3><span className="muted small">{p.spec} · {p.lengths[0]}–{p.lengths[p.lengths.length - 1]} in</span><span className="price">{naira(p.price)}</span><span className="muted small">{stockLabel(p)}</span>{out ? <button className="btn btn-disabled" disabled>SOLD OUT</button> : <><label className="sr-only" htmlFor={`len-${p.id}`}>Length for {p.name}</label><select id={`len-${p.id}`} className="card-len" value={len} onChange={(e) => setLen(Number(e.target.value))}>{p.lengths.map((l) => <option key={l} value={l}>{l} in</option>)}</select><button className="btn btn-primary" onClick={add}>ADD TO BAG</button></>}<Link to={`/product/${p.id}`} className="link-btn">Details</Link></div></article>;
 }
 
 export function useToast() {
   const [msg, setMsg] = useState('');
-  const show = (m) => { setMsg(m); window.clearTimeout(show.t); show.t = window.setTimeout(() => setMsg(''), 2600); };
+  const timer = useRef(null);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  const show = (m) => { window.clearTimeout(timer.current); setMsg(m); timer.current = window.setTimeout(() => setMsg(''), 2600); };
   const node = msg ? <div className="toast" role="status">{msg}</div> : null;
   return [show, node];
 }

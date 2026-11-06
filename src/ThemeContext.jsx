@@ -11,6 +11,8 @@ export function ThemeProvider({ children }) {
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', theme === 'dark' ? '#191618' : '#FBF8F6');
     try { localStorage.setItem(KEY, theme); } catch {}
   }, [theme]);
 

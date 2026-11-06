@@ -29,6 +29,13 @@ export default async function handler(req, res) {
     });
     const profileData = await profile.json().catch(() => ({}));
     const token = profile.ok && profileData.idToken ? profileData.idToken : data.idToken;
+    // Best-effort verification email. Staff access later requires a verified email.
+    try {
+      await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${apiKey}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestType: 'VERIFY_EMAIL', idToken: token }),
+      });
+    } catch { /* non-fatal */ }
     await createSessionCookie(req, res, token);
     flushAuthCookies(req, res);
     return res.status(201).json({ ok: true });
