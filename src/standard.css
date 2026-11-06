@@ -286,3 +286,11 @@ a { color:inherit; }
 @media (prefers-reduced-motion:reduce) {
   *,*::before,*::after { scroll-behavior:auto!important; animation-duration:.01ms!important; transition-duration:.01ms!important; }
 }
+
+/* Verified staff workspace notice */
+.staff-demo-notice{position:fixed;z-index:1000;left:50%;bottom:14px;transform:translateX(-50%);width:min(760px,calc(100% - 28px));padding:11px 16px;border:1px solid #d8d0c7;border-radius:8px;background:#fff;color:#4e4943;box-shadow:0 8px 30px rgba(0,0,0,.12);font:12px/1.5 var(--sans);text-align:center}
+.staff-demo-notice b{text-transform:capitalize}
+@media(max-width:600px){.staff-demo-notice{bottom:76px;font-size:11px}}
+/* Product imagery should read as catalogue photography, not lifestyle editorial. */
+.photo-demo img{object-fit:contain;background:#f7f5f2}
+.hero{background-position:center 38%}
