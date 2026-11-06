@@ -15,7 +15,7 @@ export default function Home() {
   return (
     <>
       <section className="hero">
-        <div className="hero-note">PLACEHOLDER · replace with an authentic RAW HAIRS campaign photograph</div>
+        <div className="hero-note">DEMO CAMPAIGN VISUAL · replace with RAW HAIRS brand photography</div>
         <div className="hero-inner">
           <p className="eyebrow">The collection</p>
           <h1>Your Crown.<br />Your Confidence.</h1>
@@ -30,7 +30,7 @@ export default function Home() {
       <div className="wrap">
         <section className="section" aria-labelledby="h-style">
           <div className="section-head"><h2 id="h-style">Shop by style</h2></div>
-          <p className="note">Sample categories. Keep only the styles RAW HAIRS actually sells.</p>
+          <p className="note">Explore the textures and silhouettes in the demo collection.</p>
           <div className="hscroll cats">
             {categories.map((c) => (
               <Link key={c.id} to={`/shop?cat=${c.id}`} className="cat"><Photo label={c.name} />{c.name}</Link>
@@ -90,7 +90,7 @@ export default function Home() {
           <p className="note">@raw.hairs on Instagram</p>
           <div className="insta" aria-hidden="true">{[1, 2, 3, 4, 5, 6].map((n) => <div key={n} />)}</div>
           <a className="btn btn-outline" href={INSTAGRAM_URL} target="_blank" rel="noreferrer noopener">View on Instagram</a>
-          <p className="muted small" style={{ marginTop: 10 }}>Gallery is placeholder until the admin uploads photos or an official Meta feed is connected.</p>
+          <p className="muted small" style={{ marginTop: 10 }}>Illustrative campaign imagery for this client presentation.</p>
         </section>
 
         <section className="section" aria-labelledby="h-trust">
