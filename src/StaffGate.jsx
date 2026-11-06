@@ -13,9 +13,7 @@ export default function StaffGate({ roles, children }) {
       return () => { active = false; };
     }
     setAccess({ status: 'checking', role: null });
-    user.getIdToken().then((token) => fetch('/api/staff/me', {
-      headers: { Authorization: `Bearer ${token}` },
-    })).then(async (response) => {
+    fetch('/api/staff/me', { credentials: 'same-origin' }).then(async (response) => {
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || 'Staff access could not be verified.');
       if (active) setAccess({ status: 'verified', role: payload.role });
