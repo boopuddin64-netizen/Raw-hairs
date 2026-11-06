@@ -14,6 +14,7 @@ import Account from './pages/Account';
 import Help from './pages/Help';
 import Admin from './pages/Admin';
 import Rider from './pages/Rider';
+import StaffGate from './StaffGate';
 import './styles.css';
 import './premium.css';
 import './standard.css';
@@ -33,8 +34,8 @@ createRoot(document.getElementById('root')).render(
             <Route path="services" element={<Services />} />
             <Route path="account" element={<Account />} />
             <Route path="help/:topic" element={<Help />} />
-            <Route path="admin" element={<Admin />} />
-            <Route path="rider" element={<Rider />} />
+            <Route path="admin" element={<StaffGate roles={["owner", "manager", "operations"]}><Admin /></StaffGate>} />
+            <Route path="rider" element={<StaffGate roles={["rider"]}><Rider /></StaffGate>} />
             <Route path="*" element={<Home />} />
           </Route>
         </Routes>
