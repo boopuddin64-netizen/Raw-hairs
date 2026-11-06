@@ -1,17 +1,19 @@
-import { appOrigin, consumeGoogleState, createSession, exchangeGoogleCode, flushCookies, upsertGoogleUser } from '../../../_lib/session.js';
+import { createSessionCookie, flushAuthCookies } from '../../../_lib/firebase.js';
+import { appOrigin, consumeGoogleState, exchangeGoogleCode, flushCookies } from '../../_lib/session.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).send('Method not allowed.');
   try {
     const { state: expectedState, nonce } = consumeGoogleState(req);
     const state = typeof req.query?.state === 'string' ? req.query.state : '';
-    if (!state || state !== expectedState) throw Object.assign(new Error('Google sign-in state did not match.'), { statusCode: 400 });
-    if (req.query?.error) throw Object.assign(new Error('Google sign-in was cancelled.'), { statusCode: 400 });
+    if (!state || state !== expectedState) throw new Error('Google sign-in state did not match.');
+    if (req.query?.error) throw new Error('Google sign-in was cancelled.');
     const code = typeof req.query?.code === 'string' ? req.query.code : '';
-    if (!code) throw Object.assign(new Error('Google did not return an authorization code.'), { statusCode: 400 });
-    const identity = await exchangeGoogleCode(req, code, nonce);
-    const userId = await upsertGoogleUser(identity);
-    await createSession(req, res, userId);
+    if (!code) throw new Error('Google did not return an authorization code.');
+    const idToken = await exchangeGoogleCode(req, code, nonce);
+    await createSessionCookie(req, res, idToken);
+    flushCookies(req, res);
+    flushAuthCookies(req, res);
     return res.redirect(302, `${appOrigin(req)}/#/account`);
   } catch (error) {
     flushCookies(req, res);
