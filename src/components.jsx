@@ -22,12 +22,15 @@ const DEMO_IMAGES = {
   straight: 'https://images.unsplash.com/photo-1658747773643-707db5889b17?auto=format&fit=crop&w=1100&q=85',
   curly: 'https://images.unsplash.com/photo-1649312555826-e42566d05d15?auto=format&fit=crop&w=1100&q=85',
   bob: 'https://images.unsplash.com/photo-1739269552542-eba740011c04?auto=format&fit=crop&w=1100&q=85',
+  blonde: 'https://images.unsplash.com/photo-1638109607416-1b1bda134de3?auto=format&fit=crop&w=1100&q=85',
 };
 function demoImageFor(label) {
   const value = String(label).toLowerCase();
   if (value.includes('curly') || value.includes('deep wave') || value.includes('restoration')) return DEMO_IMAGES.curly;
   if (value.includes('bob') || value.includes('burgundy')) return DEMO_IMAGES.bob;
-  if (value.includes('straight') || value.includes('blonde') || value.includes('customization')) return DEMO_IMAGES.straight;
+  if (value.includes('blonde')) return DEMO_IMAGES.blonde;
+  if (value.includes('straight') || value.includes('customization')) return DEMO_IMAGES.straight;
+  if (/^[1-4]$/.test(value)) return [DEMO_IMAGES.body, DEMO_IMAGES.straight, DEMO_IMAGES.curly, DEMO_IMAGES.bob][Number(value) - 1];
   return DEMO_IMAGES.body;
 }
 
