@@ -20,18 +20,18 @@ const PATHS = {
 // Temporary mannequin-only product visuals for the demo catalogue.
 // Replace with RAW HAIRS-owned/licensed photos before commercial launch.
 const DEMO_IMAGES = {
-  body: 'https://haircube.net/cdn/shop/products/2_9cd72cc4-9d77-49ee-99de-a360e1d37803_1200x1200.jpg?v=1736856846',
-  straight: 'https://www.blackshowhair.com/cdn/shop/files/613blondestraighthairbobwigtransparentlace1.jpg?v=1732785149',
-  deep: 'https://www.gosupps.com/media/catalog/product/cache/25/image/1500x/040ec09b1e35df139433887a97daa66f/5/1/51w6vglDNrL._SL1200_.jpg',
+  body: 'https://rawafhair.com/cdn/shop/files/HairWigMannequins10.jpg?v=1763403375',
+  straight: 'https://starhairus.com/cdn/shop/files/1_6b1a9c91-bf50-46c6-83c1-66e42795bac9.jpg?v=1733490948',
+  deep: 'https://a-static.mlcdn.com.br/420x420/peruca-sem-cola-isee-hair-wear-and-go-para-iniciantes-perucas-sem-cola-de-ondas-profundas-cabelo-humano-pre-arrancado-novo-atualizado-sem-cola-perucas-com-fechamento-de-renda-hd-6x4-cabelo-humano-para-mulheres-negras-com-cabelo-de-bebe-de-24-polegadas/nocnocestadosunidos/buybox-cpb0cc5chzvq/378b146b71314ede56834df8a5b9715f.jpeg',
   bob: 'https://www.loxxofhair.com/cdn/shop/files/4x4613BobWig-HDLace.png?v=1722916990',
-  water: 'https://www.elephantwig.com/wp-content/uploads/2024/12/ELEPHANT-WIGS-CATALOGUE.pdf',
-  blonde: 'https://superlovehair.com/cdn/shop/files/13x4-lace-front-human-hair-wig-613-honey-blonde-bob-wigs-brazilian-remy-straight-bob-wig-949083.jpg?v=1714289042',
-  kinky: 'https://www.haniecomb.com/gallery-2',
-  burgundy: 'https://www.blackshowhair.com/cdn/shop/files/613blondestraighthairbobwigtransparentlace1.jpg?v=1732785149',
-  loose: 'https://www.gosupps.com/media/catalog/product/cache/25/image/1500x/040ec09b1e35df139433887a97daa66f/5/1/51w6vglDNrL._SL1200_.jpg',
+  water: 'https://starhairus.com/cdn/shop/files/1_709aae80-036e-4f6a-9b0c-421e290f4f9c.jpg?v=1733494224',
+  blonde: 'https://www.loxxofhair.com/cdn/shop/files/4x4613BobWig-HDLace.png?v=1722916990',
+  kinky: 'https://www.wigtypes.com/cdn/shop/files/sensationnel-curls-kinks-kinky-curly-18c-240625111410.jpg?v=1719337452',
+  burgundy: 'https://i.etsystatic.com/20041168/r/il/e7b724/7942081959/il_fullxfull.7942081959_6m7z.jpg',
+  loose: 'https://methinkshair.com/cdn/shop/products/Mstoxic-Jerry-Curly-Human-Hair-Wigs-For-Black-Women-Full-Machine-Wigs-With-Bang-Brazilian-Remy_1800x1800.jpg?v=1591337598',
   pixie: 'https://www.loxxofhair.com/cdn/shop/files/4x4613BobWig-HDLace.png?v=1722916990',
   ombre: 'https://i.etsystatic.com/20041168/r/il/e7b724/7942081959/il_fullxfull.7942081959_6m7z.jpg',
-  highlight: 'https://www.blackshowhair.com/cdn/shop/files/613blondestraighthairbobwigtransparentlace1.jpg?v=1732785149',
+  highlight: 'https://www.loxxofhair.com/cdn/shop/files/4x4613BobWig-HDLace.png?v=1722916990',
 };
 function demoImageFor(label) {
   const value = String(label).toLowerCase();
