@@ -1,5 +1,5 @@
-import { createSessionCookie, flushAuthCookies } from '../../../_lib/firebase.js';
-import { appOrigin, consumeGoogleState, exchangeGoogleCode, flushCookies } from '../../_lib/session.js';
+import { createSessionCookie, flushAuthCookies } from '../../_lib/firebase.js';
+import { appOrigin, consumeGoogleState, exchangeGoogleCode } from '../../_lib/session.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).send('Method not allowed.');
@@ -12,11 +12,10 @@ export default async function handler(req, res) {
     if (!code) throw new Error('Google did not return an authorization code.');
     const idToken = await exchangeGoogleCode(req, code, nonce);
     await createSessionCookie(req, res, idToken);
-    flushCookies(req, res);
     flushAuthCookies(req, res);
     return res.redirect(302, `${appOrigin(req)}/#/account`);
   } catch (error) {
-    flushCookies(req, res);
+    flushAuthCookies(req, res);
     console.error('RAW HAIRS Google OAuth callback:', error.message);
     const origin = process.env.APP_ORIGIN || appOrigin(req);
     return res.redirect(302, `${origin}/#/account?auth_error=google`);
