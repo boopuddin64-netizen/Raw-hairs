@@ -1,10 +1,10 @@
 -- Staff role model and audit trail.
 ALTER TABLE staff_users DROP CONSTRAINT IF EXISTS staff_users_role_check;
-ALTER TABLE staff_users ADD CONSTRAINT staff_users_role_check
-  CHECK (role IN ('owner','manager','operations','rider'));
-
 -- Existing legacy admin accounts become managers; owner must be assigned explicitly.
 UPDATE staff_users SET role = 'manager', updated_at = now() WHERE role = 'admin';
+
+ALTER TABLE staff_users ADD CONSTRAINT staff_users_role_check
+  CHECK (role IN ('owner','manager','operations','rider'));
 
 -- Keep the original four-seat limit for privileged non-rider accounts.
 CREATE OR REPLACE FUNCTION enforce_staff_seat_limit() RETURNS trigger
