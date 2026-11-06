@@ -2,23 +2,23 @@
 
 **Status:** Approved architecture and business rules; Phase 1 in progress  
 **Repository:** `boopuddin64-netizen/Raw-hairs`  
-**Working branch:** `production-readiness/phase-1-2`  
+**Working branch:** `demo/premium-ui-overhaul` (frontend + approved commerce rules)  
 **Production safety:** No production database migration, credential rotation, or live payment activation is authorized by this specification.
 
 ## 1. Product and operating decisions
 
 - Customer identity: Firebase accounts and guest checkout are both supported.
 - Checkout: registered customers and guests.
-- Payments: Paystack online payment and manual bank transfer.
+- Payments: Paystack online payment, manual bank transfer and restricted cash on delivery (COD). COD requires both an admin-approved customer and an enabled delivery zone.
 - Manual transfers require explicit administrator verification.
 - Online orders require administrator approval after verified payment and before fulfilment.
 - Inventory: manual stock adjustments plus automatic sale deductions.
 - Stock reservation: 15 minutes for an unpaid checkout; expiry releases reserved stock.
-- Delivery: admin-managed assignment and status tracking; no third-party integration in the initial release.
+- Delivery: admin assigns internal drivers or manually assigns third-party providers and records tracking/status updates. Automated provider APIs are deferred.
 - International orders: request-and-quotation workflow; admin prepares quote, customer accepts, then payment/fulfilment proceeds.
 - Currency: NGN only. Store all monetary values as integer kobo.
-- Initial staff access: owner and one designated admin. Additional staff creation is controlled by the owner.
-- Email notifications: deferred until core workflows are stable. Notification outbox remains the future integration point.
+- Initial staff access: one owner and one manager. The manager handles operations initially; an operations role is reserved for future staff. Drivers can access assigned jobs only.
+- Notifications: WhatsApp first for order and delivery updates; email is deferred. The notification outbox is the delivery/retry mechanism.
 - Backend hosting: Vercel Functions in the existing Vercel project; no separate always-on server for initial release.
 
 ## 2. Target architecture
@@ -37,8 +37,8 @@
 - Public visitors may read only published product/catalogue data and public content.
 - Guest checkout uses a cryptographically random, high-entropy order access token. Store only its hash; reveal the raw token once to the guest.
 - Authenticated customers may read their own profile and orders only.
-- Staff roles are `owner`, `admin`, and `rider`; roles are stored server-side and are not trusted from client-supplied claims alone.
-- Initial staff roster: one owner and one designated admin. The owner grants or revokes staff access.
+- Staff roles are `owner`, `manager`, `operations`, and `rider`; roles are stored server-side and are not trusted from client-supplied claims alone. Only one active owner and one active manager are permitted initially.
+- Initial staff roster: one owner and one manager. The owner grants or revokes staff access. Operations remains a reserved role; the manager performs those duties initially.
 - Riders can access only assigned delivery jobs and permitted delivery updates.
 - All privileged writes pass through backend authorization and validation.
 - Neon credentials and Firebase Admin credentials are server-only. Browser bundles contain no privileged secrets.
@@ -162,8 +162,8 @@ Never prefix secrets with `VITE_`. Keep development and production values separa
 ## 9. Explicit exclusions for initial release
 
 - No multi-currency checkout.
-- No automated third-party delivery integration.
-- No automatic email sending until the email phase is approved.
+- No automated third-party delivery API integration in the initial release; admin assignment and manual tracking are supported.
+- No automatic email sending in the initial release; WhatsApp is the first notification channel.
 - No direct browser-to-Neon connections.
 - No production data migration or live Paystack activation without a separate approval.
 ## 10. Phase 1 execution log (2026-11-04)
