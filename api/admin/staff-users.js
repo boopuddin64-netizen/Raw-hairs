@@ -17,7 +17,7 @@ export default async function handler(req, res) {
     const { staff, sql } = await requireStaff(req, ['owner']);
     if (req.method === 'GET') {
       const [users, events] = await Promise.all([
-        sql`SELECT id, firebase_uid, role, is_active, created_at, updated_at FROM staff_users ORDER BY created_at DESC`,
+        sql`SELECT staff.id, staff.firebase_uid, staff.role, staff.is_active, staff.created_at, staff.updated_at, customer.email FROM staff_users staff LEFT JOIN customers customer ON customer.firebase_uid=staff.firebase_uid ORDER BY staff.created_at DESC`,
         sql`SELECT e.id, e.action, e.details, e.created_at, actor.role AS actor_role
             FROM staff_access_events e JOIN staff_users actor ON actor.id=e.actor_staff_id
             ORDER BY e.created_at DESC LIMIT 50`
