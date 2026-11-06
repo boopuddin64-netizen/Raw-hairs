@@ -15,7 +15,7 @@ export default function Home() {
   return (
     <>
       <section className="hero">
-        <div className="hero-note">DEMO CAMPAIGN VISUAL · replace with RAW HAIRS brand photography</div>
+        <div className="hero-note">THE SIGNATURE COLLECTION</div>
         <div className="hero-inner">
           <p className="eyebrow">The collection</p>
           <h1>Your Crown.<br />Your Confidence.</h1>
