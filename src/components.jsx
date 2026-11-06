@@ -52,7 +52,8 @@ export function Icon({ name, size = 24, filled = false }) {
 export function Photo({ label = 'photo', src, className = '', children }) {
   const imageSrc = src || demoImageFor(label);
   const [failed, setFailed] = useState(false);
-  return <div className={`photo ${className} photo-demo`}>{failed ? <span className="photo-fallback" role="img" aria-label={`Photo coming soon for ${label}`}>PHOTO COMING SOON</span> : <img src={imageSrc} alt={'Demo visual for ' + label} loading="lazy" decoding="async" onError={() => setFailed(true)} />}{children}</div>;
+  const [loaded, setLoaded] = useState(false);
+  return <div className={`photo ${className} photo-demo ${failed ? '' : loaded ? 'is-loaded' : 'is-loading'}`}>{failed ? <span className="photo-fallback" role="img" aria-label={`Photo coming soon for ${label}`}>PHOTO COMING SOON</span> : <img ref={(el) => { if (el && !loaded && el.complete && el.naturalWidth > 0) setLoaded(true); }} src={imageSrc} alt={'Demo visual for ' + label} loading="lazy" decoding="async" onLoad={() => setLoaded(true)} onError={() => setFailed(true)} />}{children}</div>;
 }
 
 export function Chip({ tone = 'ok', children }) {
@@ -63,9 +64,12 @@ export function Header() {
   const { cartCount } = useStore();
   const { theme, toggleTheme } = useTheme();
   const nav = useNavigate();
+  const { pathname: here } = useLocation();
   const [menu, setMenu] = useState(false);
   const [searching, setSearching] = useState(false);
   const [q, setQ] = useState('');
+  const swipeY = useRef(0);
+  useEffect(() => { setMenu(false); setSearching(false); }, [here]);
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') { setMenu(false); setSearching(false); } };
     window.addEventListener('keydown', onKey);
@@ -81,11 +85,12 @@ export function Header() {
         <nav className="header-links" aria-label="Primary"><NavLink to="/shop">SHOP</NavLink><NavLink to="/services">SERVICES</NavLink><NavLink to="/help/contact">CONTACT</NavLink></nav>
         <button className="icon-btn" aria-label="Search" onClick={() => setSearching(!searching)}><Icon name="search" /></button>
         <button className="theme-toggle" type="button" aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`} onClick={toggleTheme}><span aria-hidden="true">{theme === 'light' ? '☾' : '☀'}</span><small>{theme === 'light' ? 'Dark' : 'Light'}</small></button>
-        <Link to="/account" className="icon-btn" aria-label="Account"><Icon name="user" /></Link>
-        <Link to="/cart" className="icon-btn badge-wrap" aria-label={`Shopping bag, ${cartCount} items`}><Icon name="bag" />{cartCount > 0 && <span className="badge">{cartCount}</span>}</Link>
+        <Link to="/account" className="icon-btn hdr-account" aria-label="Account"><Icon name="user" /></Link>
+        <Link to="/cart" className="icon-btn badge-wrap hdr-cart" aria-label={`Shopping bag, ${cartCount} items`}><Icon name="bag" />{cartCount > 0 && <span className="badge">{cartCount}</span>}</Link>
       </div>
       {searching && <form className="search-row" onSubmit={submit} role="search"><label htmlFor="hdr-q" className="sr-only">Search wigs</label><input id="hdr-q" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by style, length or colour" /><button className="btn btn-primary" type="submit">Search</button></form>}
-      {menu && <nav className="drawer" aria-label="Menu" onClick={() => setMenu(false)}><Link to="/shop">Shop all wigs</Link><Link to="/services">Wig services</Link>{policyLinks.map((p) => <Link key={p.id} to={`/help/${p.id}`}>{p.label}</Link>)}<a href={INSTAGRAM_URL} target="_blank" rel="noreferrer noopener">Instagram</a></nav>}
+      {menu && <div className="scrim" onClick={() => setMenu(false)} aria-hidden="true" />}
+      {menu && <nav className="drawer" aria-label="Menu" onClick={() => setMenu(false)} onTouchStart={(e) => { swipeY.current = e.touches[0].clientY; }} onTouchEnd={(e) => { if (swipeY.current - e.changedTouches[0].clientY > 50) setMenu(false); }}><Link to="/shop">Shop all wigs</Link><Link to="/services">Wig services</Link>{policyLinks.map((p) => <Link key={p.id} to={`/help/${p.id}`}>{p.label}</Link>)}<a href={INSTAGRAM_URL} target="_blank" rel="noreferrer noopener">Instagram</a></nav>}
     </header>
   );
 }
@@ -103,7 +108,7 @@ export function Footer() {
 export function Layout() {
   const { pathname } = useLocation();
   if (pathname === '/admin' || pathname === '/rider') return <Outlet />;
-  return <><a href="#main" className="skip" onClick={(e) => { e.preventDefault(); const m = document.getElementById('main'); if (m) { m.focus(); m.scrollIntoView(); } }}>Skip to content</a><Header /><main id="main" tabIndex={-1}><Outlet /></main><Footer /><BottomNav /></>;
+  return <><a href="#main" className="skip" onClick={(e) => { e.preventDefault(); const m = document.getElementById('main'); if (m) { m.focus(); m.scrollIntoView(); } }}>Skip to content</a><Header /><main id="main" tabIndex={-1}><div key={pathname} className="page-fade"><Outlet /></div></main><Footer /><BottomNav /></>;
 }
 
 export function ProductCard({ p, onAdded }) {
