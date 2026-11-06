@@ -17,7 +17,6 @@ function authMessage(error) {
     'auth/redirect-cancelled-by-user': 'Google sign-in was cancelled. Try again.',
     'auth/redirect-operation-pending': 'A Google sign-in is already in progress. Wait a moment and try again.',
     'auth/unauthorized-continue-uri': 'The Google sign-in return address is not authorized in Firebase.',
-    'auth/invalid-credential': 'Email or password is incorrect.',
   };
   return messages[code] || 'We could not complete that request. Please try again.';
 }
