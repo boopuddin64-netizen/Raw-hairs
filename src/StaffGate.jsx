@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { cloneElement, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 
@@ -34,5 +34,5 @@ export default function StaffGate({ roles, children }) {
   if (access.status !== 'verified' || !roles.includes(access.role)) {
     return <main className="wrap page"><h1>Access restricted</h1><p className="muted">{access.message || 'Your staff role does not have permission to open this workspace.'}</p><Link to="/" className="btn btn-outline">Return to store</Link></main>;
   }
-  return <>{children}<div className="staff-demo-notice" role="note">Staff role verified: <b>{access.role}</b>. This dashboard is still a development demo; live order and dispatch actions are not connected yet.</div></>;
+  return <>{cloneElement(children, { staffRole: access.role })}<div className="staff-demo-notice" role="note">Staff role verified: <b>{access.role}</b>. This dashboard is still a development demo; live order and dispatch actions are not connected yet.</div></>;
 }
