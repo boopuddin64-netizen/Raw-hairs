@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useStore, naira, stockLabel, isSoldOut } from './store';
 import { INSTAGRAM_URL, policyLinks } from './data';
+import { useTheme } from './ThemeContext';
 
 const PATHS = {
   menu: <path d="M4 7h16M4 12h16M4 17h16" />,
@@ -16,18 +17,31 @@ const PATHS = {
   back: <path d="M15 5l-7 7 7 7" />,
 };
 
-export function Icon({ name, size = 24 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      {PATHS[name]}
-    </svg>
-  );
+const DEMO_IMAGES = {
+  body: 'https://images.unsplash.com/photo-1645736279976-59f8fd22720c?auto=format&fit=crop&w=1100&q=85',
+  straight: 'https://images.unsplash.com/photo-1658747773643-707db5889b17?auto=format&fit=crop&w=1100&q=85',
+  curly: 'https://images.unsplash.com/photo-1649312555826-e42566d05d15?auto=format&fit=crop&w=1100&q=85',
+  bob: 'https://images.unsplash.com/photo-1739269552542-eba740011c04?auto=format&fit=crop&w=1100&q=85',
+  blonde: 'https://images.unsplash.com/photo-1638109607416-1b1bda134de3?auto=format&fit=crop&w=1100&q=85',
+};
+function demoImageFor(label) {
+  const value = String(label).toLowerCase();
+  if (value.includes('curly') || value.includes('deep wave') || value.includes('restoration')) return DEMO_IMAGES.curly;
+  if (value.includes('bob') || value.includes('burgundy')) return DEMO_IMAGES.bob;
+  if (value.includes('colored')) return DEMO_IMAGES.blonde;
+  if (value.includes('blonde')) return DEMO_IMAGES.blonde;
+  if (value.includes('straight') || value.includes('customization')) return DEMO_IMAGES.straight;
+  if (/^[1-4]$/.test(value)) return [DEMO_IMAGES.body, DEMO_IMAGES.straight, DEMO_IMAGES.curly, DEMO_IMAGES.bob][Number(value) - 1];
+  return DEMO_IMAGES.body;
 }
 
-// Placeholder for real RAW HAIRS photography. Pass `src` once real images exist.
+export function Icon({ name, size = 24 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">{PATHS[name]}</svg>;
+}
+
 export function Photo({ label = 'photo', src, className = '', children }) {
-  if (src) return <div className={`photo ${className}`}><img src={src} alt={label} loading="lazy" />{children}</div>;
-  return <div className={`photo ${className}`} role="img" aria-label={`Placeholder: ${label}`}><span className="photo-tag">{label}</span>{children}</div>;
+  const imageSrc = src || demoImageFor(label);
+  return <div className={`photo ${className} photo-demo`}><img src={imageSrc} alt={'Demo visual for ' + label} loading="lazy" decoding="async" onError={(event) => { event.currentTarget.style.display = "none"; }} />{children}</div>;
 }
 
 export function Chip({ tone = 'ok', children }) {
@@ -36,6 +50,7 @@ export function Chip({ tone = 'ok', children }) {
 
 export function Header() {
   const { cartCount } = useStore();
+  const { theme, toggleTheme } = useTheme();
   const nav = useNavigate();
   const [menu, setMenu] = useState(false);
   const [searching, setSearching] = useState(false);
@@ -47,119 +62,39 @@ export function Header() {
       <div className="header-row">
         <button className="icon-btn" aria-label={menu ? 'Close menu' : 'Open menu'} onClick={() => setMenu(!menu)}><Icon name={menu ? 'close' : 'menu'} /></button>
         <Link to="/" className="wordmark" onClick={() => setMenu(false)}>RAW HAIRS</Link>
-        <nav className="header-links" aria-label="Primary">
-          <NavLink to="/shop">SHOP</NavLink>
-          <NavLink to="/services">SERVICES</NavLink>
-          <NavLink to="/help/contact">CONTACT</NavLink>
-        </nav>
+        <nav className="header-links" aria-label="Primary"><NavLink to="/shop">SHOP</NavLink><NavLink to="/services">SERVICES</NavLink><NavLink to="/help/contact">CONTACT</NavLink></nav>
         <button className="icon-btn" aria-label="Search" onClick={() => setSearching(!searching)}><Icon name="search" /></button>
+        <button className="theme-toggle" type="button" aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`} onClick={toggleTheme}><span aria-hidden="true">{theme === 'light' ? '☾' : '☀'}</span><small>{theme === 'light' ? 'Dark' : 'Light'}</small></button>
         <Link to="/account" className="icon-btn" aria-label="Account"><Icon name="user" /></Link>
-        <Link to="/cart" className="icon-btn badge-wrap" aria-label={`Shopping bag, ${cartCount} items`}>
-          <Icon name="bag" />
-          {cartCount > 0 && <span className="badge">{cartCount}</span>}
-        </Link>
+        <Link to="/cart" className="icon-btn badge-wrap" aria-label={`Shopping bag, ${cartCount} items`}><Icon name="bag" />{cartCount > 0 && <span className="badge">{cartCount}</span>}</Link>
       </div>
-      {searching && (
-        <form className="search-row" onSubmit={submit} role="search">
-          <label htmlFor="hdr-q" className="sr-only">Search wigs</label>
-          <input id="hdr-q" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by style, length or colour" />
-          <button className="btn btn-primary" type="submit">Search</button>
-        </form>
-      )}
-      {menu && (
-        <nav className="drawer" aria-label="Menu" onClick={() => setMenu(false)}>
-          <Link to="/shop">Shop all wigs</Link>
-          <Link to="/services">Wig services</Link>
-          {policyLinks.map((p) => <Link key={p.id} to={`/help/${p.id}`}>{p.label}</Link>)}
-          <a href={INSTAGRAM_URL} target="_blank" rel="noreferrer noopener">Instagram</a>
-          <Link to="/admin" className="drawer-quiet">Owner admin (demo)</Link>
-          <Link to="/rider" className="drawer-quiet">Rider (demo)</Link>
-        </nav>
-      )}
+      {searching && <form className="search-row" onSubmit={submit} role="search"><label htmlFor="hdr-q" className="sr-only">Search wigs</label><input id="hdr-q" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by style, length or colour" /><button className="btn btn-primary" type="submit">Search</button></form>}
+      {menu && <nav className="drawer" aria-label="Menu" onClick={() => setMenu(false)}><Link to="/shop">Shop all wigs</Link><Link to="/services">Wig services</Link>{policyLinks.map((p) => <Link key={p.id} to={`/help/${p.id}`}>{p.label}</Link>)}<a href={INSTAGRAM_URL} target="_blank" rel="noreferrer noopener">Instagram</a><Link to="/admin" className="drawer-quiet">Owner admin (demo)</Link><Link to="/rider" className="drawer-quiet">Rider (demo)</Link></nav>}
     </header>
   );
 }
 
 export function BottomNav() {
   const { cartCount } = useStore();
-  const items = [
-    ['/', 'HOME', 'home', true],
-    ['/shop', 'SHOP', 'shop'],
-    ['/services', 'SERVICES', 'services'],
-    ['/cart', 'CART', 'bag'],
-    ['/account', 'ACCOUNT', 'user'],
-  ];
-  return (
-    <nav className="bottom-nav" aria-label="Main">
-      {items.map(([to, label, icon, end]) => (
-        <NavLink key={to} to={to} end={end} className={({ isActive }) => (isActive ? 'active' : '')}>
-          <span className="badge-wrap"><Icon name={icon} />{label === 'CART' && cartCount > 0 && <span className="badge">{cartCount}</span>}</span>
-          {label}
-        </NavLink>
-      ))}
-    </nav>
-  );
+  const items = [['/', 'HOME', 'home', true], ['/shop', 'SHOP', 'shop'], ['/services', 'SERVICES', 'services'], ['/cart', 'CART', 'bag'], ['/account', 'ACCOUNT', 'user']];
+  return <nav className="bottom-nav" aria-label="Main">{items.map(([to, label, icon, end]) => <NavLink key={to} to={to} end={end} className={({ isActive }) => (isActive ? 'active' : '')}><span className="badge-wrap"><Icon name={icon} />{label === 'CART' && cartCount > 0 && <span className="badge">{cartCount}</span>}</span>{label}</NavLink>)}</nav>;
 }
 
 export function Footer() {
-  return (
-    <footer className="footer">
-      <div className="wrap footer-grid">
-        <div>
-          <span className="wordmark">RAW HAIRS</span>
-          <p className="muted">Customer support: [PHONE / WHATSAPP]<br />[EMAIL] · [SHOP ADDRESS] · [HOURS]</p>
-        </div>
-        <ul className="footer-links">
-          <li><Link to="/shop">Shop</Link></li>
-          <li><Link to="/services">Services</Link></li>
-          <li><a href={INSTAGRAM_URL} target="_blank" rel="noreferrer noopener">Instagram</a></li>
-          {policyLinks.map((p) => <li key={p.id}><Link to={`/help/${p.id}`}>{p.label}</Link></li>)}
-        </ul>
-      </div>
-      <p className="wrap muted small">© RAW HAIRS. All rights reserved.</p>
-    </footer>
-  );
+  return <footer className="footer"><div className="wrap footer-grid"><div><span className="wordmark">RAW HAIRS</span><p className="muted">Customer support: [PHONE / WHATSAPP]<br />[EMAIL] · [SHOP ADDRESS] · [HOURS]</p></div><ul className="footer-links"><li><Link to="/shop">Shop</Link></li><li><Link to="/services">Services</Link></li><li><a href={INSTAGRAM_URL} target="_blank" rel="noreferrer noopener">Instagram</a></li>{policyLinks.map((p) => <li key={p.id}><Link to={`/help/${p.id}`}>{p.label}</Link></li>)}</ul></div><p className="wrap muted small">© RAW HAIRS. All rights reserved.</p></footer>;
 }
 
 export function Layout() {
-  return (
-    <>
-      <a href="#main" className="skip">Skip to content</a>
-      <Header />
-      <main id="main"><Outlet /></main>
-      <Footer />
-      <BottomNav />
-    </>
-  );
+  const { pathname } = useLocation();
+  if (pathname === '/admin' || pathname === '/rider') return <Outlet />;
+  return <><a href="#main" className="skip">Skip to content</a><Header /><main id="main"><Outlet /></main><Footer /><BottomNav /></>;
 }
 
 export function ProductCard({ p, onAdded }) {
   const store = useStore();
   const out = isSoldOut(p);
-  const add = () => {
-    const r = store.addToCart(p.id, p.lengths[Math.min(1, p.lengths.length - 1)]);
-    onAdded && onAdded(r.message);
-  };
-  return (
-    <article className="card">
-      <div className="card-media">
-        <Link to={`/product/${p.id}`} aria-label={`View ${p.name}`}>
-          <Photo label={p.name} className="fill">{out && <span className="soldout">SOLD OUT</span>}</Photo>
-        </Link>
-        <button className="icon-btn wish" aria-label="Save to wishlist"><Icon name="heart" size={22} /></button>
-      </div>
-      <div className="card-body">
-        <h3>{p.name}</h3>
-        <span className="muted small">{p.spec} · {p.lengths[0]}–{p.lengths[p.lengths.length - 1]} in</span>
-        <span className="price">{naira(p.price)}</span>
-        <span className="muted small">{stockLabel(p)}</span>
-        {out
-          ? <button className="btn btn-disabled" disabled>SOLD OUT</button>
-          : <button className="btn btn-primary" onClick={add}>ADD TO BAG</button>}
-        <Link to={`/product/${p.id}`} className="link-btn">Details</Link>
-      </div>
-    </article>
-  );
+  const add = () => { const r = store.addToCart(p.id, p.lengths[Math.min(1, p.lengths.length - 1)]); onAdded && onAdded(r.message); };
+  return <article className="card"><div className="card-media"><Link to={`/product/${p.id}`} aria-label={`View ${p.name}`}><Photo label={p.name} className="fill">{out && <span className="soldout">SOLD OUT</span>}</Photo></Link><button className="icon-btn wish" aria-label="Save to wishlist"><Icon name="heart" size={22} /></button></div><div className="card-body"><h3>{p.name}</h3><span className="muted small">{p.spec} · {p.lengths[0]}–{p.lengths[p.lengths.length - 1]} in</span><span className="price">{naira(p.price)}</span><span className="muted small">{stockLabel(p)}</span>{out ? <button className="btn btn-disabled" disabled>SOLD OUT</button> : <button className="btn btn-primary" onClick={add}>ADD TO BAG</button>}<Link to={`/product/${p.id}`} className="link-btn">Details</Link></div></article>;
 }
 
 export function useToast() {
