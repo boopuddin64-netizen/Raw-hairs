@@ -9,7 +9,7 @@ export default function StaffManagement() {
   const [staff,setStaff]=useState([]), [events,setEvents]=useState([]), [email,setEmail]=useState(''), [role,setRole]=useState('rider');
   const [busy,setBusy]=useState(false), [message,setMessage]=useState(''), [error,setError]=useState('');
   const csrf=()=>document.cookie.split('; ').find(x=>x.startsWith('rawhairs_csrf='))?.split('=').slice(1).join('=')||'';
-  const request=useCallback(async(method,body)=>readJson(await fetch('/api/admin/staff-users',{method,credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':decodeURIComponent(csrf())},...(body?{body:JSON.stringify(body)}:{})})),[]);
+  const request=useCallback(async(method,body)=>readJson(await fetch('/api/staff/me',{method,credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':decodeURIComponent(csrf())},...(body?{body:JSON.stringify(body)}:{})})),[]);
   const load=useCallback(async()=>{setBusy(true);setError('');try{const data=await request('GET');setStaff(data.staff||[]);setEvents(data.events||[]);}catch(e){setError(e.message);}finally{setBusy(false);}},[request]);
   useEffect(()=>{load();},[load]);
   async function add(event){event.preventDefault();setBusy(true);setError('');setMessage('');try{await request('POST',{email,role});setEmail('');setMessage('Staff account added.');await load();}catch(e){setError(e.message);}finally{setBusy(false);}}
