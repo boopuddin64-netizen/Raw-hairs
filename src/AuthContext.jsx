@@ -1,109 +1,98 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import {
-  GoogleAuthProvider,
-  browserLocalPersistence,
-  createUserWithEmailAndPassword,
-  getRedirectResult,
-  onAuthStateChanged,
-  sendPasswordResetEmail,
-  signInWithEmailAndPassword,
-  signInWithRedirect,
-  setPersistence,
-  signOut,
-  updateProfile,
-} from 'firebase/auth';
-import { auth, firebaseConfigured } from './firebase';
 
 const AuthContext = createContext(null);
+async function json(response) {
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || 'The request could not be completed.');
+  return data;
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [customer, setCustomer] = useState(null);
   const [profileStatus, setProfileStatus] = useState('idle');
   const [loading, setLoading] = useState(true);
-  const [redirectError, setRedirectError] = useState('');
+  const [configured, setConfigured] = useState(false);
+  const [googleEnabled, setGoogleEnabled] = useState(false);
+  const [csrfToken, setCsrfToken] = useState('');
+
+  async function refresh() {
+    const session = await json(await fetch('/api/auth/session', { credentials: 'same-origin' }));
+    setConfigured(Boolean(session.configured));
+    setGoogleEnabled(Boolean(session.googleEnabled));
+    setCsrfToken(session.csrfToken || '');
+    setUser(session.user || null);
+    if (session.user) {
+      try {
+        const profile = await json(await fetch('/api/me', { credentials: 'same-origin' }));
+        setCustomer(profile.customer || null);
+        setProfileStatus('synced');
+      } catch {
+        setCustomer(null);
+        setProfileStatus('error');
+      }
+    } else {
+      setCustomer(null);
+      setProfileStatus('idle');
+    }
+    return session.user || null;
+  }
 
   useEffect(() => {
-    if (!auth) {
-      setLoading(false);
-      return undefined;
-    }
-
     let active = true;
-
-    getRedirectResult(auth).then((result) => {
-      if (active && result?.user) setRedirectError('');
-    }).catch((error) => {
-      if (active) setRedirectError(error.code || 'auth/redirect-failed');
-    });
-
-    const unsubscribe = onAuthStateChanged(auth, async (nextUser) => {
-      if (!active) return;
-      setUser(nextUser);
-      setCustomer(null);
-
-      if (!nextUser) {
-        setProfileStatus('idle');
-        setLoading(false);
-        return;
-      }
-
-      setProfileStatus('syncing');
-      try {
-        const idToken = await nextUser.getIdToken();
-        const response = await fetch('/api/me', {
-          method: 'GET',
-          headers: { Authorization: `Bearer ${idToken}` },
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data.error || 'Account profile sync failed.');
-        if (active) {
-          setCustomer(data.customer || null);
-          setProfileStatus('synced');
-        }
-      } catch (error) {
-        if (active) setProfileStatus('error');
-      } finally {
-        if (active) setLoading(false);
-      }
-    });
-
-    return () => {
-      active = false;
-      unsubscribe();
-    };
+    fetch('/api/auth/session', { credentials: 'same-origin' })
+      .then(json)
+      .then(async (session) => {
+        if (!active) return;
+        setConfigured(Boolean(session.configured));
+        setGoogleEnabled(Boolean(session.googleEnabled));
+        setCsrfToken(session.csrfToken || '');
+        setUser(session.user || null);
+        if (session.user) {
+          try {
+            const profile = await json(await fetch('/api/me', { credentials: 'same-origin' }));
+            if (active) { setCustomer(profile.customer || null); setProfileStatus('synced'); }
+          } catch { if (active) setProfileStatus('error'); }
+        } else if (active) setProfileStatus('idle');
+      })
+      .catch(() => { if (active) setProfileStatus('error'); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, []);
 
+  async function post(path, body) {
+    if (!csrfToken) throw new Error('Security token is not ready. Refresh the page and try again.');
+    return json(await fetch(path, {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+      body: JSON.stringify(body || {}),
+    }));
+  }
+
   const value = {
-    user,
-    customer,
-    profileStatus,
-    loading,
-    configured: firebaseConfigured,
-    redirectError,
+    user, customer, profileStatus, loading, configured, googleEnabled,
     async register(email, password, displayName) {
-      if (!auth) throw new Error('Firebase is not configured for this deployment.');
-      const credential = await createUserWithEmailAndPassword(auth, email.trim(), password);
-      if (displayName.trim()) await updateProfile(credential.user, { displayName: displayName.trim() });
-      return credential.user;
+      await post('/api/auth/register', { email, password, displayName });
+      await refresh();
     },
     async login(email, password) {
-      if (!auth) throw new Error('Firebase is not configured for this deployment.');
-      return (await signInWithEmailAndPassword(auth, email.trim(), password)).user;
+      await post('/api/auth/login', { email, password });
+      await refresh();
     },
     async loginWithGoogle() {
-      if (!auth) throw new Error('Firebase is not configured for this deployment.');
-      const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: 'select_account' });
-      await setPersistence(auth, browserLocalPersistence);
-      await signInWithRedirect(auth, provider);
+      if (!googleEnabled) throw new Error('Google sign-in is not configured for this deployment.');
+      window.location.href = '/api/auth/google/start';
     },
     async resetPassword(email) {
-      if (!auth) throw new Error('Firebase is not configured for this deployment.');
-      return sendPasswordResetEmail(auth, email.trim());
+      const result = await post('/api/auth/reset-password', { email });
+      return result;
     },
     async logout() {
-      if (auth) await signOut(auth);
+      await post('/api/auth/logout');
+      setUser(null);
+      setCustomer(null);
+      setProfileStatus('idle');
+      await refresh();
     },
   };
 
