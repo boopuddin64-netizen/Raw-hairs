@@ -54,7 +54,7 @@
 - Guest orders are linked to a hash of a one-time access token.
 - Paid online orders enter `paid_awaiting_admin_approval`; admin approval is required before fulfilment.
 - Manual transfer orders remain pending until an admin verifies funds against the business bank account.
-- A transfer screenshot or customer claim is never proof of payment.
+- A transfer screenshot or customer claim is never proof of payment.\n- COD is offered only when both the customer has an active owner/manager approval and the selected delivery zone has COD enabled. The server checks both at checkout.
 
 ### Inventory
 - Stock is tracked per product variant.
@@ -79,7 +79,7 @@
 - Admin creates/assigns delivery jobs and manages rider assignments.
 - Riders authenticate and can access only their assigned jobs.
 - Delivery transitions are validated and event-logged.
-- Customer delivery confirmation uses a secure, expiring confirmation token.
+- Delivery confirmation requires both a secure, expiring customer OTP and a delivery photo. The database rejects confirmation unless both are recorded.\n- Delivery photos are stored in private object storage and retained for 90 days; a scheduled deletion worker must remove expired objects and record deletion.\n- Admin manually assigns third-party providers and records their tracking/status updates; no provider API integration is in the initial release.
 
 ### International requests
 - Customer submits destination and requested items.
@@ -92,7 +92,7 @@
 - Neon project: `Raw-hairs`, PostgreSQL 18, region `aws-us-east-2`.
 - Production branch remains `production`.
 - Existing isolated schema test branch: `raw-hairs-schema-test`.
-- Existing migration `001_initial_schema.sql` has been executed successfully on the isolated branch only.
+- Existing migration `001_initial_schema.sql` has been executed successfully on the isolated branch only.\n- Migration `002_approved_commerce_rules.sql` is committed to the development branch. It adds owner/manager/operations roles, COD eligibility, delivery zones, atomic 15-minute stock reservations, OTP/photo delivery evidence, 90-day evidence expiry metadata, 48-hour return requests and promotions. It has NOT been applied to any database.
 - Do not apply the migration to production until application-level security, workflow tests, backup/recovery checks and explicit production approval are complete.
 - Future schema changes are versioned, reviewed, tested on a disposable/development branch, then promoted only after approval.
 - Never use the production database for destructive tests.
@@ -122,8 +122,8 @@
 ### Phase 5 — Payments and finance
 - Paystack integration, manual transfer verification, webhook idempotency, refunds, ledger posting and reconciliation.
 
-### Phase 6 — Delivery and international requests
-- Admin assignment, rider access, delivery events, customer confirmation and quotation workflow.
+### Phase 6 — Delivery, returns and international requests
+- Internal rider assignment, manually tracked third-party providers, OTP + photo proof, 90-day evidence retention, 48-hour returns with admin decisions, and approved international quotations.
 
 ### Phase 7 — Verification and launch
 - Security tests, end-to-end tests, payment sandbox, concurrency tests, operational monitoring, backup restore drill and controlled production release.
