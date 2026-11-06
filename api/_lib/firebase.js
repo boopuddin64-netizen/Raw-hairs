@@ -6,7 +6,7 @@ const SESSION_COOKIE = 'rawhairs_session';
 const CSRF_COOKIE = 'rawhairs_csrf';
 const SESSION_MS = 7 * 24 * 60 * 60 * 1000;
 
-function adminAuth() {
+export function getFirebaseAdminAuth() {
   const projectId = process.env.FIREBASE_PROJECT_ID;
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
   const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
@@ -75,7 +75,7 @@ export function assertCsrf(req) {
   }
 }
 export async function createSessionCookie(req, res, idToken) {
-  const auth = adminAuth();
+  const auth = getFirebaseAdminAuth();
   await auth.verifyIdToken(idToken, true);
   const session = await auth.createSessionCookie(idToken, { expiresIn: SESSION_MS });
   pushCookie(req, SESSION_COOKIE, session, { maxAge: SESSION_MS / 1000 });
@@ -85,7 +85,7 @@ export async function getFirebaseSessionUser(req) {
   const session = cookieMap(req)[SESSION_COOKIE];
   if (!session) return null;
   try {
-    return await adminAuth().verifySessionCookie(session, true);
+    return await getFirebaseAdminAuth().verifySessionCookie(session, true);
   } catch {
     return null;
   }
@@ -103,8 +103,8 @@ export async function destroyFirebaseSession(req, res) {
   const session = cookieMap(req)[SESSION_COOKIE];
   if (session) {
     try {
-      const identity = await adminAuth().verifySessionCookie(session, false);
-      await adminAuth().revokeRefreshTokens(identity.uid);
+      const identity = await getFirebaseAdminAuth().verifySessionCookie(session, false);
+      await getFirebaseAdminAuth().revokeRefreshTokens(identity.uid);
     } catch {
       // Clear stale or already-revoked cookies as well.
     }
