@@ -2,23 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../AuthContext';
 
 function authMessage(error) {
-  const code = error?.code || '';
-  const messages = {
-    'auth/email-already-in-use': 'An account already exists with this email. Sign in instead.',
-    'auth/invalid-email': 'Enter a valid email address.',
-    'auth/invalid-credential': 'Email or password is incorrect.',
-    'auth/user-disabled': 'This account has been disabled. Contact support.',
-    'auth/weak-password': 'Use a stronger password with at least 6 characters.',
-    'auth/too-many-requests': 'Too many attempts. Wait a little and try again.',
-    'auth/network-request-failed': 'Network error. Check your connection and try again.',
-    'auth/unauthorized-domain': 'This website domain is not authorized in Firebase Authentication.',
-    'auth/popup-blocked': 'The sign-in window was blocked. Allow redirects and try again.',
-    'auth/operation-not-allowed': 'This sign-in method is not enabled in Firebase Authentication.',
-    'auth/redirect-cancelled-by-user': 'Google sign-in was cancelled. Try again.',
-    'auth/redirect-operation-pending': 'A Google sign-in is already in progress. Wait a moment and try again.',
-    'auth/unauthorized-continue-uri': 'The Google sign-in return address is not authorized in Firebase.',
-  };
-  return messages[code] || 'We could not complete that request. Please try again.';
+  return error?.message || 'We could not complete that request. Please try again.';
 }
 
 export default function Account() {
@@ -68,7 +52,7 @@ export default function Account() {
         {mode === 'register' ? 'Create an account to make checkout and order tracking easier.' : mode === 'reset' ? 'Enter the email address linked to your account.' : 'Sign in to access your customer account.'}
       </p>
 
-      {!configured && <div className="notice" role="status" style={{ marginBottom: 16 }}>Firebase configuration is not yet set for this deployment. Sign-in will become available after the Vercel environment variables are added.</div>}
+      {!configured && <div className="notice" role="status" style={{ marginBottom: 16 }}>Secure sign-in is not yet configured for this deployment. Please contact the store administrator.</div>}
       {redirectError && <div className="notice" role="alert" style={{ marginBottom: 16 }}>Google sign-in could not finish: {authMessage({ code: redirectError })} <span className="small">({redirectError})</span></div>}
 
       <form onSubmit={(event) => {
@@ -79,12 +63,12 @@ export default function Account() {
       }}>
         {mode === 'register' && <div className="field"><label htmlFor="account-name">Full name</label><input id="account-name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} required /></div>}
         <div className="field"><label htmlFor="account-email">Email address</label><input id="account-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
-        {mode !== 'reset' && <div className="field"><label htmlFor="account-password">Password</label><input id="account-password" type="password" autoComplete={mode === 'register' ? 'new-password' : 'current-password'} value={password} onChange={(e) => setPassword(e.target.value)} minLength={6} required /></div>}
+        {mode !== 'reset' && <div className="field"><label htmlFor="account-password">Password</label><input id="account-password" type="password" autoComplete={mode === 'register' ? 'new-password' : 'current-password'} value={password} onChange={(e) => setPassword(e.target.value)} minLength={10} required /></div>}
         <button className="btn btn-primary btn-block" type="submit" disabled={busy || !configured}>{busy ? 'PLEASE WAIT…' : mode === 'register' ? 'CREATE ACCOUNT' : mode === 'reset' ? 'SEND RESET EMAIL' : 'SIGN IN'}</button>
       </form>
 
       {mode !== 'reset' && <>
-        <button className="btn btn-ghost btn-block" style={{ marginTop: 10 }} disabled={busy || !configured} onClick={() => run(loginWithGoogle)}>CONTINUE WITH GOOGLE</button>
+        <button className="btn btn-ghost btn-block" style={{ marginTop: 10 }} disabled={busy || !googleEnabled} onClick={() => run(loginWithGoogle)}>CONTINUE WITH GOOGLE</button>
         {mode === 'login' && <button className="link-btn" style={{ width: '100%', background: 'none', border: 0, color: 'var(--pink)', cursor: 'pointer' }} onClick={() => { setMode('reset'); setMessage(''); }}>Forgot password?</button>}
       </>}
 
