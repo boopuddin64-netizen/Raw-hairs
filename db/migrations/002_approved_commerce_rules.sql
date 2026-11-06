@@ -133,6 +133,7 @@ BEGIN
   END IF;
 
   -- Idempotent retry: an existing live reservation is returned unchanged.
+  PERFORM pg_advisory_xact_lock(hashtext(p_checkout_key));
   SELECT id INTO reservation_id
   FROM inventory_reservations
   WHERE checkout_key = p_checkout_key
@@ -361,13 +362,13 @@ CREATE OR REPLACE FUNCTION enforce_return_request_window() RETURNS trigger
 LANGUAGE plpgsql AS $$
 DECLARE delivered_at_value timestamptz;
 BEGIN
-  SELECT delivered_at INTO delivered_at_value
+  SELECT customer_confirmed_at INTO delivered_at_value
   FROM delivery_jobs
   WHERE id = NEW.delivery_job_id
     AND order_id = NEW.order_id;
 
   IF delivered_at_value IS NULL THEN
-    RAISE EXCEPTION 'A confirmed delivery is required before a return request'
+    RAISE EXCEPTION 'OTP and photo-confirmed delivery is required before a return request'
       USING ERRCODE = 'check_violation';
   END IF;
   IF NEW.requested_at > delivered_at_value + interval '48 hours' THEN
