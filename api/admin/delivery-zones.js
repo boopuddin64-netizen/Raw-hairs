@@ -1,4 +1,4 @@
-import { requireStaff } from '../_lib/authorization.js';
+import { requireStaffPermission } from '../_lib/authorization.js';
 
 function sendError(res, error) {
   const status = Number.isInteger(error.statusCode) ? error.statusCode : 500;
@@ -12,7 +12,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed.' });
   }
   try {
-    const { staff, sql } = await requireStaff(req, ['owner', 'manager']);
+    const { staff, sql } = await requireStaffPermission(req, 'delivery-zones:manage');
     if (req.method === 'GET') {
       const zones = await sql`
         SELECT id, name, country_code, state_name, city, fee_kobo, cod_enabled, is_active, created_at, updated_at
