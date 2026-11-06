@@ -127,7 +127,7 @@ BEGIN
     RAISE EXCEPTION 'A high-entropy checkout key is required'
       USING ERRCODE = 'invalid_parameter_value';
   END IF;
-  IF jsonb_typeof(p_items) <> 'array' OR jsonb_array_length(p_items) = 0 THEN
+  IF p_items IS NULL OR jsonb_typeof(p_items) <> 'array' OR jsonb_array_length(p_items) = 0 THEN
     RAISE EXCEPTION 'At least one inventory item is required'
       USING ERRCODE = 'invalid_parameter_value';
   END IF;
@@ -221,7 +221,7 @@ BEGIN
       ORDER BY variant_id
     LOOP
       UPDATE inventory_balances
-      SET reserved = GREATEST(0, reserved - item.quantity), updated_at = now()
+      SET reserved = reserved - item.quantity, updated_at = now()
       WHERE variant_id = item.variant_id;
 
       INSERT INTO inventory_movements(
@@ -242,6 +242,69 @@ BEGIN
   RETURN released_count;
 END;
 $$;
+
+-- Convert a live reservation into a sale exactly once after verified payment
+-- or an approved COD/manual-transfer fulfilment transition.
+CREATE OR REPLACE FUNCTION consume_inventory_reservation(
+  p_reservation_id uuid,
+  p_order_id uuid
+) RETURNS boolean
+LANGUAGE plpgsql AS $
+DECLARE reservation_row record;
+DECLARE item record;
+BEGIN
+  SELECT id, status, expires_at INTO reservation_row
+  FROM inventory_reservations
+  WHERE id = p_reservation_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Inventory reservation not found'
+      USING ERRCODE = 'no_data_found';
+  END IF;
+  IF reservation_row.status = 'consumed' THEN
+    RETURN false;
+  END IF;
+  IF reservation_row.status <> 'active' OR reservation_row.expires_at <= now() THEN
+    RAISE EXCEPTION 'Inventory reservation is no longer active'
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  FOR item IN
+    SELECT variant_id, quantity
+    FROM inventory_reservation_items
+    WHERE reservation_id = p_reservation_id
+    ORDER BY variant_id
+  LOOP
+    UPDATE inventory_balances
+    SET on_hand = on_hand - item.quantity,
+        reserved = reserved - item.quantity,
+        updated_at = now()
+    WHERE variant_id = item.variant_id
+      AND on_hand >= item.quantity
+      AND reserved >= item.quantity;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Inventory balance changed before reservation consumption'
+        USING ERRCODE = 'check_violation';
+    END IF;
+
+    INSERT INTO inventory_movements(
+      variant_id, movement_type, quantity_delta, reference_type,
+      reference_id, reason, actor_uid
+    ) VALUES (
+      item.variant_id, 'sale', -item.quantity, 'order',
+      p_order_id, 'Reserved stock consumed for confirmed order', 'system'
+    );
+  END LOOP;
+
+  UPDATE inventory_reservations
+  SET status = 'consumed', order_id = p_order_id, consumed_at = now()
+  WHERE id = p_reservation_id AND status = 'active';
+
+  RETURN true;
+END;
+$;
 
 -- ---------------------------------------------------------------------------
 -- Delivery proof: private object keys only. Evidence expires after 90 days.
