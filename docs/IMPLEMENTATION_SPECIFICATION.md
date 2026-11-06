@@ -54,7 +54,8 @@
 - Guest orders are linked to a hash of a one-time access token.
 - Paid online orders enter `paid_awaiting_admin_approval`; admin approval is required before fulfilment.
 - Manual transfer orders remain pending until an admin verifies funds against the business bank account.
-- A transfer screenshot or customer claim is never proof of payment.\n- COD is offered only when both the customer has an active owner/manager approval and the selected delivery zone has COD enabled. The server checks both at checkout.
+- A transfer screenshot or customer claim is never proof of payment.
+- COD is offered only when both the customer has an active owner/manager approval and the selected delivery zone has COD enabled. The server checks both at checkout.
 
 ### Inventory
 - Stock is tracked per product variant.
@@ -79,11 +80,18 @@
 - Admin creates/assigns delivery jobs and manages rider assignments.
 - Riders authenticate and can access only their assigned jobs.
 - Delivery transitions are validated and event-logged.
-- Delivery confirmation requires both a secure, expiring customer OTP and a delivery photo. The database rejects confirmation unless both are recorded.\n- Delivery photos are stored in private object storage and retained for 90 days; a scheduled deletion worker must remove expired objects and record deletion.\n- Admin manually assigns third-party providers and records their tracking/status updates; no provider API integration is in the initial release.
+- Delivery confirmation requires both a secure, expiring customer OTP and a delivery photo. The database rejects confirmation unless both are recorded.
+- Delivery photos are stored in private object storage and retained for 90 days; a scheduled deletion worker must remove expired objects and record deletion.
+- Admin manually assigns third-party providers and records their tracking/status updates; no provider API integration is in the initial release.
+
+### Returns and exchanges
+- A customer may submit a return/exchange request within 48 hours of OTP- and photo-confirmed delivery.
+- Owner or manager reviews each request and decides under the published returns policy; approval is never automatic.
 
 ### International requests
 - Customer submits destination and requested items.
 - Admin reviews and prepares a NGN quotation with expiry.
+- Owner or manager explicitly approves the quotation before it is sent.
 - Customer accepts or declines.
 - Payment and fulfilment start only after acceptance and payment verification.
 
@@ -92,7 +100,8 @@
 - Neon project: `Raw-hairs`, PostgreSQL 18, region `aws-us-east-2`.
 - Production branch remains `production`.
 - Existing isolated schema test branch: `raw-hairs-schema-test`.
-- Existing migration `001_initial_schema.sql` has been executed successfully on the isolated branch only.\n- Migration `002_approved_commerce_rules.sql` is committed to the development branch. It adds owner/manager/operations roles, COD eligibility, delivery zones, atomic 15-minute stock reservations, OTP/photo delivery evidence, 90-day evidence expiry metadata, 48-hour return requests and promotions. It has NOT been applied to any database.
+- Existing migration `001_initial_schema.sql` has been executed successfully on the isolated branch only.
+- Migration `002_approved_commerce_rules.sql` is committed to the development branch. It adds owner/manager/operations roles, COD eligibility, delivery zones, atomic 15-minute stock reservations, OTP/photo delivery evidence, 90-day evidence expiry metadata, 48-hour return requests and promotions. It has NOT been applied to any database.
 - Do not apply the migration to production until application-level security, workflow tests, backup/recovery checks and explicit production approval are complete.
 - Future schema changes are versioned, reviewed, tested on a disposable/development branch, then promoted only after approval.
 - Never use the production database for destructive tests.
@@ -110,7 +119,14 @@
 8. Configure backup/recovery policy, logging, rate limits and secret rotation procedures.
 9. Protect production branches/repository deployment paths where plan capabilities permit.
 
-### Phase 1A — Customer authentication implementation\n- Firebase Web SDK is installed in the React/Vite frontend.\n- Customer email/password registration, sign-in, password reset, Google redirect sign-in and sign-out are implemented in the account page.\n- Browser Firebase configuration is supplied only through `VITE_FIREBASE_*` environment variables.\n- Staff authorization and customer order access remain unavailable until server-side token verification and role-protected APIs are implemented.\n- Vercel environment variables and end-to-end sign-in tests must be completed before this integration is considered verified.\n\n### Phase 2 — Backend foundation
+### Phase 1A — Customer authentication implementation
+- Firebase Web SDK is installed in the React/Vite frontend.
+- Customer email/password registration, sign-in, password reset, Google redirect sign-in and sign-out are implemented in the account page.
+- Browser Firebase configuration is supplied only through `VITE_FIREBASE_*` environment variables.
+- Staff authorization and customer order access remain unavailable until server-side token verification and role-protected APIs are implemented.
+- Vercel environment variables and end-to-end sign-in tests must be completed before this integration is considered verified.
+
+### Phase 2 — Backend foundation
 - Add TypeScript Vercel Functions, API validation, Firebase token verification, role authorization, Neon pool, error handling, audit logging and rate limiting.
 
 ### Phase 3 — Catalogue and inventory
