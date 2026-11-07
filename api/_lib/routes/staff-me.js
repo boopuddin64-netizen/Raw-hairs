@@ -1,5 +1,5 @@
-import { getStaffContext, requireStaff } from '../_lib/authorization.js';
-import { getFirebaseAdminAuth } from '../_lib/firebase.js';
+import { getStaffContext, requireStaff } from '../authorization.js';
+import { getFirebaseAdminAuth } from '../firebase.js';
 
 const ROLES = new Set(['owner','manager','operations','rider']);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

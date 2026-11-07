@@ -1,5 +1,5 @@
-import { createSessionCookie, flushAuthCookies } from '../../_lib/firebase.js';
-import { appOrigin, consumeGoogleState, exchangeGoogleCode } from '../../_lib/session.js';
+import { createSessionCookie, flushAuthCookies } from '../firebase.js';
+import { appOrigin, consumeGoogleState, exchangeGoogleCode } from '../session.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).send('Method not allowed.');

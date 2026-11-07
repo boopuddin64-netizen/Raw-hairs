@@ -1,4 +1,4 @@
-import { getFirebaseSessionUser, issueCsrf, flushAuthCookies } from '../_lib/firebase.js';
+import { getFirebaseSessionUser, issueCsrf, flushAuthCookies } from '../firebase.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed.' });
