@@ -4,16 +4,6 @@ import { getDb } from './db.js';
 // Permissions are enforced by the API, never trusted from client-supplied roles.
 export const STAFF_ROLE_PERMISSIONS = Object.freeze({
   owner: ['*'],
-  manager: [
-    'catalog:read', 'catalog:write', 'services:manage',
-    'orders:read', 'orders:manage', 'inventory:read', 'inventory:manage',
-    'customers:read', 'cod:manage', 'delivery-zones:manage',
-    'dispatch:manage', 'riders:manage',
-  ],
-  operations: [
-    'catalog:read', 'services:read', 'orders:read', 'orders:manage',
-    'inventory:read', 'inventory:manage', 'customers:read', 'dispatch:manage',
-  ],
   rider: ['delivery:self:read', 'delivery:self:update'],
 });
 
@@ -36,7 +26,7 @@ export async function getStaffContext(req) {
   return { identity, staff, sql, permissions: STAFF_ROLE_PERMISSIONS[staff.role] };
 }
 
-export async function requireStaff(req, allowedRoles = ['owner', 'manager']) {
+export async function requireStaff(req, allowedRoles = ['owner']) {
   const context = await getStaffContext(req);
   if (!allowedRoles.includes(context.staff.role)) {
     const error = new Error('You do not have permission to perform this action.');
