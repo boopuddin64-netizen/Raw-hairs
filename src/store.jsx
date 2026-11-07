@@ -19,7 +19,7 @@ export const naira = (n) => (n == null || n === '' ? '₦ [PRICE]' : '₦' + Num
 export function stockLabel(p) {
   if (!p.available) return 'Unavailable';
   if (p.stock <= 0) return 'Sold out';
-  if (p.stock <= 2) return `Only ${p.stock} left`;
+  if (p.stock <= 2) return 'Low stock';
   return 'In stock';
 }
 export const isSoldOut = (p) => !p.available || p.stock <= 0;
@@ -39,10 +39,19 @@ export function StoreProvider({ children }) {
       state: s,
       product,
       cartCount: s.cart.reduce((a, c) => a + c.qty, 0),
+      isWished: (id) => (s.wishlist || []).includes(id),
+      toggleWishlist(id) {
+        update((d) => {
+          d.wishlist = d.wishlist || [];
+          const i = d.wishlist.indexOf(id);
+          if (i >= 0) d.wishlist.splice(i, 1); else d.wishlist.push(id);
+          return d;
+        });
+      },
       addToCart(id, length, qty = 1) {
         const p = product(id);
         if (!p || isSoldOut(p)) return { ok: false, message: 'This wig is sold out.' };
-        if (inCart(id) + qty > p.stock) return { ok: false, message: `Only ${p.stock} available.` };
+        if (inCart(id) + qty > p.stock) return { ok: false, message: 'You already have the most we can offer of this wig in your bag.' };
         update((d) => {
           const line = d.cart.find((c) => c.id === id && c.length === length);
           if (line) line.qty += qty; else d.cart.push({ id, length, qty });

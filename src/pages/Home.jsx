@@ -15,11 +15,11 @@ export default function Home() {
   return (
     <>
       <section className="hero">
-        <div className="hero-note">PLACEHOLDER · replace with an authentic RAW HAIRS campaign photograph</div>
+        <div className="hero-note">THE SIGNATURE COLLECTION</div>
         <div className="hero-inner">
           <p className="eyebrow">The collection</p>
           <h1>Your Crown.<br />Your Confidence.</h1>
-          <p className="lead">Wigs made to be worn, loved and noticed. Shop online or visit us in person.</p>
+          <p className="lead">Explore premium wig textures, lengths and finishes. Find your next unit or book a wig-care service.</p>
           <div className="hero-actions">
             <Link to="/shop" className="btn btn-primary btn-lg">Shop collection</Link>
             <Link to="/services" className="btn btn-outline btn-lg">Explore our services</Link>
@@ -30,7 +30,7 @@ export default function Home() {
       <div className="wrap">
         <section className="section" aria-labelledby="h-style">
           <div className="section-head"><h2 id="h-style">Shop by style</h2></div>
-          <p className="note">Sample categories. Keep only the styles RAW HAIRS actually sells.</p>
+          <p className="note">Explore the textures and silhouettes in the demo collection.</p>
           <div className="hscroll cats">
             {categories.map((c) => (
               <Link key={c.id} to={`/shop?cat=${c.id}`} className="cat"><Photo label={c.name} />{c.name}</Link>
@@ -40,7 +40,7 @@ export default function Home() {
         </section>
 
         <section className="section" aria-labelledby="h-new">
-          <div className="section-head"><h2 id="h-new">New arrivals</h2><Link to="/shop">View all</Link></div>
+          <div className="section-head"><h2 id="h-new">New arrivals</h2><Link to="/shop" className="tap">View all</Link></div>
           <div className="grid">{arrivals.map((p) => <ProductCard key={p.id} p={p} onAdded={toast} />)}</div>
         </section>
 
@@ -58,7 +58,7 @@ export default function Home() {
         </section>
 
         <section className="section" aria-labelledby="h-svc">
-          <div className="section-head"><h2 id="h-svc">Wig services</h2><Link to="/services">All services</Link></div>
+          <div className="section-head"><h2 id="h-svc">Wig services</h2><Link to="/services" className="tap">All services</Link></div>
           <div className="stack services-grid">
             {services.map((s) => {
               const [tone, label] = STATUS[s.status];
@@ -77,20 +77,12 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="section" aria-labelledby="h-rev">
-          <div className="section-head"><h2 id="h-rev">Kind words</h2></div>
-          <div className="placeholder-box">
-            <span className="big">Real customer reviews go here.</span>
-            <span className="muted small">Development placeholder. Add only reviews RAW HAIRS supplies with the customer's permission. Nothing is invented.</span>
-          </div>
-        </section>
-
         <section className="section" aria-labelledby="h-ig">
           <div className="section-head"><h2 id="h-ig">Follow RAW HAIRS</h2></div>
           <p className="note">@raw.hairs on Instagram</p>
           <div className="insta" aria-hidden="true">{[1, 2, 3, 4, 5, 6].map((n) => <div key={n} />)}</div>
           <a className="btn btn-outline" href={INSTAGRAM_URL} target="_blank" rel="noreferrer noopener">View on Instagram</a>
-          <p className="muted small" style={{ marginTop: 10 }}>Gallery is placeholder until the admin uploads photos or an official Meta feed is connected.</p>
+          <p className="muted small" style={{ marginTop: 10 }}>Wig display previews only. Replace with approved RAW HAIRS product photography before launch.</p>
         </section>
 
         <section className="section" aria-labelledby="h-trust">

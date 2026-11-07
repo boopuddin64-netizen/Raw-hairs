@@ -1,0 +1,14 @@
+{
+  "rewrites": [
+    { "source": "/api/auth/login", "destination": "/api/auth?action=login" },
+    { "source": "/api/auth/logout", "destination": "/api/auth?action=logout" },
+    { "source": "/api/auth/register", "destination": "/api/auth?action=register" },
+    { "source": "/api/auth/reset-password", "destination": "/api/auth?action=reset-password" },
+    { "source": "/api/auth/session", "destination": "/api/auth?action=session" },
+    { "source": "/api/auth/google/start", "destination": "/api/auth?action=google-start" },
+    { "source": "/api/auth/google/callback", "destination": "/api/auth?action=google-callback" },
+    { "source": "/api/staff/me", "destination": "/api/staff?action=staff-me" },
+    { "source": "/api/admin/cod-eligibility", "destination": "/api/staff?action=cod-eligibility" },
+    { "source": "/api/admin/delivery-zones", "destination": "/api/staff?action=delivery-zones" }
+  ]
+}

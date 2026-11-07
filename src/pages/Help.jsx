@@ -19,7 +19,7 @@ export default function Help() {
       <h1>{item.label}</h1>
       <div className="notice" style={{ margin: '12px 0 20px' }}>Placeholder text. The owner supplies the final wording.</div>
       <p style={{ whiteSpace: 'pre-line', color: 'var(--soft)' }}>{BODY[item.id]}</p>
-      {item.id === 'contact' && <p style={{ marginTop: 16 }}><a href={INSTAGRAM_URL} target="_blank" rel="noreferrer noopener">Message us on Instagram</a></p>}
+      {item.id === 'contact' && <p style={{ marginTop: 16 }}><a href={INSTAGRAM_URL} className="tap" target="_blank" rel="noreferrer noopener">Message us on Instagram</a></p>}
       <div className="trust" style={{ marginTop: 28 }}>
         {policyLinks.filter((p) => p.id !== item.id).map((p) => <Link key={p.id} to={`/help/${p.id}`}>{p.label}</Link>)}
       </div>

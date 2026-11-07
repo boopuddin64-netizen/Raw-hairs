@@ -1,40 +1,85 @@
 import { useState } from 'react';
-import { useStore } from '../store';
-import { Chip } from '../components';
+import { useSearchParams } from 'react-router-dom';
+import { useAuth } from '../AuthContext';
 
-const TONE = { 'Out for delivery': 'warn', 'Awaiting shipping quote': 'info', Delivered: 'ok' };
+function authMessage(error) {
+  return error?.message || 'We could not complete that request. Please try again.';
+}
 
 export default function Account() {
-  const { state } = useStore();
-  const [msg, setMsg] = useState('');
-  return (
-    <div className="wrap page" style={{ maxWidth: 640 }}>
-      <p className="eyebrow">My account</p>
-      <h1>Welcome back</h1>
-      <p className="muted small" style={{ margin: '4px 0 16px' }}>[CUSTOMER NAME] · [EMAIL]</p>
+  const { user, customer, profileStatus, loading, configured, googleEnabled, register, login, loginWithGoogle, resetPassword, logout } = useAuth();
+  const [params] = useSearchParams();
+  const googleFailed = params.get('auth_error') === 'google';
+  const [mode, setMode] = useState('login');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
 
-      <div className="notice" style={{ marginBottom: 20 }}>Sign-in is not connected yet. The order list below is sample data to show the layout. When accounts are built, you will only ever see your own orders.</div>
+  const run = async (action) => {
+    setBusy(true);
+    setMessage('');
+    try {
+      await action();
+      if (mode === 'reset') setMessage('If an account exists for that email, a password reset message will be sent. Check your inbox.');
+    } catch (error) {
+      setMessage(authMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  };
 
-      <form onSubmit={(e) => { e.preventDefault(); setMsg('Registration and sign-in are not connected yet.'); }} style={{ marginBottom: 24 }}>
-        <div className="field"><label htmlFor="a-e">Email</label><input id="a-e" type="email" autoComplete="email" /></div>
-        <div className="field"><label htmlFor="a-p">Password</label><input id="a-p" type="password" autoComplete="current-password" /></div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button className="btn btn-primary" type="submit">Sign in</button>
-          <button className="btn btn-ghost" type="button" onClick={() => setMsg('Registration is not connected yet.')}>Create account</button>
-          <button className="btn btn-ghost" type="button" onClick={() => setMsg('Password recovery is not connected yet.')}>Forgot password</button>
+  if (loading) return <div className="wrap page" style={{ maxWidth: 640 }}><p className="eyebrow">My account</p><h1>Loading account…</h1></div>;
+
+  if (user) {
+    return (
+      <div className="wrap page" style={{ maxWidth: 640 }}>
+        <p className="eyebrow">My account</p>
+        <h1>Welcome{user.displayName ? `, ${user.displayName}` : ''}</h1>
+        <p className="muted small" style={{ margin: '8px 0 20px' }}>{user.email}</p>
+        <div className="notice" style={{ marginBottom: 16 }}>
+          {profileStatus === 'syncing' && 'Securing your account profile…'}{profileStatus === 'synced' && 'Your customer profile is securely connected.'}{profileStatus === 'error' && 'You are signed in, but we could not sync your customer profile. Please refresh this page or try again later.'}{profileStatus === 'idle' && 'You are signed in. Your account is being checked.'}
         </div>
-        {msg && <div className="notice" role="status" style={{ marginTop: 12 }}>{msg}</div>}
+        {user.emailVerified === false && <div className="notice" role="status" style={{ marginBottom: 16 }}>Please verify your email address using the message we sent you. If you cannot find it, use Forgot password on the sign-in page.</div>}
+        {customer?.id && <p className="muted small">Customer account connected · {customer.email || user.email}</p>}
+        <button className="btn btn-ghost" disabled={busy} onClick={() => run(logout)}>Sign out</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="wrap page" style={{ maxWidth: 520 }}>
+      <p className="eyebrow">RAW HAIRS account</p>
+      <h1>{mode === 'register' ? 'Create your account' : mode === 'reset' ? 'Reset password' : 'Welcome back'}</h1>
+      <p className="muted small" style={{ margin: '8px 0 20px' }}>
+        {mode === 'register' ? 'Create an account to make checkout and order tracking easier.' : mode === 'reset' ? 'Enter the email address linked to your account.' : 'Sign in to access your customer account.'}
+      </p>
+
+      {!configured && <div className="notice" role="status" style={{ marginBottom: 16 }}>Secure sign-in is not yet configured for this deployment. Please contact the store administrator.</div>}
+
+      <form onSubmit={(event) => {
+        event.preventDefault();
+        if (mode === 'register') run(() => register(email, password, name));
+        else if (mode === 'reset') run(() => resetPassword(email));
+        else run(() => login(email, password));
+      }}>
+        {mode === 'register' && <div className="field"><label htmlFor="account-name">Full name</label><input id="account-name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} required /></div>}
+        <div className="field"><label htmlFor="account-email">Email address</label><input id="account-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
+        {mode !== 'reset' && <div className="field"><label htmlFor="account-password">Password</label><input id="account-password" type="password" autoComplete={mode === 'register' ? 'new-password' : 'current-password'} value={password} onChange={(e) => setPassword(e.target.value)} minLength={mode === 'register' ? 10 : undefined} required /></div>}
+        <button className="btn btn-primary btn-block" type="submit" disabled={busy || !configured}>{busy ? 'PLEASE WAIT…' : mode === 'register' ? 'CREATE ACCOUNT' : mode === 'reset' ? 'SEND RESET EMAIL' : 'SIGN IN'}</button>
       </form>
 
-      <h2 style={{ fontSize: 28, marginBottom: 12 }}>Your orders</h2>
-      <div className="stack">
-        {state.orders.map((o) => (
-          <article key={o.id} className="row-card" style={{ flexDirection: 'column', gap: 8 }}>
-            <div className="row-top"><h3>Order {o.id}</h3><Chip tone={TONE[o.status] || 'muted'}>{o.status}</Chip></div>
-            <span className="muted small">{o.items}</span>
-            <div className="row-top"><span className="muted small">{o.note}</span><span className="price">₦ [AMOUNT]</span></div>
-          </article>
-        ))}
+      {mode !== 'reset' && <>
+        <button className="btn btn-ghost btn-block" style={{ marginTop: 10 }} disabled={busy || !googleEnabled} onClick={() => run(loginWithGoogle)}>CONTINUE WITH GOOGLE</button>
+        {mode === 'login' && <button className="link-btn" style={{ width: '100%', background: 'none', border: 0, color: 'var(--pink)', cursor: 'pointer' }} onClick={() => { setMode('reset'); setMessage(''); }}>Forgot password?</button>}
+      </>}
+
+      {(message || googleFailed) && <div className="notice" role="status" style={{ marginTop: 14 }}>{message || 'Google sign-in could not be completed. Please try again, or use your email and password.'}</div>}
+
+      <div style={{ borderTop: '1px solid var(--line)', marginTop: 22, paddingTop: 18, textAlign: 'center' }}>
+        {mode === 'login' ? <p className="muted small">New to RAW HAIRS? <button className="link-btn" style={{ display: 'inline-flex', border: 0, background: 'none', color: 'var(--pink)', cursor: 'pointer' }} onClick={() => { setMode('register'); setMessage(''); }}>Create an account</button></p> :
+          <button className="link-btn" style={{ width: '100%', border: 0, background: 'none', color: 'var(--pink)', cursor: 'pointer' }} onClick={() => { setMode('login'); setMessage(''); }}>Back to sign in</button>}
       </div>
     </div>
   );
