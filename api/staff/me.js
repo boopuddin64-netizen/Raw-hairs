@@ -20,7 +20,7 @@ export default async function handler(req,res){
   const body=req.body&&typeof req.body==='object'?req.body:{};
   if(req.method==='POST'){
    const email=typeof body.email==='string'?body.email.trim().toLowerCase():'',role=body.role;
-   if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)||!ROLES.has(role))return res.status(400).json({error:'Enter a valid email address and staff role.'});
+   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||!ROLES.has(role))return res.status(400).json({error:'Enter a valid email address and staff role.'});
    let identity;try{identity=await getFirebaseAdminAuth().getUserByEmail(email);}catch(error){if(error.code==='auth/user-not-found')return res.status(404).json({error:'No registered account was found for that email. Ask the person to create a customer account first.'});throw error;}
    const existing=await sql`SELECT id FROM staff_users WHERE firebase_uid=${identity.uid} LIMIT 1`;
    if(existing.length)return res.status(409).json({error:'This account is already registered as staff.'});
