@@ -1,7 +1,7 @@
 import { getStaffContext, requireStaff } from '../_lib/authorization.js';
 import { getFirebaseAdminAuth } from '../_lib/firebase.js';
 
-const ROLES = new Set(['owner','manager','operations','rider']);
+const ROLES = new Set(['owner','rider']);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 function fail(res,error){const status=Number.isInteger(error.statusCode)?error.statusCode:500;if(status>=500)console.error('RAW HAIRS staff API error:',error.message);return res.status(status).json({error:status>=500?'Staff access service is temporarily unavailable.':error.message});}
 export default async function handler(req,res){
