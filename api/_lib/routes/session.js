@@ -1,4 +1,4 @@
-import { getFirebaseSessionUser, issueCsrf, flushAuthCookies } from '../_lib/firebase.js';
+import { getFirebaseSessionUser, issueCsrf, flushAuthCookies } from '../firebase.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed.' });
@@ -10,7 +10,7 @@ export default async function handler(req, res) {
       configured: Boolean(process.env.FIREBASE_WEB_API_KEY && process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY),
       googleEnabled: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.APP_ORIGIN),
       csrfToken,
-      user: identity ? { uid: identity.uid, email: identity.email || null, displayName: identity.name || null } : null,
+      user: identity ? { uid: identity.uid, email: identity.email || null, displayName: identity.name || null, emailVerified: identity.email_verified === true } : null,
     });
   } catch (error) {
     const status = Number.isInteger(error.statusCode) ? error.statusCode : 500;

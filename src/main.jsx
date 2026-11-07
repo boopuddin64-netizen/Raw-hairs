@@ -1,6 +1,6 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { HashRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { StoreProvider } from './store';
 import { AuthProvider } from './AuthContext';
 import { ThemeProvider } from './ThemeContext';
@@ -15,10 +15,13 @@ import Help from './pages/Help';
 import Admin from './pages/Admin';
 import Rider from './pages/Rider';
 import StaffGate from './StaffGate';
-import './styles.css';
-import './premium.css';
-import './staff-access.css';
-import './standard.css';
+import './app.css';
+
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  React.useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  return null;
+}
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
@@ -26,6 +29,7 @@ createRoot(document.getElementById('root')).render(
     <AuthProvider>
       <StoreProvider>
         <HashRouter>
+        <ScrollToTop />
         <Routes>
           <Route element={<Layout />}>
             <Route index element={<Home />} />

@@ -1,4 +1,4 @@
-import { requireStaffPermission } from '../_lib/authorization.js';
+import { requireStaffPermission } from '../authorization.js';
 
 function sendError(res, error) {
   const status = Number.isInteger(error.statusCode) ? error.statusCode : 500;

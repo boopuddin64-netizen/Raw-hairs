@@ -1,5 +1,5 @@
-import { getStaffContext, requireStaff } from '../_lib/authorization.js';
-import { getFirebaseAdminAuth } from '../_lib/firebase.js';
+import { getStaffContext, requireStaff } from '../authorization.js';
+import { getFirebaseAdminAuth } from '../firebase.js';
 
 const ROLES = new Set(['owner','manager','operations','rider']);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -20,8 +20,9 @@ export default async function handler(req,res){
   const body=req.body&&typeof req.body==='object'?req.body:{};
   if(req.method==='POST'){
    const email=typeof body.email==='string'?body.email.trim().toLowerCase():'',role=body.role;
-   if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)||!ROLES.has(role))return res.status(400).json({error:'Enter a valid email address and staff role.'});
+   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||!ROLES.has(role))return res.status(400).json({error:'Enter a valid email address and staff role.'});
    let identity;try{identity=await getFirebaseAdminAuth().getUserByEmail(email);}catch(error){if(error.code==='auth/user-not-found')return res.status(404).json({error:'No registered account was found for that email. Ask the person to create a customer account first.'});throw error;}
+   if(!identity.emailVerified)return res.status(409).json({error:'This account has not verified its email yet. Ask the person to open the verification link we emailed them, or use Forgot password once on the sign-in page, then try again.'});
    const existing=await sql`SELECT id FROM staff_users WHERE firebase_uid=${identity.uid} LIMIT 1`;
    if(existing.length)return res.status(409).json({error:'This account is already registered as staff.'});
    const inserted=await sql`INSERT INTO staff_users(firebase_uid,role,is_active) VALUES(${identity.uid},${role},true) RETURNING id,firebase_uid,role,is_active,created_at,updated_at`;

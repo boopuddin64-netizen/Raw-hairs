@@ -34,7 +34,7 @@ export default function Services() {
                 <span className="price">From {naira(s.price)}</span>
                 {paused
                   ? <button className="btn btn-disabled" disabled>Temporarily unavailable</button>
-                  : <a className="btn btn-primary" href="#book" onClick={() => setForm({ ...form, service: s.name })}>Book or enquire</a>}
+                  : <button type="button" className="btn btn-primary" onClick={() => { setForm({ ...form, service: s.name }); const b = document.getElementById('book'); if (b) b.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>Book or enquire</button>}
               </div>
             </article>
           );

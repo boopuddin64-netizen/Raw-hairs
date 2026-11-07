@@ -40,7 +40,7 @@ export default function Home() {
         </section>
 
         <section className="section" aria-labelledby="h-new">
-          <div className="section-head"><h2 id="h-new">New arrivals</h2><Link to="/shop">View all</Link></div>
+          <div className="section-head"><h2 id="h-new">New arrivals</h2><Link to="/shop" className="tap">View all</Link></div>
           <div className="grid">{arrivals.map((p) => <ProductCard key={p.id} p={p} onAdded={toast} />)}</div>
         </section>
 
@@ -58,7 +58,7 @@ export default function Home() {
         </section>
 
         <section className="section" aria-labelledby="h-svc">
-          <div className="section-head"><h2 id="h-svc">Wig services</h2><Link to="/services">All services</Link></div>
+          <div className="section-head"><h2 id="h-svc">Wig services</h2><Link to="/services" className="tap">All services</Link></div>
           <div className="stack services-grid">
             {services.map((s) => {
               const [tone, label] = STATUS[s.status];

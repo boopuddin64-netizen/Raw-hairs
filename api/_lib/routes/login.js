@@ -1,4 +1,4 @@
-import { assertCsrf, createSessionCookie, flushAuthCookies } from '../_lib/firebase.js';
+import { assertCsrf, createSessionCookie, flushAuthCookies } from '../firebase.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });

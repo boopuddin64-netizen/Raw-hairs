@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useStore, naira, stockLabel } from '../store';
 import { Photo } from '../components';
@@ -9,12 +9,28 @@ export default function Cart() {
   const [dest, setDest] = useState('ng');
   const [sent, setSent] = useState(false);
   const [info, setInfo] = useState('');
+  const [removed, setRemoved] = useState(null);
+  const undoTimer = useRef(null);
+  useEffect(() => () => window.clearTimeout(undoTimer.current), []);
   const [form, setForm] = useState({ name: '', whatsapp: '', country: '', address: '' });
 
   const lines = state.cart.map((c) => ({ ...c, p: store.product(c.id) })).filter((l) => l.p);
   const allPriced = lines.length > 0 && lines.every((l) => l.p.price != null);
   const subtotal = lines.reduce((a, l) => a + (l.p.price || 0) * l.qty, 0);
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const remove = (l) => {
+    window.clearTimeout(undoTimer.current);
+    setRemoved({ id: l.id, length: l.length, qty: l.qty, name: l.p.name });
+    store.removeLine(l.id, l.length);
+    undoTimer.current = window.setTimeout(() => setRemoved(null), 8000);
+  };
+  const undo = () => {
+    window.clearTimeout(undoTimer.current);
+    const r = store.addToCart(removed.id, removed.length, removed.qty);
+    setRemoved(null);
+    setInfo(r.ok ? '' : r.message);
+  };
+  const undoNotice = removed && <div className="notice undo-notice" role="status">Removed {removed.name} from your bag. <button type="button" className="undo-btn" onClick={undo}>Undo</button></div>;
 
   const submitIntl = (e) => {
     e.preventDefault();
@@ -26,6 +42,7 @@ export default function Cart() {
     return (
       <div className="wrap page">
         <h1>Your bag</h1>
+        {undoNotice}
         <div className="placeholder-box" style={{ marginTop: 16 }}>
           <span className="big">Your bag is empty.</span>
           <Link to="/shop" className="btn btn-primary" style={{ marginTop: 8, alignSelf: 'flex-start' }}>Shop collection</Link>
@@ -37,6 +54,7 @@ export default function Cart() {
   return (
     <div className="wrap page">
       <h1>Your bag</h1>
+      {undoNotice}
       <p className="muted small" style={{ marginBottom: 16 }}>{lines.reduce((a, l) => a + l.qty, 0)} items</p>
       <div className="cart-grid">
         <div className="stack">
@@ -46,7 +64,7 @@ export default function Cart() {
               <div className="row-main">
                 <div className="row-top">
                   <h3>{l.p.name}</h3>
-                  <button className="icon-btn" aria-label={`Remove ${l.p.name}`} style={{ margin: '-10px -10px 0 0' }} onClick={() => store.removeLine(l.id, l.length)}>✕</button>
+                  <button className="icon-btn" aria-label={`Remove ${l.p.name}`} style={{ margin: '-10px -10px 0 0' }} onClick={() => remove(l)}>✕</button>
                 </div>
                 <span className="muted small">{l.length} in · {l.p.spec}</span>
                 <span className="small" style={{ color: l.qty >= l.p.stock ? 'var(--warn)' : 'var(--ok)' }}>

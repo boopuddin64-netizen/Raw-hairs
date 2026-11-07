@@ -55,7 +55,7 @@ export const seed = {
     { id:'#0002', items:'Silk Bone Straight · 26 in', status:'Awaiting shipping quote', note:'International request' },
     { id:'#0001', items:'Everyday Closure Bob · 12 in', status:'Delivered', note:'Paid' },
   ],
-  requests: [], bookings: [], cart: [],
+  requests: [], bookings: [], cart: [], wishlist: [],
 };
 
 export const jobSteps = ['Assigned to you', 'Picked up', 'On the way', 'Delivered and confirmed'];
