@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useStore, stockLabel } from '../store';
 import { Chip } from '../components';
-import StaffManagement from '../components/StaffManagement';
 
 const NAV = [
   ['Overview', '◫', 'Your business at a glance'],
@@ -10,7 +9,6 @@ const NAV = [
   ['Enquiries', '✉', 'Customer requests'],
   ['Orders', '▤', 'Order activity'],
   ['Team', '♙', 'Rider access and dispatch'],
-  ['Staff & Access', '♧', 'Staff accounts and permissions'],
 ];
 
 function Metric({ label, value, note, icon, tone = '' }) {
@@ -23,16 +21,15 @@ function Empty({ title, text }) {
   return <div className="adm-empty"><span className="adm-empty-mark">✳</span><strong>{title}</strong><p>{text}</p></div>;
 }
 
-export default function Admin({ staffRole = 'manager' }) {
+export default function Admin({ staffRole = 'owner' }) {
   const store = useStore();
   const { state } = store;
   const [tab, setTab] = useState('Overview');
-  const canManageTeam = staffRole === 'owner' || staffRole === 'manager';
-  const canManageStaff = staffRole === 'owner';
-  const canManageCatalogue = staffRole === 'owner' || staffRole === 'manager';
-  const canManageServices = staffRole === 'owner' || staffRole === 'manager';
-  const canManageInventory = ['owner', 'manager', 'operations'].includes(staffRole);
-  const visibleNav = NAV.filter(([name]) => (name !== 'Team' || canManageTeam) && (name !== 'Staff & Access' || canManageStaff));
+  const canManageTeam = staffRole === 'owner';
+  const canManageCatalogue = staffRole === 'owner';
+  const canManageServices = staffRole === 'owner';
+  const canManageInventory = staffRole === 'owner';
+  const visibleNav = NAV;
   const [query, setQuery] = useState('');
   const [riderName, setRiderName] = useState('');
   const [notice, setNotice] = useState('');
@@ -89,7 +86,6 @@ export default function Admin({ staffRole = 'manager' }) {
 
           {tab === 'Orders' && <section className="glass-panel adm-panel"><SectionTitle kicker="FULFILMENT" title="Orders" description="A sample order ledger for the customer journey walkthrough." /><div className="adm-table-wrap"><table className="adm-table"><thead><tr><th>ORDER</th><th>ITEMS</th><th>FULFILMENT</th><th>PAYMENT</th></tr></thead><tbody>{(state.orders || []).map((o) => <tr key={o.id}><td><b>{o.id}</b></td><td>{o.items}</td><td><Chip tone={o.status === 'Delivered' ? 'ok' : 'info'}>{o.status}</Chip></td><td>{o.note}</td></tr>)}</tbody></table></div><p className="adm-footnote">Order status changes, refunds, payment reconciliation and customer notifications are not connected in this prototype.</p></section>}
 
-          {tab === 'Staff & Access' && canManageStaff && <StaffManagement />}
 
           {tab === 'Team' && canManageTeam && <div className="adm-overview-grid"><section className="glass-panel adm-panel"><SectionTitle kicker="DELIVERY NETWORK" title="Rider roster" description="Manage the sample delivery team." />{state.riders.map((r) => <div className="adm-team-row" key={r.id}><span className="adm-avatar">{r.name.slice(0, 1).toUpperCase()}</span><span><b>{r.name}</b><small>{r.status === 'active' ? 'Active rider' : r.status === 'invited' ? 'Invitation pending' : 'Access deactivated'}</small></span><Chip tone={r.status === 'active' ? 'ok' : r.status === 'invited' ? 'info' : 'muted'}>{r.status}</Chip><button className="adm-button ghost" onClick={() => store.setRiderStatus(r.id, r.status === 'deactivated' ? 'active' : 'deactivated')}>{r.status === 'deactivated' ? 'Reactivate' : 'Deactivate'}</button></div>)}<form className="adm-invite-form" onSubmit={(e) => { e.preventDefault(); if (riderName.trim()) { store.inviteRider(riderName.trim()); setRiderName(''); setDemoNotice('Rider added to the local demo roster.'); } }}><label htmlFor="adm-rider-name">Add a rider to the demo roster</label><div><input id="adm-rider-name" className="adm-input" value={riderName} onChange={(e) => setRiderName(e.target.value)} placeholder="Rider display name" /><button className="adm-button primary" type="submit">Add rider +</button></div></form></section><section className="glass-panel adm-panel"><SectionTitle kicker="DISPATCH PREVIEW" title="Delivery activity" description="Sample jobs currently visible in the driver demo." />{state.jobs.map((j) => <div className="adm-job-row" key={j.id}><span><b>{j.id}</b><small>{j.customer} · {j.pack}</small></span><Chip tone={j.step >= 3 ? 'ok' : 'info'}>{['Assigned','Picked up','On the way','Delivered'][j.step]}</Chip></div>)}<a className="adm-text-button" href="#/rider">Open driver portal ↗</a></section></div>}
         </div>
