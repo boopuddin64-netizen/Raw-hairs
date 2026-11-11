@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useCatalog, formatNaira } from '../catalog';
 import { useStore, isSoldOut, stockLabel } from '../store';
 import { useToast } from '../components';
+import { onSwipe, enablePinchZoom } from '../gestures';
 
 export default function Product() {
   const { id } = useParams();
@@ -10,7 +11,29 @@ export default function Product() {
   const store = useStore();
   const [qty, setQty] = useState(1);
   const [show, toast] = useToast();
+  const photoRef = useRef(null);
   const product = products.find((item) => item.id === id);
+
+  const images = product
+    ? [product.image_url, ...(product.gallery || [])].filter(Boolean)
+    : [];
+  const [idx, setIdx] = useState(0);
+
+  useEffect(() => setIdx(0), [id]);
+
+  useEffect(() => {
+    const el = photoRef.current;
+    if (!el || images.length === 0) return;
+    const cleanSwipe = onSwipe(el, {
+      onLeft: () => setIdx((i) => (i + 1) % images.length),
+      onRight: () => setIdx((i) => (i - 1 + images.length) % images.length),
+    });
+    const cleanZoom = enablePinchZoom(el);
+    return () => {
+      cleanSwipe();
+      cleanZoom();
+    };
+  }, [images.length, id]);
 
   if (loading) return <div className="wrap page"><p className="muted">Loading product…</p></div>;
   if (error) return <div className="wrap page"><h1>Product unavailable</h1><p className="muted">{error}</p><Link to="/shop">Return to shop</Link></div>;
@@ -18,6 +41,7 @@ export default function Product() {
 
   const out = isSoldOut(product);
   const maxQty = Math.max(1, product.stock || 1);
+  const currentImage = images[idx] || product.image_url;
 
   const add = () => {
     const result = store.addToCart(product, null, qty);
@@ -29,14 +53,36 @@ export default function Product() {
       <Link to="/shop" className="small">← Back to shop</Link>
       <div className="pdp" style={{ marginTop: 16 }}>
         <div
+          ref={photoRef}
           className="photo pdp-photo"
-          role={product.image_url ? undefined : 'img'}
-          aria-label={product.image_url ? undefined : `Product photograph pending for ${product.name}`}
+          role={currentImage ? undefined : 'img'}
+          aria-label={currentImage ? undefined : `Product photograph pending for ${product.name}`}
         >
-          {product.image_url && <img src={product.image_url} alt={product.name} />}
+          {currentImage && <img src={currentImage} alt={product.name} />}
           <span className="photo-tag">{product.category || 'RAW HAIRS'}</span>
           {out && <span className="soldout">SOLD OUT</span>}
+          {images.length > 1 && (
+            <span className="photo-tag" style={{ left: 'auto', right: 8, bottom: 8 }}>
+              {idx + 1} / {images.length}
+            </span>
+          )}
         </div>
+        {images.length > 1 && (
+          <div className="thumbs" style={{ marginTop: 8 }}>
+            {images.map((src, i) => (
+              <button
+                key={src + i}
+                type="button"
+                className="photo"
+                style={{ flex: '0 0 64px', height: 80, border: i === idx ? '2px solid var(--pink)' : undefined }}
+                onClick={() => setIdx(i)}
+                aria-label={`View image ${i + 1}`}
+              >
+                <img src={src} alt="" />
+              </button>
+            ))}
+          </div>
+        )}
         <div className="stack">
           <p className="eyebrow">{product.category || 'THE COLLECTION'}</p>
           <h1>{product.name}</h1>
@@ -70,7 +116,7 @@ export default function Product() {
           )}
 
           <div className="notice">
-            Checkout is being finalised. You can add items to your bag now; payment with Paystack will be enabled next.
+            Swipe the photo left or right to change images. Pinch to zoom.
           </div>
 
           <Link to="/help/contact" className="btn btn-outline">ENQUIRE ABOUT THIS WIG</Link>
