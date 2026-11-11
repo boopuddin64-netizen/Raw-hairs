@@ -103,11 +103,11 @@ export default function Admin() {
   const openBookings = data.bookings.filter((booking) => ['pending', 'confirmed'].includes(booking.status)).length;
   const pendingRequests = data.requests.filter((request) => request.status === 'pending').length;
 
-  if (!supabaseConfigured) return <div className="wrap page"><h1>RAW HAIRS admin</h1><div className="notice">Supabase environment variables are missing. Configure VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in the deployment before using the admin dashboard.</div></div>;
+  if (!supabaseConfigured) return <div className="wrap page admin-shell"><h1>RAW HAIRS admin</h1><div className="notice">Supabase environment variables are missing. Configure VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in the deployment before using the admin dashboard.</div></div>;
 
   return (
     <div className="wrap page">
-      <p className="eyebrow">RAW HAIRS · OWNER CONTROL CENTRE</p>
+      <div className="admin-brandbar"><div><p className="eyebrow">RAW HAIRS · PRIVATE BUSINESS PORTAL</p><span className="admin-live"><i /> SECURE OWNER SESSION</span></div><span className="admin-monogram">RH</span></div><p className="eyebrow">OWNER CONTROL CENTRE</p>
       <div className="row-top" style={{ alignItems: 'center' }}>
         <div><h1>Manage RAW HAIRS</h1><p className="muted small">Owner access · {user?.email || 'Authorized owner'}</p></div>
         <div style={{ display: 'flex', gap: 8 }}><button className="btn btn-ghost" onClick={refresh} disabled={loading}>Refresh</button><button className="btn btn-ghost" onClick={() => signOut()}>Sign out</button></div>
