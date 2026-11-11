@@ -1,56 +1,52 @@
 # RAW HAIRS
 
-Premium, mobile-first wig boutique storefront. The current frontend is a prototype while the Firebase backend is being introduced on a development branch.
+Premium, mobile-first wig boutique storefront. The active backend migration is Supabase.
 
-## Current implementation
+## Stack
 
-- React 18 + Vite storefront and product catalogue.
-- Demo cart, services, customer account, admin and rider screens.
-- Firebase client SDK initialization from Vite environment variables.
-- Owner email/password sign-in.
-- Owner-only route guard for /admin and /rider.
-- Owner authorization checked against the signed Firebase ID token custom claim.
-- Firestore rules deny access to every account without the owner claim.
-- Firebase Functions scaffold and trusted owner-claim provisioning script.
+- React 18 + Vite.
+- Supabase Postgres, Auth, Row Level Security and Storage.
+- NGN pricing.
+- Owner-only access to the admin and rider dashboards during the prototype phase.
 
-## Important limitations
+## Supabase project
 
-The existing product, service, cart, booking, request and rider data still comes from sample data and browser localStorage. The admin controls do not yet write to Firestore. Paystack, order processing, stock reservations, customer accounts, rider accounts, notifications, refunds and image storage are not implemented.
+Project reference: `xcipemtyclinuyaadgxy`
 
-The Firebase project must be created and configured before owner sign-in can work. No Firebase project credentials or service-account keys are stored in this repository.
+The frontend uses only the Supabase project URL and a publishable key. Never place a Supabase secret or service-role key in browser code or any `VITE_*` variable.
 
 ## Local setup
 
 1. Install Node.js 22 or later.
 2. Run `npm install` from the repository root.
 3. Copy `.env.example` to `.env.local`.
-4. Create a Firebase project and register a web app.
-5. Enable Email/Password in Firebase Authentication.
-6. Fill in the four `VITE_FIREBASE_*` values in `.env.local`.
-7. Install Functions dependencies with `npm install --prefix functions`.
-8. Configure Firebase Admin SDK Application Default Credentials in a trusted environment.
-9. Create the owner user in Firebase Authentication and assign the owner custom claim using the script in `functions/scripts/set-owner-claim.mjs`.
-10. Run `npm run dev`.
+4. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`.
+5. Run `npm run dev`.
 
-The owner-claim script requires `OWNER_UID` and trusted Application Default Credentials for the intended Firebase project. Never expose service-account credentials to the browser or commit them.
+## Authentication and authorization
 
-## Firebase deployment
+- Customers authenticate through Supabase Auth.
+- Owner sign-in uses email/password.
+- Owner authorization is checked using trusted `app_metadata.role = 'owner'`.
+- Never use user-editable `user_metadata` for authorization.
+- Public owner registration is disabled. Provision the owner role only through a trusted Supabase administrator process.
+- The current prototype intentionally keeps the admin and rider routes owner-only. Rider-specific accounts and restricted rider permissions are a later phase.
 
-- Review `firestore.rules` before deploying.
-- Use `firebase deploy --only firestore:rules,functions` only after the Firebase project and environment are verified.
-- The Vercel frontend is not deployed by this Firebase command.
-- Do not deploy this development branch to production without explicit owner approval.
+## Database
 
-See [Phase 1 architecture](docs/PHASE-1-ARCHITECTURE.md) for the security model, target data model, setup steps and acceptance criteria.
+The initial schema is in `supabase/migrations/20261111145717_raw_hairs_initial_schema.sql`. It defines profiles, products, services, bookings, orders, order items, international requests and rider jobs with RLS enabled.
 
-## Development
+The database foundation is not the completed commerce workflow. Checkout pricing, Paystack verification, transactional stock reservation (15 minutes), refund handling, delivery OTP verification, notifications and admin/rider operational workflows still require implementation and tests.
 
-```bash
-npm install
-npm run dev
-npm run build
-```
+## Storage
 
-The root package lockfile was removed when the Firebase dependency was introduced; the first local `npm install` will generate a fresh lockfile. Commit that generated lockfile after verifying the dependency resolution.
+The initial migration creates a private `product-images` bucket. Product image access is owner-restricted until the storefront image delivery policy is finalized.
 
-Sample storefront data remains in `src/data.js`.
+## Development status
+
+- Supabase client foundation: present.
+- Owner sign-in migration: in progress.
+- Storefront and admin data access: still uses demo/local browser state and must be migrated screen by screen.
+- Production deployment: not authorized by this development branch.
+
+Do not deploy this branch to production without explicit approval.
