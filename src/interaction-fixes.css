@@ -1,0 +1,98 @@
+/* Basic interaction fixes + gesture feedback */
+
+button, a, .btn, .icon-btn, .tab, .opt, .qty button {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.btn:active, .icon-btn:active, .tab:active, .opt:active {
+  transform: scale(0.97);
+}
+
+.card {
+  touch-action: manipulation;
+}
+.card:active {
+  opacity: 0.92;
+}
+
+/* Pinch-zoom container on product photo */
+.pdp-photo {
+  touch-action: pan-y pinch-zoom;
+  overflow: hidden;
+  transition: transform 0.12s ease;
+}
+.pdp-photo.zoomed {
+  cursor: zoom-out;
+}
+
+/* Swipe-to-remove on cart rows */
+.row-card {
+  touch-action: pan-y;
+  position: relative;
+  transition: transform 0.18s ease, opacity 0.18s ease;
+}
+.row-card.swiping {
+  transform: translateX(-72px);
+}
+.row-card.removing {
+  transform: translateX(-100%);
+  opacity: 0;
+}
+.swipe-hint {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bad);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+
+/* Pull-to-refresh indicator */
+.ptr-indicator {
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+  padding: 8px 0 4px;
+  height: 0;
+  overflow: hidden;
+  transition: height 0.2s ease;
+}
+.ptr-indicator.visible {
+  height: 28px;
+}
+
+/* Long-press feedback */
+.card.long-pressing {
+  transform: scale(0.97);
+  box-shadow: 0 0 0 2px var(--pink);
+}
+
+/* Ensure horizontal scrolls work smoothly on touch */
+.hscroll, .tabs, .thumbs {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+/* Larger touch targets on small screens */
+@media (max-width: 480px) {
+  .icon-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .qty button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .tab {
+    min-height: 44px;
+  }
+}
