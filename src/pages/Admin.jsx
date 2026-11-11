@@ -98,6 +98,24 @@ export default function Admin() {
     setServiceForm({ name: '', description: '', price: '', duration_minutes: '' });
   };
 
+  const uploadProductImage = async (product, file) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { setError('Choose an image file.'); return; }
+    if (file.size > 8 * 1024 * 1024) { setError('Image must be 8 MB or smaller.'); return; }
+    const safeName = file.name.toLowerCase().replace(/[^a-z0-9.-]+/g, '-');
+    const path = `${product.id}/${Date.now()}-${safeName}`;
+    await run('image-' + product.id, async () => {
+      const { error: uploadError } = await supabase.storage.from('product-images').upload(path, file, { upsert: false, contentType: file.type });
+      if (uploadError) return { error: uploadError };
+      const { error: updateError } = await supabase.from('products').update({ image_path: path }).eq('id', product.id);
+      if (updateError) {
+        await supabase.storage.from('product-images').remove([path]);
+        return { error: updateError };
+      }
+      return { error: null };
+    });
+  };
+
   const lowStock = data.products.filter((product) => product.is_active && product.stock > 0 && product.stock <= 2).length;
   const soldOut = data.products.filter((product) => product.stock <= 0).length;
   const openBookings = data.bookings.filter((booking) => ['pending', 'confirmed'].includes(booking.status)).length;
@@ -142,9 +160,10 @@ export default function Admin() {
             <button className="btn btn-primary" type="submit" disabled={busy === 'new-product'}>{busy === 'new-product' ? 'Saving…' : 'Add product as hidden'}</button>
           </form>
           {data.products.length === 0 && <p className="muted small">No products in the database yet.</p>}
-          <div className="table-wrap"><table><thead><tr><th>Product</th><th>Price</th><th>Stock</th><th>Visibility</th></tr></thead><tbody>
+          <div className="table-wrap"><table><thead><tr><th>Product</th><th>Image</th><th>Price</th><th>Stock</th><th>Visibility</th></tr></thead><tbody>
             {data.products.map((p) => <tr key={p.id}>
               <td><strong>{p.name}</strong><div className="muted small">{p.category || 'Uncategorised'}</div></td>
+              <td><label className="small">Upload image<input aria-label={'Image for ' + p.name} type="file" accept="image/*" onChange={(e) => uploadProductImage(p, e.target.files?.[0])} disabled={busy === 'image-' + p.id} /></label>{p.image_path && <span className="muted small">Image saved</span>}</td>
               <td><input aria-label={'Price for ' + p.name} type="number" min="0" step="0.01" defaultValue={p.price} onBlur={(e) => { const value = Number(e.target.value); if (value !== Number(p.price)) updateRow('products', p.id, { price: value }, 'product-' + p.id); }} /></td>
               <td><input aria-label={'Stock for ' + p.name} type="number" min="0" step="1" defaultValue={p.stock} onBlur={(e) => { const value = Math.max(0, Number.parseInt(e.target.value || '0', 10)); if (value !== p.stock) updateRow('products', p.id, { stock: value }, 'stock-' + p.id); }} /></td>
               <td><label className="small"><input type="checkbox" checked={p.is_active} onChange={(e) => updateRow('products', p.id, { is_active: e.target.checked }, 'active-' + p.id)} /> Active</label></td>
