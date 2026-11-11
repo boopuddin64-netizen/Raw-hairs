@@ -2,6 +2,14 @@ import { Link } from 'react-router-dom';
 import { categories, INSTAGRAM_URL, policyLinks } from '../data';
 import { LiveProductCard, useCatalog } from '../catalog';
 
+const categoryImages = {
+  "straight": "https://images.pexels.com/photos/6923383/pexels-photo-6923383.jpeg",
+  "body-wave": "https://images.pexels.com/photos/6923442/pexels-photo-6923442.jpeg",
+  "curly": "https://images.pexels.com/photos/6923442/pexels-photo-6923442.jpeg",
+  "bob": "https://images.pexels.com/photos/6923351/pexels-photo-6923351.jpeg",
+  "colored": "https://images.pexels.com/photos/6923557/pexels-photo-6923557.jpeg"
+};
+
 export default function Home() {
   const { products, loading, error } = useCatalog();
   const arrivals = products.slice(0, 4);
@@ -10,6 +18,10 @@ export default function Home() {
     <>
       <section className="hero">
         <div className="hero-note">RAW HAIRS COLLECTION</div>
+        <div className="hero-visual">
+          <img src="https://images.pexels.com/photos/6923383/pexels-photo-6923383.jpeg" alt="Hair extension styling inspiration" fetchPriority="high" />
+          <span>THE ART OF GREAT HAIR</span>
+        </div>
         <div className="hero-inner">
           <p className="eyebrow">The collection</p>
           <h1>Your Crown.<br />Your Confidence.</h1>
@@ -24,9 +36,12 @@ export default function Home() {
         <section className="section" aria-labelledby="h-style">
           <div className="section-head"><h2 id="h-style">Shop by style</h2></div>
           <div className="hscroll cats">
-            {categories.map((c) => <Link key={c.id} to={`/shop?cat=${c.id}`} className="cat"><span className="photo">{c.name}</span>{c.name}</Link>)}
-            <Link to="/shop" className="cat"><span className="photo">New in</span>New arrivals</Link>
+            {categories.map((c) => <Link key={c.id} to={`/shop?cat=${c.id}`} className="cat">
+              <span className="photo"><img src={categoryImages[c.id] || categoryImages.curly} alt={`${c.name} wig style inspiration`} loading="lazy" /></span>{c.name}
+            </Link>)}
+            <Link to="/shop" className="cat"><span className="photo"><img src="https://images.pexels.com/photos/6923383/pexels-photo-6923383.jpeg" alt="Latest hair collection inspiration" loading="lazy" /></span>New arrivals</Link>
           </div>
+          <p className="muted small image-note">Style inspiration photography. Actual product images will be shown on each product listing.</p>
         </section>
         <section className="section" aria-labelledby="h-new">
           <div className="section-head"><h2 id="h-new">The collection</h2><Link to="/shop">View all</Link></div>
@@ -37,7 +52,10 @@ export default function Home() {
         </section>
         <section className="section" aria-labelledby="h-svc">
           <div className="section-head"><h2 id="h-svc">Wig services</h2><Link to="/services">All services</Link></div>
-          <div className="placeholder-box"><span className="big">Care, revamps and customization.</span><span className="muted small">Explore our services or contact RAW HAIRS for availability and pricing.</span><Link to="/services" className="btn btn-outline">Explore services</Link></div>
+          <div className="service-image-band">
+            <img src="https://images.pexels.com/photos/6923414/pexels-photo-6923414.jpeg" alt="A woman brushing and caring for a wig" loading="lazy" />
+            <div><span className="eyebrow">Care for every crown</span><h3>Care, revamps and customization.</h3><p className="muted">Explore our services or contact RAW HAIRS for availability and pricing.</p><Link to="/services" className="btn btn-outline">Explore services</Link></div>
+          </div>
         </section>
         <section className="section" aria-labelledby="h-ig">
           <div className="section-head"><h2 id="h-ig">Follow RAW HAIRS</h2></div>
@@ -48,6 +66,7 @@ export default function Home() {
           <div className="section-head"><h2 id="h-trust" style={{ fontSize: 28 }}>Shop with confidence</h2></div>
           <div className="trust">{policyLinks.map((p) => <Link key={p.id} to={`/help/${p.id}`}>{p.label}</Link>)}</div>
         </section>
+        <p className="muted small photo-credit">Editorial and style-inspiration images via <a href="https://www.pexels.com/@rdne/" target="_blank" rel="noreferrer noopener">RDNE Stock project on Pexels</a>. Pexels license: free commercial use.</p>
       </div>
     </>
   );
