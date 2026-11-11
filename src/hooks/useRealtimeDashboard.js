@@ -90,7 +90,23 @@ export function useRealtimeDashboard() {
     };
   }, [refresh]);
 
-  return { data, loading, error, setError, refresh, live, lastEvent, updatedAt };
+  // Flatten for Admin consumption
+  return {
+    products: data.products,
+    services: data.services,
+    orders: data.orders,
+    bookings: data.bookings,
+    international: data.requests,
+    riderJobs: data.jobs,
+    data,
+    loading,
+    error,
+    setError,
+    refresh,
+    live,
+    lastEvent,
+    updatedAt,
+  };
 }
 
 function startOfDay(d) {
@@ -109,18 +125,13 @@ function safeJson(str) {
   try { return JSON.parse(str); } catch { return null; }
 }
 
-export function buildAnalytics(data) {
+export function buildAnalytics({ orders = [], bookings = [], products = [], services = [], international = [], riderJobs = [] } = {}) {
   const paidStatuses = new Set(['paid', 'processing', 'dispatched', 'delivered']);
-  const orders = data.orders || [];
-  const bookings = data.bookings || [];
-  const products = data.products || [];
-  const requests = data.requests || [];
-  const jobs = data.jobs || [];
+  const isPaid = (o) => paidStatuses.has(o.status);
+  const totalOf = (list) => list.reduce((sum, o) => sum + (Number(o.total || o.amount) || 0), 0);
 
   const today = startOfDay(new Date());
   const week = daysAgo(6);
-  const isPaid = (o) => paidStatuses.has(o.status);
-  const totalOf = (list) => list.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
 
   const ordersToday = orders.filter((o) => o.created_at && new Date(o.created_at) >= today);
   const ordersWeek = orders.filter((o) => o.created_at && new Date(o.created_at) >= week);
@@ -128,11 +139,11 @@ export function buildAnalytics(data) {
   const paidToday = ordersToday.filter(isPaid);
   const paidWeek = ordersWeek.filter(isPaid);
 
-  const revenueAll = totalOf(paidAll);
   const revenueToday = totalOf(paidToday);
   const revenueWeek = totalOf(paidWeek);
+  const revenueAll = totalOf(paidAll);
 
-  const series = [];
+  const revenueSeries = [];
   for (let i = 6; i >= 0; i -= 1) {
     const day = daysAgo(i);
     const next = new Date(day);
@@ -143,33 +154,13 @@ export function buildAnalytics(data) {
       return t >= day && t < next;
     });
     const dayPaid = dayOrders.filter(isPaid);
-    series.push({
+    revenueSeries.push({
       key: day.toISOString().slice(0, 10),
       label: day.toLocaleDateString('en-NG', { weekday: 'short' }),
+      value: totalOf(dayPaid),
       orders: dayOrders.length,
-      revenue: totalOf(dayPaid),
     });
   }
-
-  const maxOrders = Math.max(1, ...series.map((s) => s.orders));
-  const maxRevenue = Math.max(1, ...series.map((s) => s.revenue));
-
-  const orderStatus = {};
-  orders.forEach((o) => {
-    const k = o.status || 'unknown';
-    orderStatus[k] = (orderStatus[k] || 0) + 1;
-  });
-
-  const bookingStatus = {};
-  bookings.forEach((b) => {
-    const k = b.status || 'unknown';
-    bookingStatus[k] = (bookingStatus[k] || 0) + 1;
-  });
-
-  const inventoryValue = products.reduce((sum, p) => {
-    if (!p.is_active) return sum;
-    return sum + (Number(p.price) || 0) * (Number(p.stock) || 0);
-  }, 0);
 
   const productSales = {};
   products.forEach((p) => {
@@ -179,8 +170,8 @@ export function buildAnalytics(data) {
       category: p.category || 'Uncategorised',
       price: Number(p.price) || 0,
       stock: Number(p.stock) || 0,
-      soldProxy: Math.max(0, 10 - (Number(p.stock) || 0)),
-      revenueProxy: 0,
+      count: 0,
+      revenue: 0,
     };
   });
   orders.forEach((o) => {
@@ -191,18 +182,18 @@ export function buildAnalytics(data) {
       if (!id || !productSales[id]) return;
       const qty = Number(it.qty || it.quantity || 1);
       const line = Number(it.price || productSales[id].price) * qty;
-      productSales[id].soldProxy += qty;
-      productSales[id].revenueProxy += line;
+      productSales[id].count += qty;
+      productSales[id].revenue += line;
     });
   });
   const topProducts = Object.values(productSales)
-    .sort((a, b) => (b.revenueProxy || b.soldProxy) - (a.revenueProxy || a.soldProxy))
+    .sort((a, b) => (b.revenue || b.count) - (a.revenue || a.count))
     .slice(0, 8);
 
   const byCategory = {};
   topProducts.forEach((p) => {
     const cat = p.category || 'Uncategorised';
-    byCategory[cat] = (byCategory[cat] || 0) + (p.revenueProxy || p.price * p.soldProxy);
+    byCategory[cat] = (byCategory[cat] || 0) + (p.revenue || 0);
   });
   if (Object.keys(byCategory).length === 0) {
     products.forEach((p) => {
@@ -212,15 +203,15 @@ export function buildAnalytics(data) {
   }
 
   const byDriver = {};
-  jobs.forEach((j) => {
-    const key = j.rider_id || 'Unassigned';
+  riderJobs.forEach((j) => {
+    const key = j.rider_id || j.rider_name || 'Unassigned';
     if (!byDriver[key]) byDriver[key] = { id: key, jobs: 0, delivered: 0 };
     byDriver[key].jobs += 1;
     if (j.status === 'delivered') byDriver[key].delivered += 1;
   });
 
   const funnel = {
-    catalogue: products.filter((p) => p.is_active).length,
+    catalogue: products.filter((p) => p.is_active !== false && p.active !== false).length,
     orders: orders.length,
     paid: paidAll.length,
     delivered: orders.filter((o) => o.status === 'delivered').length,
@@ -232,19 +223,13 @@ export function buildAnalytics(data) {
     revenueToday,
     revenueWeek,
     revenueAll,
-    ordersToday: ordersToday.length,
-    ordersWeek: ordersWeek.length,
     ordersAll: orders.length,
-    avgOrderValue: paidAll.length ? revenueAll / paidAll.length : 0,
-    series,
-    maxOrders,
-    maxRevenue,
-    orderStatus,
-    bookingStatus,
-    inventoryValue,
-    conversionProxy: orders.length ? Math.round((paidAll.length / orders.length) * 100) : 0,
-    openJobs: jobs.filter((j) => !['delivered', 'failed'].includes(j.status)).length,
-    pendingQuotes: requests.filter((r) => r.status === 'pending').length,
+    ordersPaid: paidAll.length,
+    bookingsAll: bookings.length,
+    bookingsConfirmed: bookings.filter((b) => ['confirmed', 'completed'].includes(b.status)).length,
+    productsActive: products.filter((p) => p.is_active !== false && p.active !== false).length,
+    openJobs: riderJobs.filter((j) => !['delivered', 'failed'].includes(j.status)).length,
+    revenueSeries,
     topProducts,
     byCategory,
     byDriver: Object.values(byDriver).sort((a, b) => b.delivered - a.delivered),
