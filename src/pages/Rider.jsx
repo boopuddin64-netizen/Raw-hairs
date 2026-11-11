@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useStaffAuth } from '../auth/StaffAuth';
+import { useTheme } from '../theme/ThemeContext';
 import { supabase, supabaseConfigured, isAdmin } from '../lib/supabase';
 import { Chip } from '../components';
 
@@ -8,6 +9,7 @@ const JOB_STATUSES = ['unassigned', 'assigned', 'picked_up', 'in_transit', 'deli
 
 export default function Rider() {
   const { user, role, signOut } = useStaffAuth();
+  const { theme, toggleTheme } = useTheme();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -28,7 +30,6 @@ export default function Rider() {
       .order('created_at', { ascending: false })
       .limit(50);
 
-    // Drivers only see their assigned jobs; admins see all
     if (!admin && user?.id) {
       query = query.eq('rider_id', user.id);
     }
@@ -71,6 +72,7 @@ export default function Rider() {
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
         {admin && <Link className="btn btn-ghost" to="/admin">Admin portal</Link>}
         <button className="btn btn-ghost" type="button" onClick={refresh} disabled={loading}>Refresh</button>
+        <button className="btn btn-ghost" type="button" onClick={toggleTheme}>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</button>
         <button className="btn btn-ghost" type="button" onClick={() => signOut()}>Sign out</button>
       </div>
       {error && <div className="notice auth-error" role="alert">{error}</div>}
