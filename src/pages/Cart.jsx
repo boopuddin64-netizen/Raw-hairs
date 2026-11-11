@@ -1,7 +1,58 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useStore, naira, stockLabel } from '../store';
 import { supabase, supabaseConfigured } from '../lib/supabase';
+import { onSwipe } from '../gestures';
+
+function CartRow({ line, onRemove, store }) {
+  const ref = useRef(null);
+  const [swiping, setSwiping] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    return onSwipe(el, {
+      onLeft: () => {
+        setSwiping(true);
+        setTimeout(() => onRemove(line.id, line.length), 180);
+      },
+    });
+  }, [line.id, line.length, onRemove]);
+
+  return (
+    <article ref={ref} className={`row-card ${swiping ? 'removing' : ''}`}>
+      <div className="photo" style={{ flex: '0 0 84px', height: 104 }}>
+        {line.image_url
+          ? <img src={line.image_url} alt={line.name} />
+          : <span className="photo-tag">{line.name}</span>}
+      </div>
+      <div className="row-main">
+        <div className="row-top">
+          <h3>{line.name}</h3>
+          <button
+            className="icon-btn"
+            aria-label={`Remove ${line.name}`}
+            style={{ margin: '-10px -10px 0 0' }}
+            onClick={() => onRemove(line.id, line.length)}
+          >✕</button>
+        </div>
+        <span className="muted small">{line.category || 'Wig'}{line.length ? ` · ${line.length}` : ''}</span>
+        <span className="small" style={{ color: line.qty >= line.stock ? 'var(--warn)' : 'var(--ok)' }}>
+          {line.qty >= line.stock ? `${stockLabel(line)}. Quantity is at the limit.` : 'In stock'}
+        </span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }}>
+          <div className="qty">
+            <button aria-label="Decrease quantity" onClick={() => store.setQty(line.id, line.length, line.qty - 1)}>−</button>
+            <span>{line.qty}</span>
+            <button aria-label="Increase quantity" onClick={() => store.setQty(line.id, line.length, line.qty + 1)}>+</button>
+          </div>
+          <span className="price">{naira(line.price == null ? null : line.price * line.qty)}</span>
+        </div>
+      </div>
+      <div className="swipe-hint">Remove</div>
+    </article>
+  );
+}
 
 export default function Cart() {
   const store = useStore();
@@ -74,40 +125,16 @@ export default function Cart() {
   return (
     <div className="wrap page">
       <h1>Your bag</h1>
-      <p className="muted small" style={{ marginBottom: 16 }}>{lines.reduce((a, l) => a + l.qty, 0)} items</p>
+      <p className="muted small" style={{ marginBottom: 16 }}>{lines.reduce((a, l) => a + l.qty, 0)} items · Swipe left to remove</p>
       <div className="cart-grid">
         <div className="stack">
           {lines.map((l) => (
-            <article key={l.id + String(l.length)} className="row-card">
-              <div className="photo" style={{ flex: '0 0 84px', height: 104 }}>
-                {l.image_url
-                  ? <img src={l.image_url} alt={l.name} />
-                  : <span className="photo-tag">{l.name}</span>}
-              </div>
-              <div className="row-main">
-                <div className="row-top">
-                  <h3>{l.name}</h3>
-                  <button
-                    className="icon-btn"
-                    aria-label={`Remove ${l.name}`}
-                    style={{ margin: '-10px -10px 0 0' }}
-                    onClick={() => store.removeLine(l.id, l.length)}
-                  >✕</button>
-                </div>
-                <span className="muted small">{l.category || 'Wig'}{l.length ? ` · ${l.length}` : ''}</span>
-                <span className="small" style={{ color: l.qty >= l.stock ? 'var(--warn)' : 'var(--ok)' }}>
-                  {l.qty >= l.stock ? `${stockLabel(l)}. Quantity is at the limit.` : 'In stock'}
-                </span>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }}>
-                  <div className="qty">
-                    <button aria-label="Decrease quantity" onClick={() => store.setQty(l.id, l.length, l.qty - 1)}>−</button>
-                    <span>{l.qty}</span>
-                    <button aria-label="Increase quantity" onClick={() => store.setQty(l.id, l.length, l.qty + 1)}>+</button>
-                  </div>
-                  <span className="price">{naira(l.price == null ? null : l.price * l.qty)}</span>
-                </div>
-              </div>
-            </article>
+            <CartRow
+              key={l.id + String(l.length)}
+              line={l}
+              store={store}
+              onRemove={(id, length) => store.removeLine(id, length)}
+            />
           ))}
         </div>
 
