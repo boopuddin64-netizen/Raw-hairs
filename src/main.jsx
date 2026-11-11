@@ -22,6 +22,7 @@ import Admin from './pages/Admin';
 import Rider from './pages/Rider';
 import './styles.css';
 import './responsive.css';
+import './light-mode-fixes.css';
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
