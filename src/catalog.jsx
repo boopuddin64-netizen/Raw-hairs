@@ -19,9 +19,21 @@ export function useCatalog() {
         .eq('is_active', true)
         .order('created_at', { ascending: false });
       if (!active) return;
-      if (queryError) setError('Products could not be loaded. Please refresh and try again.');
-      else setProducts(data || []);
-      setLoading(false);
+      if (queryError) {
+        setError('Products could not be loaded. Please refresh and try again.');
+        setLoading(false);
+        return;
+      }
+
+      const withImages = await Promise.all((data || []).map(async (product) => {
+        if (!product.image_path) return { ...product, image_url: '' };
+        const { data: signed, error: imageError } = await supabase.storage
+          .from('product-images')
+          .createSignedUrl(product.image_path, 3600);
+        return { ...product, image_url: imageError ? '' : signed?.signedUrl || '' };
+      }));
+      if (active) setProducts(withImages);
+      if (active) setLoading(false);
     }
     load();
     return () => { active = false; };
@@ -39,7 +51,8 @@ export function LiveProductCard({ product }) {
     <article className="card">
       <div className="card-media">
         <a href={`#/product/${product.id}`} aria-label={`View ${product.name}`}>
-          <div className="photo fill" role="img" aria-label={`Product photograph pending for ${product.name}`}>
+          <div className="photo fill" role={product.image_url ? undefined : 'img'} aria-label={product.image_url ? undefined : `Product photograph pending for ${product.name}`}>
+            {product.image_url && <img src={product.image_url} alt={product.name} loading="lazy" />}
             <span className="photo-tag">{product.category || 'RAW HAIRS'}</span>
           </div>
         </a>
