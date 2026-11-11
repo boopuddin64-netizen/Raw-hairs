@@ -14,7 +14,8 @@ export default function Product() {
     <div className="wrap page">
       <Link to="/shop" className="small">← Back to shop</Link>
       <div className="pdp" style={{ marginTop: 16 }}>
-        <div className="photo pdp-photo" role="img" aria-label={`Product photograph pending for ${product.name}`}>
+        <div className="photo pdp-photo" role={product.image_url ? undefined : 'img'} aria-label={product.image_url ? undefined : `Product photograph pending for ${product.name}`}>
+          {product.image_url && <img src={product.image_url} alt={product.name} />}
           <span className="photo-tag">{product.category || 'RAW HAIRS'}</span>
           {product.stock <= 0 && <span className="soldout">SOLD OUT</span>}
         </div>
