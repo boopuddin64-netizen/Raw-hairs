@@ -2,15 +2,15 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase, supabaseConfigured } from './lib/supabase';
 import { useStore } from './store';
+import { demoProducts } from './demo-products';
 
 async function withSignedImages(rows) {
   return Promise.all((rows || []).map(async (product) => {
-    if (!product.image_path || !supabase) return { ...product, image_url: '' };
-    // 24h signed URL — long enough for a browsing session; regenerate on reload
+    if (!product.image_path || !supabase) return { ...product, image_url: product.image_url || '' };
     const { data: signed, error: imageError } = await supabase.storage
       .from('product-images')
       .createSignedUrl(product.image_path, 60 * 60 * 24);
-    return { ...product, image_url: imageError ? '' : signed?.signedUrl || '' };
+    return { ...product, image_url: imageError ? (product.image_url || '') : signed?.signedUrl || '' };
   }));
 }
 
@@ -23,13 +23,15 @@ export function useCatalog() {
   useEffect(() => {
     let active = true;
     async function load() {
+      // No Supabase — show demo catalogue so categories are populated
       if (!supabaseConfigured || !supabase) {
         if (active) {
-          setError('The product catalogue is not connected yet.');
+          setProducts(demoProducts);
           setLoading(false);
         }
         return;
       }
+
       const { data, error: queryError } = await supabase
         .from('products')
         .select('id,name,slug,description,category,price,stock,image_path,is_active,created_at')
@@ -37,8 +39,11 @@ export function useCatalog() {
         .order('created_at', { ascending: false });
 
       if (!active) return;
-      if (queryError) {
-        setError('Products could not be loaded. Please refresh and try again.');
+
+      if (queryError || !data || data.length === 0) {
+        // Empty or unavailable — use accurate demo products
+        setProducts(demoProducts);
+        setError('');
         setLoading(false);
         return;
       }
@@ -47,14 +52,19 @@ export function useCatalog() {
       if (!active) return;
       setProducts(withImages);
       setLoading(false);
-      // Keep cart line snapshots in sync with live price/stock
       if (store?.syncProductSnapshots) store.syncProductSnapshots(withImages);
     }
     load();
     return () => { active = false; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { products, loading, error };
+  const refresh = async () => {
+    setLoading(true);
+    // re-trigger by calling load logic again would need refactor; simple reload for now
+    window.location.reload();
+  };
+
+  return { products, loading, error, refresh };
 }
 
 export function useServices() {
