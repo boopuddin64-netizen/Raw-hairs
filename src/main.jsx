@@ -3,7 +3,13 @@ import { createRoot } from 'react-dom/client';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import { StoreProvider } from './store';
 import { Layout } from './components';
-import { OwnerAuthProvider, OwnerRoute, OwnerSignIn } from './auth/OwnerAuth';
+import {
+  StaffAuthProvider,
+  AdminRoute,
+  DriverRoute,
+  AdminSignIn,
+  DriverSignIn,
+} from './auth/StaffAuth';
 import Home from './pages/Home';
 import Shop from './pages/Shop';
 import Product from './pages/Product';
@@ -17,10 +23,11 @@ import './styles.css';
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <OwnerAuthProvider>
+    <StaffAuthProvider>
       <StoreProvider>
         <HashRouter>
           <Routes>
+            {/* Customer storefront */}
             <Route element={<Layout />}>
               <Route index element={<Home />} />
               <Route path="shop" element={<Shop />} />
@@ -29,14 +36,23 @@ createRoot(document.getElementById('root')).render(
               <Route path="services" element={<Services />} />
               <Route path="account" element={<Account />} />
               <Route path="help/:topic" element={<Help />} />
-              <Route path="owner-sign-in" element={<OwnerSignIn />} />
-              <Route path="admin" element={<OwnerRoute><Admin /></OwnerRoute>} />
-              <Route path="rider" element={<OwnerRoute><Rider /></OwnerRoute>} />
+
+              {/* Admin portal */}
+              <Route path="admin/sign-in" element={<AdminSignIn />} />
+              <Route path="admin" element={<AdminRoute><Admin /></AdminRoute>} />
+              <Route path="owner-sign-in" element={<AdminSignIn />} />
+
+              {/* Driver portal */}
+              <Route path="driver/sign-in" element={<DriverSignIn />} />
+              <Route path="driver" element={<DriverRoute><Rider /></DriverRoute>} />
+              <Route path="rider" element={<DriverRoute><Rider /></DriverRoute>} />
+              <Route path="rider/sign-in" element={<DriverSignIn />} />
+
               <Route path="*" element={<Home />} />
             </Route>
           </Routes>
         </HashRouter>
       </StoreProvider>
-    </OwnerAuthProvider>
+    </StaffAuthProvider>
   </React.StrictMode>
 );
