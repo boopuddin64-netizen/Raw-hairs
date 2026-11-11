@@ -23,6 +23,7 @@ import Rider from './pages/Rider';
 import './styles.css';
 import './responsive.css';
 import './light-mode-fixes.css';
+import './interaction-fixes.css';
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
