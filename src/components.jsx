@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useStore } from './store';
 import { INSTAGRAM_URL, policyLinks } from './data';
+import { useTheme } from './theme/ThemeContext';
 
 const PATHS = {
   menu: <path d="M4 7h16M4 12h16M4 17h16" />,
@@ -35,6 +36,7 @@ export function Chip({ tone = 'ok', children }) {
 
 export function Header() {
   const { cartCount } = useStore();
+  const { theme, toggleTheme } = useTheme();
   const nav = useNavigate();
   const [menu, setMenu] = useState(false);
   const [searching, setSearching] = useState(false);
@@ -57,6 +59,9 @@ export function Header() {
           <NavLink to="/services">SERVICES</NavLink>
           <NavLink to="/help/contact">CONTACT</NavLink>
         </nav>
+        <button className="icon-btn" type="button" aria-label="Toggle colour theme" title={theme === 'dark' ? 'Switch to light' : 'Switch to dark'} onClick={toggleTheme}>
+          <span aria-hidden="true" style={{ fontSize: 15, fontWeight: 600 }}>{theme === 'dark' ? '☀' : '☾'}</span>
+        </button>
         <button className="icon-btn" aria-label="Search" onClick={() => setSearching(!searching)}>
           <Icon name="search" />
         </button>
@@ -69,13 +74,7 @@ export function Header() {
       {searching && (
         <form className="search-row" onSubmit={submit} role="search">
           <label htmlFor="hdr-q" className="sr-only">Search wigs</label>
-          <input
-            id="hdr-q"
-            autoFocus
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search by style, length or colour"
-          />
+          <input id="hdr-q" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by style, length or colour" />
           <button className="btn btn-primary" type="submit">Search</button>
         </form>
       )}
@@ -123,10 +122,7 @@ export function Footer() {
       <div className="wrap footer-grid">
         <div>
           <span className="wordmark">RAW HAIRS</span>
-          <p className="muted">
-            Customer support via Instagram @raw.hairs<br />
-            Nigeria · NGN pricing
-          </p>
+          <p className="muted">Customer support via Instagram @raw.hairs<br />Nigeria · NGN pricing</p>
         </div>
         <ul className="footer-links">
           <li><Link to="/shop">Shop</Link></li>
