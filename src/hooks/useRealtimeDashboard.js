@@ -10,18 +10,9 @@ const TABLES = [
   ['jobs', 'rider_jobs'],
 ];
 
-/**
- * Loads dashboard datasets and keeps them fresh via Supabase Realtime.
- * Requires Realtime enabled on these tables in the Supabase project.
- */
 export function useRealtimeDashboard() {
   const [data, setData] = useState({
-    products: [],
-    services: [],
-    orders: [],
-    bookings: [],
-    requests: [],
-    jobs: [],
+    products: [], services: [], orders: [], bookings: [], requests: [], jobs: [],
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -61,13 +52,10 @@ export function useRealtimeDashboard() {
     setLoading(false);
   }, []);
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  useEffect(() => { refresh(); }, [refresh]);
 
   useEffect(() => {
     if (!supabase) return undefined;
-
     const channel = supabase
       .channel('raw-hairs-admin-analytics')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
@@ -94,9 +82,7 @@ export function useRealtimeDashboard() {
         setLastEvent({ table: 'services', event: payload.eventType, at: new Date() });
         refresh({ quiet: true });
       })
-      .subscribe((status) => {
-        setLive(status === 'SUBSCRIBED');
-      });
+      .subscribe((status) => { setLive(status === 'SUBSCRIBED'); });
 
     return () => {
       supabase.removeChannel(channel);
@@ -119,7 +105,10 @@ function daysAgo(n) {
   return d;
 }
 
-/** Pure analytics derived from dashboard rows */
+function safeJson(str) {
+  try { return JSON.parse(str); } catch { return null; }
+}
+
 export function buildAnalytics(data) {
   const paidStatuses = new Set(['paid', 'processing', 'dispatched', 'delivered']);
   const orders = data.orders || [];
@@ -130,7 +119,6 @@ export function buildAnalytics(data) {
 
   const today = startOfDay(new Date());
   const week = daysAgo(6);
-
   const isPaid = (o) => paidStatuses.has(o.status);
   const totalOf = (list) => list.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
 
@@ -144,7 +132,6 @@ export function buildAnalytics(data) {
   const revenueToday = totalOf(paidToday);
   const revenueWeek = totalOf(paidWeek);
 
-  // Last 7 days order counts + revenue (including today)
   const series = [];
   for (let i = 6; i >= 0; i -= 1) {
     const day = daysAgo(i);
@@ -184,6 +171,63 @@ export function buildAnalytics(data) {
     return sum + (Number(p.price) || 0) * (Number(p.stock) || 0);
   }, 0);
 
+  const productSales = {};
+  products.forEach((p) => {
+    productSales[p.id] = {
+      id: p.id,
+      name: p.name,
+      category: p.category || 'Uncategorised',
+      price: Number(p.price) || 0,
+      stock: Number(p.stock) || 0,
+      soldProxy: Math.max(0, 10 - (Number(p.stock) || 0)),
+      revenueProxy: 0,
+    };
+  });
+  orders.forEach((o) => {
+    const items = Array.isArray(o.items) ? o.items : (typeof o.items === 'string' ? safeJson(o.items) : null);
+    if (!items) return;
+    items.forEach((it) => {
+      const id = it.product_id || it.id;
+      if (!id || !productSales[id]) return;
+      const qty = Number(it.qty || it.quantity || 1);
+      const line = Number(it.price || productSales[id].price) * qty;
+      productSales[id].soldProxy += qty;
+      productSales[id].revenueProxy += line;
+    });
+  });
+  const topProducts = Object.values(productSales)
+    .sort((a, b) => (b.revenueProxy || b.soldProxy) - (a.revenueProxy || a.soldProxy))
+    .slice(0, 8);
+
+  const byCategory = {};
+  topProducts.forEach((p) => {
+    const cat = p.category || 'Uncategorised';
+    byCategory[cat] = (byCategory[cat] || 0) + (p.revenueProxy || p.price * p.soldProxy);
+  });
+  if (Object.keys(byCategory).length === 0) {
+    products.forEach((p) => {
+      const cat = p.category || 'Uncategorised';
+      byCategory[cat] = (byCategory[cat] || 0) + (Number(p.price) || 0);
+    });
+  }
+
+  const byDriver = {};
+  jobs.forEach((j) => {
+    const key = j.rider_id || 'Unassigned';
+    if (!byDriver[key]) byDriver[key] = { id: key, jobs: 0, delivered: 0 };
+    byDriver[key].jobs += 1;
+    if (j.status === 'delivered') byDriver[key].delivered += 1;
+  });
+
+  const funnel = {
+    catalogue: products.filter((p) => p.is_active).length,
+    orders: orders.length,
+    paid: paidAll.length,
+    delivered: orders.filter((o) => o.status === 'delivered').length,
+    bookings: bookings.length,
+    confirmedBookings: bookings.filter((b) => ['confirmed', 'completed'].includes(b.status)).length,
+  };
+
   return {
     revenueToday,
     revenueWeek,
@@ -198,10 +242,12 @@ export function buildAnalytics(data) {
     orderStatus,
     bookingStatus,
     inventoryValue,
-    conversionProxy: orders.length
-      ? Math.round((paidAll.length / orders.length) * 100)
-      : 0,
+    conversionProxy: orders.length ? Math.round((paidAll.length / orders.length) * 100) : 0,
     openJobs: jobs.filter((j) => !['delivered', 'failed'].includes(j.status)).length,
     pendingQuotes: requests.filter((r) => r.status === 'pending').length,
+    topProducts,
+    byCategory,
+    byDriver: Object.values(byDriver).sort((a, b) => b.delivered - a.delivered),
+    funnel,
   };
 }
