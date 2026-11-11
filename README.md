@@ -1,63 +1,62 @@
 # RAW HAIRS
 
-Premium, mobile-first wig boutique storefront. Backend: **Supabase** (Postgres, Auth, RLS, Storage).
+Premium, mobile-first wig boutique. Backend: **Supabase**.
 
-## Stack
+## Three portals
 
-- React 18 + Vite + React Router
-- Supabase Postgres, Auth, Row Level Security and Storage
-- NGN pricing
-- Owner-only admin and rider dashboards (prototype)
+| Portal | URL | Who |
+|--------|-----|-----|
+| **Customer** | `/` `#/shop` `#/account` | Public storefront + customer accounts |
+| **Admin** | `#/admin` · sign-in `#/admin/sign-in` | Owner — catalogue, orders, bookings |
+| **Driver** | `#/driver` · sign-in `#/driver/sign-in` | Delivery staff — assigned jobs only |
 
-## What works now
+## Environment variables
 
-- Live product catalogue from Supabase (`is_active = true`)
-- Live services list from Supabase
-- Cart stored in the browser; lines sync price/stock from live products
-- Product detail page with **Add to bag**
-- Customer sign-up / sign-in on Account (Supabase Auth)
-- Signed-in customers can submit **bookings** and **international requests** (saved to Supabase)
-- Owner admin: products, services, orders, bookings, international requests, rider jobs, image upload
-- Owner-only `/admin` and `/rider` routes
+Copy `.env.example` → `.env.local` (and set the same keys in Vercel):
 
-## Still not production-complete
+```bash
+VITE_SUPABASE_URL=https://xcipemtyclinuyaadgxy.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your_publishable_key
 
-- Paystack checkout + payment verification webhook
-- Atomic stock reservation / decrement on payment
-- Product variants (length-based pricing)
-- Dedicated rider accounts (owner can preview jobs for now)
-- Public product image CDN policy (currently 24h signed URLs)
-- Help / policy pages still use placeholder copy
+# Comma-separated allow-lists (bootstrap until app_metadata.role is set)
+VITE_ADMIN_EMAILS=you@yourdomain.com
+VITE_DRIVER_EMAILS=driver1@example.com,driver2@example.com
+```
 
-## Supabase project
+**Never** put the Supabase service-role key in `VITE_*` variables.
 
-Project reference: `xcipemtyclinuyaadgxy`
+## How admin / driver login works
 
-The frontend uses only the Supabase project URL and a **publishable** key. Never place a secret or service-role key in browser code or any `VITE_*` variable.
+1. Create the user in **Supabase → Authentication → Users** (email + password).
+2. Put that email in `VITE_ADMIN_EMAILS` or `VITE_DRIVER_EMAILS`.
+3. Redeploy / restart so Vite picks up the env vars.
+4. Sign in at `#/admin/sign-in` or `#/driver/sign-in`.
+
+Optional (stronger, for later): set `app_metadata.role` to `admin` or `driver` in Supabase. That overrides the email lists.
+
+Customer sign-up stays on `#/account` and does **not** grant admin/driver access.
 
 ## Local setup
 
-1. Install Node.js 22 or later.
-2. Run `npm install` from the repository root.
-3. Copy `.env.example` to `.env.local`.
-4. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`.
-5. Run `npm run dev`.
+```bash
+npm install
+cp .env.example .env.local
+# fill in keys + admin email
+npm run dev
+```
 
-## Authentication
+## What works now
 
-- Customers: email/password via Supabase Auth (Account page).
-- Owner: email/password; authorized only when `app_metadata.role = 'owner'` (set via trusted admin process, never from the browser).
-- Public owner registration is disabled.
+- Live product + service catalogue from Supabase
+- Cart synced to live stock/price
+- Customer auth, bookings, international requests
+- Admin portal (products, services, orders, bookings, jobs)
+- Driver portal (assigned jobs; admins see all)
+- Env-based staff allow-lists
 
-## Database
+## Still next
 
-Schema: `supabase/migrations/20261111145717_raw_hairs_initial_schema.sql`
-
-Tables: profiles, products, services, bookings, orders, order_items, international_requests, rider_jobs — all with RLS.
-
-## Development status
-
-Storefront catalogue, cart, customer auth, bookings, and international requests are wired to Supabase.
-Checkout / Paystack and stock reservation remain the next phase.
-
-Do not treat this branch as fully production-ready until payment verification and stock control are complete.
+- Paystack checkout + stock reservation
+- Product length variants
+- Real policy/contact copy
+- `app_metadata.role` provisioning script (optional)

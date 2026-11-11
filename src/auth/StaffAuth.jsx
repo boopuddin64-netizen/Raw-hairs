@@ -72,6 +72,7 @@ export function StaffAuthProvider({ children }) {
       const role = getStaffRole(data.user);
       if (!role) {
         await supabase.auth.signOut();
+        setUser(null);
         throw new Error(
           'This account is not on the admin or driver allow-list. Add the email to VITE_ADMIN_EMAILS or VITE_DRIVER_EMAILS, or set app_metadata.role in Supabase.'
         );
@@ -98,7 +99,6 @@ export function useStaffAuth() {
   return value;
 }
 
-/** Admin-only route */
 export function AdminRoute({ children }) {
   const { user, loading, configured } = useStaffAuth();
   const location = useLocation();
@@ -109,7 +109,6 @@ export function AdminRoute({ children }) {
   return children;
 }
 
-/** Driver route — drivers and admins */
 export function DriverRoute({ children }) {
   const { user, loading, configured } = useStaffAuth();
   const location = useLocation();
@@ -121,7 +120,17 @@ export function DriverRoute({ children }) {
 }
 
 function StaffSignInForm({ portal, title, subtitle, successPath, requireRole }) {
-  const { signIn, user, role, loading, configured, authError, adminEmailsConfigured, driverEmailsConfigured } = useStaffAuth();
+  const {
+    signIn,
+    signOut,
+    user,
+    role,
+    loading,
+    configured,
+    authError,
+    adminEmailsConfigured,
+    driverEmailsConfigured,
+  } = useStaffAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -131,12 +140,10 @@ function StaffSignInForm({ portal, title, subtitle, successPath, requireRole }) 
 
   if (loading) return <div className="wrap page"><p className="muted">Checking session…</p></div>;
 
-  // Already signed in with correct role → go to portal
   if (user && requireRole(user)) {
     return <Navigate to={from || successPath} replace />;
   }
 
-  // Signed in but wrong portal (e.g. driver on admin login)
   if (user && role && !requireRole(user)) {
     return (
       <section className="wrap page auth-page">
@@ -149,6 +156,9 @@ function StaffSignInForm({ portal, title, subtitle, successPath, requireRole }) 
           <Link className="btn btn-primary" to={role === 'admin' ? '/admin' : '/driver'}>
             Go to your portal
           </Link>
+          <button className="btn btn-ghost btn-block" type="button" style={{ marginTop: 8 }} onClick={() => signOut()}>
+            Sign out
+          </button>
         </div>
       </section>
     );
@@ -161,7 +171,7 @@ function StaffSignInForm({ portal, title, subtitle, successPath, requireRole }) 
     try {
       const result = await signIn(email, password);
       if (!requireRole(result.user)) {
-        await supabase?.auth.signOut();
+        await signOut();
         throw new Error(`This account does not have ${portal.toLowerCase()} access.`);
       }
     } catch (err) {
@@ -270,7 +280,6 @@ export function DriverSignIn() {
   );
 }
 
-// Back-compat exports used by older imports
 export const OwnerAuthProvider = StaffAuthProvider;
 export const useOwnerAuth = useStaffAuth;
 export const OwnerRoute = AdminRoute;
