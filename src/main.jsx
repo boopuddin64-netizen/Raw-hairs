@@ -20,7 +20,6 @@ import Account from './pages/Account';
 import Help from './pages/Help';
 import Admin from './pages/Admin';
 import Rider from './pages/Rider';
-import './standard.css';
 import './styles.css';
 
 createRoot(document.getElementById('root')).render(
