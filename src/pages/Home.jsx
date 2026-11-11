@@ -1,104 +1,73 @@
 import { Link } from 'react-router-dom';
-import { useStore, naira } from '../store';
 import { categories, INSTAGRAM_URL, policyLinks } from '../data';
-import { Photo, ProductCard, Chip, useToast } from '../components';
+import { LiveProductCard, useCatalog } from '../catalog';
 
-const STATUS = { available: ['ok', 'Available'], paused: ['warn', 'Temporarily unavailable'] };
+const categoryImages = {
+  "straight": "https://images.pexels.com/photos/6923383/pexels-photo-6923383.jpeg",
+  "body-wave": "https://images.pexels.com/photos/6923442/pexels-photo-6923442.jpeg",
+  "curly": "https://images.pexels.com/photos/6923442/pexels-photo-6923442.jpeg",
+  "bob": "https://images.pexels.com/photos/6923351/pexels-photo-6923351.jpeg",
+  "colored": "https://images.pexels.com/photos/6923557/pexels-photo-6923557.jpeg"
+};
 
 export default function Home() {
-  const { state } = useStore();
-  const [toast, toastNode] = useToast();
-  const arrivals = state.products.filter((p) => p.isNew).slice(0, 4);
-  const best = state.products.filter((p) => p.featured);
-  const services = state.services.filter((s) => s.status !== 'hidden');
+  const { products, loading, error } = useCatalog();
+  const arrivals = products.slice(0, 4);
 
   return (
     <>
       <section className="hero">
-        <div className="hero-note">PLACEHOLDER · replace with an authentic RAW HAIRS campaign photograph</div>
+        <div className="hero-note">RAW HAIRS COLLECTION</div>
+        <div className="hero-visual">
+          <img src="https://images.pexels.com/photos/6923383/pexels-photo-6923383.jpeg" alt="Hair extension styling inspiration" fetchPriority="high" />
+          <span>THE ART OF GREAT HAIR</span>
+        </div>
         <div className="hero-inner">
           <p className="eyebrow">The collection</p>
           <h1>Your Crown.<br />Your Confidence.</h1>
-          <p className="lead">Wigs made to be worn, loved and noticed. Shop online or visit us in person.</p>
+          <p className="lead">Wigs made to be worn, loved and noticed. Explore the current RAW HAIRS collection.</p>
           <div className="hero-actions">
             <Link to="/shop" className="btn btn-primary btn-lg">Shop collection</Link>
             <Link to="/services" className="btn btn-outline btn-lg">Explore our services</Link>
           </div>
         </div>
       </section>
-
       <div className="wrap">
         <section className="section" aria-labelledby="h-style">
           <div className="section-head"><h2 id="h-style">Shop by style</h2></div>
-          <p className="note">Sample categories. Keep only the styles RAW HAIRS actually sells.</p>
           <div className="hscroll cats">
-            {categories.map((c) => (
-              <Link key={c.id} to={`/shop?cat=${c.id}`} className="cat"><Photo label={c.name} />{c.name}</Link>
-            ))}
-            <Link to="/shop" className="cat"><Photo label="New in" />New arrivals</Link>
+            {categories.map((c) => <Link key={c.id} to={`/shop?cat=${c.id}`} className="cat">
+              <span className="photo"><img src={categoryImages[c.id] || categoryImages.curly} alt={`${c.name} wig style inspiration`} loading="lazy" /></span>{c.name}
+            </Link>)}
+            <Link to="/shop" className="cat"><span className="photo"><img src="https://images.pexels.com/photos/6923383/pexels-photo-6923383.jpeg" alt="Latest hair collection inspiration" loading="lazy" /></span>New arrivals</Link>
           </div>
+          <p className="muted small image-note">Style inspiration photography. Actual product images will be shown on each product listing.</p>
         </section>
-
         <section className="section" aria-labelledby="h-new">
-          <div className="section-head"><h2 id="h-new">New arrivals</h2><Link to="/shop">View all</Link></div>
-          <div className="grid">{arrivals.map((p) => <ProductCard key={p.id} p={p} onAdded={toast} />)}</div>
+          <div className="section-head"><h2 id="h-new">The collection</h2><Link to="/shop">View all</Link></div>
+          {loading && <div className="placeholder-box">Loading the latest collection…</div>}
+          {error && <div className="notice auth-error" role="alert">{error}</div>}
+          {!loading && !error && arrivals.length === 0 && <div className="placeholder-box"><span className="big">New pieces are coming soon.</span><span className="muted small">Our latest products will appear here once published.</span></div>}
+          {!loading && !error && arrivals.length > 0 && <div className="grid">{arrivals.map((p) => <LiveProductCard key={p.id} product={p} />)}</div>}
         </section>
-
-        <section className="section" aria-labelledby="h-best">
-          <div className="section-head"><h2 id="h-best">Best sellers</h2></div>
-          <p className="note">Picked by RAW HAIRS in Admin. No sales figures or ratings are shown.</p>
-          <div className="hscroll">
-            {best.map((p) => (
-              <Link key={p.id} to={`/product/${p.id}`} className="featured">
-                <Photo label={p.name} />
-                <div className="meta"><h3>{p.name}</h3><span className="price">{naira(p.price)}</span></div>
-              </Link>
-            ))}
-          </div>
-        </section>
-
         <section className="section" aria-labelledby="h-svc">
           <div className="section-head"><h2 id="h-svc">Wig services</h2><Link to="/services">All services</Link></div>
-          <div className="stack services-grid">
-            {services.map((s) => {
-              const [tone, label] = STATUS[s.status];
-              return (
-                <div key={s.id} className="row-card" style={{ opacity: s.status === 'paused' ? 0.7 : 1 }}>
-                  <Photo label={s.name} />
-                  <div className="row-main">
-                    <div className="row-top"><h3>{s.name}</h3><Chip tone={tone}>{label}</Chip></div>
-                    <span className="muted small">{s.desc}</span>
-                    <span className="price" style={{ fontSize: 14 }}>From {naira(s.price)}</span>
-                    <Link to="/services" className="link-btn" style={{ justifyContent: 'flex-start' }}>Enquire or book</Link>
-                  </div>
-                </div>
-              );
-            })}
+          <div className="service-image-band">
+            <img src="https://images.pexels.com/photos/6923414/pexels-photo-6923414.jpeg" alt="A woman brushing and caring for a wig" loading="lazy" />
+            <div><span className="eyebrow">Care for every crown</span><h3>Care, revamps and customization.</h3><p className="muted">Explore our services or contact RAW HAIRS for availability and pricing.</p><Link to="/services" className="btn btn-outline">Explore services</Link></div>
           </div>
         </section>
-
-        <section className="section" aria-labelledby="h-rev">
-          <div className="section-head"><h2 id="h-rev">Kind words</h2></div>
-          <div className="placeholder-box">
-            <span className="big">Real customer reviews go here.</span>
-            <span className="muted small">Development placeholder. Add only reviews RAW HAIRS supplies with the customer's permission. Nothing is invented.</span>
-          </div>
-        </section>
-
         <section className="section" aria-labelledby="h-ig">
           <div className="section-head"><h2 id="h-ig">Follow RAW HAIRS</h2></div>
           <p className="note">@raw.hairs on Instagram</p>
-          <div className="insta" aria-hidden="true">{[1, 2, 3, 4, 5, 6].map((n) => <div key={n} />)}</div>
           <a className="btn btn-outline" href={INSTAGRAM_URL} target="_blank" rel="noreferrer noopener">View on Instagram</a>
-          <p className="muted small" style={{ marginTop: 10 }}>Gallery is placeholder until the admin uploads photos or an official Meta feed is connected.</p>
         </section>
-
         <section className="section" aria-labelledby="h-trust">
           <div className="section-head"><h2 id="h-trust" style={{ fontSize: 28 }}>Shop with confidence</h2></div>
           <div className="trust">{policyLinks.map((p) => <Link key={p.id} to={`/help/${p.id}`}>{p.label}</Link>)}</div>
         </section>
+        <p className="muted small photo-credit">Editorial and style-inspiration images via <a href="https://www.pexels.com/@rdne/" target="_blank" rel="noreferrer noopener">RDNE Stock project on Pexels</a>. Pexels license: free commercial use.</p>
       </div>
-      {toastNode}
     </>
   );
 }
