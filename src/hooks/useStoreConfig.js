@@ -70,8 +70,6 @@ export function useStoreConfig() {
     setMessage('');
     const payload = next || config;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-      setConfig(payload);
       if (supabaseConfigured) {
         const { error } = await supabase.from('store_settings').upsert({
           id: 'default',
@@ -82,14 +80,14 @@ export function useStoreConfig() {
         });
         if (error) throw error;
       }
-      setMessage('Saved');
-    } catch (e) {
-      setMessage(e?.message || 'Save failed (local only)');
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
       setConfig(payload);
+      setMessage(supabaseConfigured ? 'Saved to the store database' : 'Saved on this device only');
+    } catch (e) {
+      setMessage(e?.message || 'Could not save store settings. Please try again.');
     } finally {
       setSaving(false);
-      setTimeout(() => setMessage(''), 2500);
+      setTimeout(() => setMessage(''), 3500);
     }
   }, [config]);
 
