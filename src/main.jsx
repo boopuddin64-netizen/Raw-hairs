@@ -43,7 +43,7 @@ createRoot(document.getElementById('root')).render(
                 <Route path="owner-sign-in" element={<AdminSignIn />} />
                 <Route path="driver/sign-in" element={<DriverSignIn />} />
                 <Route path="driver" element={<DriverRoute><Rider /></DriverRoute>} />
-                <Route path="rider" element={<DriverRoute><Rider />} />
+                <Route path="rider" element={<DriverRoute><Rider /></DriverRoute>} />
                 <Route path="rider/sign-in" element={<DriverSignIn />} />
                 <Route path="*" element={<Home />} />
               </Route>
