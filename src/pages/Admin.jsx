@@ -4,7 +4,7 @@ import { useOwnerAuth } from '../auth/OwnerAuth';
 import { supabase, supabaseConfigured } from '../lib/supabase';
 
 const TABS = ['Overview', 'Products', 'Services', 'Orders', 'Bookings', 'International', 'Rider jobs'];
-const ORDER_STATUSES = ['awaiting_payment', 'paid', 'processing', 'dispatched', 'delivered', 'cancelled', 'refunded'];
+const ORDER_STATUSES = ['processing', 'dispatched', 'delivered', 'cancelled'];
 const BOOKING_STATUSES = ['pending', 'confirmed', 'completed', 'cancelled'];
 const REQUEST_STATUSES = ['pending', 'quoted', 'approved', 'declined', 'converted'];
 const JOB_STATUSES = ['unassigned', 'assigned', 'picked_up', 'in_transit', 'delivered', 'failed'];
@@ -174,7 +174,8 @@ export default function Admin() {
           {data.orders.map((o) => <article key={o.id} className="row-card" style={{ display: 'grid', gap: 8 }}>
             <div className="row-top"><strong>Order {o.id.slice(0, 8)}</strong><Chip tone="info">{o.status.replaceAll('_', ' ')}</Chip></div>
             <span className="muted small">Customer ID: {o.customer_id}</span><span>{money(o.total)} · {dateTime(o.created_at)}</span>
-            <StatusSelect label="Order status" value={o.status} options={ORDER_STATUSES} onSave={(status) => updateRow('orders', o.id, { status }, 'order-' + o.id)} />
+            <p className="muted small">Payment state: {o.status === 'awaiting_payment' ? 'Awaiting verified payment' : ['paid', 'refunded'].includes(o.status) ? o.status : 'Payment state is not shown separately'}. Payment confirmation and refunds must be handled by verified payment-server workflows.</p>
+            {['paid', 'processing', 'dispatched', 'delivered', 'cancelled'].includes(o.status) && <StatusSelect label="Fulfilment status" value={o.status === 'paid' ? 'processing' : o.status} options={ORDER_STATUSES} onSave={(status) => updateRow('orders', o.id, { status }, 'order-' + o.id)} />}
           </article>)}
         </div>}
         {tab === 'Bookings' && <div className="stack"><h2 style={{ fontSize: 24 }}>Service bookings</h2>
