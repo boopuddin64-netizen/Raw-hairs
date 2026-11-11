@@ -1,35 +1,56 @@
 # RAW HAIRS
 
-Premium, mobile-first wig boutique storefront. This is the **front-end concept build**: real screens and working interactions, running on **sample data in your browser**. It is not a live shop yet.
+Premium, mobile-first wig boutique storefront. The current frontend is a prototype while the Firebase backend is being introduced on a development branch.
 
-## What works now (in the browser only)
+## Current implementation
 
-- Homepage: header with search, account and live bag count; hero; shop by style; new arrivals; best sellers; services; testimonials placeholder; Instagram section; trust links; footer; mobile bottom navigation
-- Shop: search, style filter, sorting, product pages with length options and quantity
-- Bag: quantity limits checked against stock, sold-out items cannot be bought, Nigeria / outside-Nigeria choice, international request form (no shipping fee is charged)
-- Services: available / temporarily unavailable / hidden states, booking request form
-- Account page, policy pages, owner admin demo (`#/admin`), rider demo (`#/rider`)
+- React 18 + Vite storefront and product catalogue.
+- Demo cart, services, customer account, admin and rider screens.
+- Firebase client SDK initialization from Vite environment variables.
+- Owner email/password sign-in.
+- Owner-only route guard for /admin and /rider.
+- Owner authorization checked against the signed Firebase ID token custom claim.
+- Firestore rules deny access to every account without the owner claim.
+- Firebase Functions scaffold and trusted owner-claim provisioning script.
 
-## What does NOT exist yet
+## Important limitations
 
-No payments (Paystack), no sign-in or accounts, no real database, no real stock control or audit log, no emails, no live Instagram feed. Buttons for these show a "not connected yet" message. The admin and rider pages have no login and save changes only in the visitor's browser. Do not treat any of this as production-ready.
+The existing product, service, cart, booking, request and rider data still comes from sample data and browser localStorage. The admin controls do not yet write to Firestore. Paystack, order processing, stock reservations, customer accounts, rider accounts, notifications, refunds and image storage are not implemented.
 
-## Needs real content from RAW HAIRS
+The Firebase project must be created and configured before owner sign-in can work. No Firebase project credentials or service-account keys are stored in this repository.
 
-Logo and brand colours (the pink-on-black look is provisional and unverified), authentic photographs (placeholders are shown), the styles actually sold, prices, services, delivery / returns / privacy / terms wording, contact details and genuine customer reviews. Items in `[SQUARE BRACKETS]` are placeholders.
+## Local setup
 
-## Run it
+1. Install Node.js 22 or later.
+2. Run `npm install` from the repository root.
+3. Copy `.env.example` to `.env.local`.
+4. Create a Firebase project and register a web app.
+5. Enable Email/Password in Firebase Authentication.
+6. Fill in the four `VITE_FIREBASE_*` values in `.env.local`.
+7. Install Functions dependencies with `npm install --prefix functions`.
+8. Configure Firebase Admin SDK Application Default Credentials in a trusted environment.
+9. Create the owner user in Firebase Authentication and assign the owner custom claim using the script in `functions/scripts/set-owner-claim.mjs`.
+10. Run `npm run dev`.
+
+The owner-claim script requires `OWNER_UID` and trusted Application Default Credentials for the intended Firebase project. Never expose service-account credentials to the browser or commit them.
+
+## Firebase deployment
+
+- Review `firestore.rules` before deploying.
+- Use `firebase deploy --only firestore:rules,functions` only after the Firebase project and environment are verified.
+- The Vercel frontend is not deployed by this Firebase command.
+- Do not deploy this development branch to production without explicit owner approval.
+
+See [Phase 1 architecture](docs/PHASE-1-ARCHITECTURE.md) for the security model, target data model, setup steps and acceptance criteria.
+
+## Development
 
 ```bash
 npm install
-npm run dev      # local preview
-npm run build    # static files in dist/
+npm run dev
+npm run build
 ```
 
-The build is static and can be hosted on any static host.
+The root package lockfile was removed when the Firebase dependency was introduced; the first local `npm install` will generate a fresh lockfile. Commit that generated lockfile after verifying the dependency resolution.
 
-## Next steps
-
-Approve the architecture, security and cost plan, then build the backend: Postgres, server-side Paystack payments with verified webhooks, accounts, admin and rider roles, and real stock handling.
-
-Sample data lives in `src/data.js`. Replace it with real data once the backend exists.
+Sample storefront data remains in `src/data.js`.

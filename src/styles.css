@@ -198,3 +198,12 @@ td input, td select { min-height: 44px; width: 100%; max-width: 140px; backgroun
 @media (prefers-reduced-motion: no-preference) {
   .btn, .opt, .tab { transition: background 0.15s, border-color 0.15s; }
 }
+
+
+/* owner authentication */
+.auth-page { min-height: 62vh; display: flex; justify-content: center; align-items: flex-start; padding-top: 48px; }
+.auth-panel { width: 100%; max-width: 480px; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 24px; display: flex; flex-direction: column; gap: 14px; }
+.auth-panel h1 { margin: 0; }
+.auth-error { border-color: var(--bad); color: var(--soft); }
+.auth-panel form { margin-top: 8px; }
+.auth-panel button:disabled { opacity: 0.55; cursor: not-allowed; }

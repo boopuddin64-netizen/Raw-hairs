@@ -1,0 +1,33 @@
+name: Phase 1 validation
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches:
+      - development/phase-1-firebase-foundation
+
+jobs:
+  frontend-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run build
+
+  functions-install:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: functions
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: node --check index.js
+      - run: node --check scripts/set-owner-claim.mjs
