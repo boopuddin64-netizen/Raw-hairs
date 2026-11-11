@@ -29,7 +29,7 @@ export function OwnerAuthProvider({ children }) {
       }
 
       try {
-        const token = await getIdTokenResult(nextUser);
+        const token = await getIdTokenResult(nextUser, true);
         if (token.claims.owner !== true) {
           await signOut(auth);
           setUser(null);
