@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import { StoreProvider } from './store';
 import { Layout } from './components';
+import { ThemeProvider } from './theme/ThemeContext';
 import {
   StaffAuthProvider,
   AdminRoute,
@@ -23,36 +24,32 @@ import './styles.css';
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <StaffAuthProvider>
-      <StoreProvider>
-        <HashRouter>
-          <Routes>
-            {/* Customer storefront */}
-            <Route element={<Layout />}>
-              <Route index element={<Home />} />
-              <Route path="shop" element={<Shop />} />
-              <Route path="product/:id" element={<Product />} />
-              <Route path="cart" element={<Cart />} />
-              <Route path="services" element={<Services />} />
-              <Route path="account" element={<Account />} />
-              <Route path="help/:topic" element={<Help />} />
-
-              {/* Admin portal */}
-              <Route path="admin/sign-in" element={<AdminSignIn />} />
-              <Route path="admin" element={<AdminRoute><Admin /></AdminRoute>} />
-              <Route path="owner-sign-in" element={<AdminSignIn />} />
-
-              {/* Driver portal */}
-              <Route path="driver/sign-in" element={<DriverSignIn />} />
-              <Route path="driver" element={<DriverRoute><Rider /></DriverRoute>} />
-              <Route path="rider" element={<DriverRoute><Rider /></DriverRoute>} />
-              <Route path="rider/sign-in" element={<DriverSignIn />} />
-
-              <Route path="*" element={<Home />} />
-            </Route>
-          </Routes>
-        </HashRouter>
-      </StoreProvider>
-    </StaffAuthProvider>
+    <ThemeProvider>
+      <StaffAuthProvider>
+        <StoreProvider>
+          <HashRouter>
+            <Routes>
+              <Route element={<Layout />}>
+                <Route index element={<Home />} />
+                <Route path="shop" element={<Shop />} />
+                <Route path="product/:id" element={<Product />} />
+                <Route path="cart" element={<Cart />} />
+                <Route path="services" element={<Services />} />
+                <Route path="account" element={<Account />} />
+                <Route path="help/:topic" element={<Help />} />
+                <Route path="admin/sign-in" element={<AdminSignIn />} />
+                <Route path="admin" element={<AdminRoute><Admin /></AdminRoute>} />
+                <Route path="owner-sign-in" element={<AdminSignIn />} />
+                <Route path="driver/sign-in" element={<DriverSignIn />} />
+                <Route path="driver" element={<DriverRoute><Rider /></DriverRoute>} />
+                <Route path="rider" element={<DriverRoute><Rider /></DriverRoute>} />
+                <Route path="rider/sign-in" element={<DriverSignIn />} />
+                <Route path="*" element={<Home />} />
+              </Route>
+            </Routes>
+          </HashRouter>
+        </StoreProvider>
+      </StaffAuthProvider>
+    </ThemeProvider>
   </React.StrictMode>
 );
