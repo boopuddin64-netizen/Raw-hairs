@@ -1,13 +1,16 @@
-import { useMemo } from 'react';
+import { useMemo, useRef, useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { categories } from '../data';
 import { LiveProductCard, useCatalog } from '../catalog';
+import { onPullToRefresh } from '../gestures';
 
 const slug = (value) => (value || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 export default function Shop() {
-  const { products, loading, error } = useCatalog();
+  const { products, loading, error, refresh } = useCatalog();
   const [params, setParams] = useSearchParams();
+  const [ptr, setPtr] = useState(false);
+  const pageRef = useRef(null);
   const cat = params.get('cat') || 'all';
   const q = (params.get('q') || '').trim().toLowerCase();
   const sort = params.get('sort') || 'new';
@@ -16,6 +19,19 @@ export default function Shop() {
     if (!value || value === 'all') next.delete(key); else next.set(key, value);
     setParams(next);
   };
+
+  useEffect(() => {
+    const el = pageRef.current;
+    if (!el) return;
+    return onPullToRefresh(el, {
+      onRefresh: async () => {
+        setPtr(true);
+        if (typeof refresh === 'function') await refresh();
+        else window.location.reload();
+        setTimeout(() => setPtr(false), 600);
+      },
+    });
+  }, [refresh]);
 
   const list = useMemo(() => {
     let rows = products.filter((p) => cat === 'all' || slug(p.category) === cat);
@@ -26,10 +42,11 @@ export default function Shop() {
   }, [products, cat, q, sort]);
 
   return (
-    <div className="wrap page">
+    <div className="wrap page" ref={pageRef}>
+      <div className={`ptr-indicator ${ptr ? 'visible' : ''}`}>Refreshing…</div>
       <p className="eyebrow">THE RAW HAIRS COLLECTION</p>
       <h1>Shop all wigs</h1>
-      <p className="muted">Browse the products currently published by RAW HAIRS.</p>
+      <p className="muted">Browse the products currently published by RAW HAIRS. Pull down to refresh.</p>
       <form role="search" onSubmit={(e) => e.preventDefault()} className="field">
         <label htmlFor="shop-q" className="sr-only">Search wigs</label>
         <input id="shop-q" placeholder="Search by style, texture or description" value={params.get('q') || ''} onChange={(e) => set('q', e.target.value)} />
