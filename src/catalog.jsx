@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase, supabaseConfigured } from './lib/supabase';
 import { useStore } from './store';
-import { demoProducts } from './demo-products';
 
 async function withSignedImages(rows) {
   return Promise.all((rows || []).map(async (product) => {
@@ -23,10 +22,11 @@ export function useCatalog() {
   useEffect(() => {
     let active = true;
     async function load() {
-      // No Supabase — show demo catalogue so categories are populated
+      // Production must never present sample inventory as real stock.
       if (!supabaseConfigured || !supabase) {
         if (active) {
-          setProducts(demoProducts);
+          setProducts([]);
+          setError('The RAW HAIRS catalogue is temporarily unavailable. Please try again later.');
           setLoading(false);
         }
         return;
@@ -40,9 +40,15 @@ export function useCatalog() {
 
       if (!active) return;
 
-      if (queryError || !data || data.length === 0) {
-        // Empty or unavailable — use accurate demo products
-        setProducts(demoProducts);
+      if (queryError) {
+        setProducts([]);
+        setError('The RAW HAIRS catalogue could not be loaded. Please refresh and try again.');
+        setLoading(false);
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        setProducts([]);
         setError('');
         setLoading(false);
         return;
