@@ -1,41 +1,218 @@
-import { useState } from 'react';
-import { useStore } from '../store';
+import { useEffect, useState } from 'react';
 import { Chip } from '../components';
+import { supabase, supabaseConfigured } from '../lib/supabase';
 
-const TONE = { 'Out for delivery': 'warn', 'Awaiting shipping quote': 'info', Delivered: 'ok' };
+const TONE = {
+  awaiting_payment: 'info',
+  paid: 'ok',
+  processing: 'info',
+  dispatched: 'warn',
+  delivered: 'ok',
+  cancelled: 'muted',
+  refunded: 'muted',
+};
 
 export default function Account() {
-  const { state } = useStore();
+  const [mode, setMode] = useState('signin'); // signin | signup
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [user, setUser] = useState(null);
+  const [orders, setOrders] = useState([]);
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
+  const [error, setError] = useState('');
+
+  const refreshSession = async () => {
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+    const { data } = await supabase.auth.getSession();
+    const current = data?.session?.user ?? null;
+    setUser(current);
+    if (current) {
+      const [ordersRes, bookingsRes] = await Promise.all([
+        supabase.from('orders').select('id,status,total,created_at').order('created_at', { ascending: false }).limit(20),
+        supabase.from('bookings').select('id,status,customer_name,scheduled_at,notes,created_at').order('created_at', { ascending: false }).limit(20),
+      ]);
+      setOrders(ordersRes.data || []);
+      setBookings(bookingsRes.data || []);
+    } else {
+      setOrders([]);
+      setBookings([]);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    refreshSession();
+    if (!supabase) return undefined;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      refreshSession();
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setMsg('');
+    setBusy(true);
+    try {
+      if (!supabaseConfigured || !supabase) {
+        throw new Error('Account services are not configured in this deployment.');
+      }
+      if (mode === 'signin') {
+        const { error: signError } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+        if (signError) throw signError;
+        setMsg('Signed in successfully.');
+      } else {
+        const { data, error: signError } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: { data: { display_name: displayName.trim() || undefined } },
+        });
+        if (signError) throw signError;
+        if (data.user) {
+          // Best-effort profile row (RLS allows self-insert)
+          await supabase.from('profiles').upsert({
+            id: data.user.id,
+            display_name: displayName.trim() || null,
+          });
+        }
+        setMsg(data.session
+          ? 'Account created and signed in.'
+          : 'Account created. Check your email to confirm, then sign in.');
+        setMode('signin');
+      }
+      await refreshSession();
+    } catch (err) {
+      setError(err?.message || 'Authentication failed.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const signOut = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      if (supabase) await supabase.auth.signOut();
+      setUser(null);
+      setOrders([]);
+      setBookings([]);
+      setMsg('Signed out.');
+    } catch (err) {
+      setError(err?.message || 'Could not sign out.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="wrap page"><p className="muted">Loading account…</p></div>;
+  }
+
+  if (!supabaseConfigured) {
+    return (
+      <div className="wrap page" style={{ maxWidth: 640 }}>
+        <h1>My account</h1>
+        <div className="notice auth-error">Supabase is not configured in this environment.</div>
+      </div>
+    );
+  }
+
+  if (user) {
+    return (
+      <div className="wrap page" style={{ maxWidth: 640 }}>
+        <p className="eyebrow">My account</p>
+        <h1>Welcome back</h1>
+        <p className="muted small" style={{ margin: '4px 0 16px' }}>{user.email}</p>
+        <button className="btn btn-ghost" type="button" onClick={signOut} disabled={busy}>Sign out</button>
+        {msg && <div className="notice" role="status" style={{ marginTop: 12 }}>{msg}</div>}
+        {error && <div className="notice auth-error" role="alert" style={{ marginTop: 12 }}>{error}</div>}
+
+        <h2 style={{ fontSize: 28, margin: '28px 0 12px' }}>Your orders</h2>
+        {orders.length === 0 && <p className="muted small">No orders yet.</p>}
+        <div className="stack">
+          {orders.map((o) => (
+            <article key={o.id} className="row-card" style={{ flexDirection: 'column', gap: 8 }}>
+              <div className="row-top">
+                <h3>Order {o.id.slice(0, 8)}</h3>
+                <Chip tone={TONE[o.status] || 'muted'}>{String(o.status).replaceAll('_', ' ')}</Chip>
+              </div>
+              <div className="row-top">
+                <span className="muted small">{o.created_at ? new Date(o.created_at).toLocaleString('en-NG') : ''}</span>
+                <span className="price">{o.total != null ? `₦${Number(o.total).toLocaleString('en-NG')}` : ''}</span>
+              </div>
+            </article>
+          ))}
+        </div>
+
+        <h2 style={{ fontSize: 28, margin: '28px 0 12px' }}>Your bookings</h2>
+        {bookings.length === 0 && <p className="muted small">No bookings yet.</p>}
+        <div className="stack">
+          {bookings.map((b) => (
+            <article key={b.id} className="row-card" style={{ flexDirection: 'column', gap: 6 }}>
+              <div className="row-top">
+                <h3>{b.customer_name}</h3>
+                <Chip tone="info">{b.status}</Chip>
+              </div>
+              <span className="muted small">
+                {b.scheduled_at ? new Date(b.scheduled_at).toLocaleString('en-NG') : 'Not scheduled'}
+              </span>
+              {b.notes && <p className="muted small">{b.notes}</p>}
+            </article>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="wrap page" style={{ maxWidth: 640 }}>
       <p className="eyebrow">My account</p>
-      <h1>Welcome back</h1>
-      <p className="muted small" style={{ margin: '4px 0 16px' }}>[CUSTOMER NAME] · [EMAIL]</p>
+      <h1>{mode === 'signin' ? 'Sign in' : 'Create account'}</h1>
+      <p className="muted small" style={{ margin: '4px 0 16px' }}>
+        Sign in to send booking and international requests, and to see your orders.
+      </p>
 
-      <div className="notice" style={{ marginBottom: 20 }}>Sign-in is not connected yet. The order list below is sample data to show the layout. When accounts are built, you will only ever see your own orders.</div>
-
-      <form onSubmit={(e) => { e.preventDefault(); setMsg('Registration and sign-in are not connected yet.'); }} style={{ marginBottom: 24 }}>
-        <div className="field"><label htmlFor="a-e">Email</label><input id="a-e" type="email" autoComplete="email" /></div>
-        <div className="field"><label htmlFor="a-p">Password</label><input id="a-p" type="password" autoComplete="current-password" /></div>
+      <form onSubmit={submit} style={{ marginBottom: 24 }}>
+        {mode === 'signup' && (
+          <div className="field">
+            <label htmlFor="a-n">Display name</label>
+            <input id="a-n" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+          </div>
+        )}
+        <div className="field">
+          <label htmlFor="a-e">Email</label>
+          <input id="a-e" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+        </div>
+        <div className="field">
+          <label htmlFor="a-p">Password</label>
+          <input id="a-p" type="password" autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
+        </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button className="btn btn-primary" type="submit">Sign in</button>
-          <button className="btn btn-ghost" type="button" onClick={() => setMsg('Registration is not connected yet.')}>Create account</button>
-          <button className="btn btn-ghost" type="button" onClick={() => setMsg('Password recovery is not connected yet.')}>Forgot password</button>
+          <button className="btn btn-primary" type="submit" disabled={busy}>
+            {busy ? 'Please wait…' : (mode === 'signin' ? 'Sign in' : 'Create account')}
+          </button>
+          <button
+            className="btn btn-ghost"
+            type="button"
+            onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(''); setMsg(''); }}
+          >
+            {mode === 'signin' ? 'Create account' : 'Already have an account?'}
+          </button>
         </div>
         {msg && <div className="notice" role="status" style={{ marginTop: 12 }}>{msg}</div>}
+        {error && <div className="notice auth-error" role="alert" style={{ marginTop: 12 }}>{error}</div>}
       </form>
-
-      <h2 style={{ fontSize: 28, marginBottom: 12 }}>Your orders</h2>
-      <div className="stack">
-        {state.orders.map((o) => (
-          <article key={o.id} className="row-card" style={{ flexDirection: 'column', gap: 8 }}>
-            <div className="row-top"><h3>Order {o.id}</h3><Chip tone={TONE[o.status] || 'muted'}>{o.status}</Chip></div>
-            <span className="muted small">{o.items}</span>
-            <div className="row-top"><span className="muted small">{o.note}</span><span className="price">₦ [AMOUNT]</span></div>
-          </article>
-        ))}
-      </div>
     </div>
   );
 }

@@ -1,62 +1,147 @@
 import { useState } from 'react';
-import { useStore, naira } from '../store';
-import { Photo, Chip } from '../components';
+import { Link } from 'react-router-dom';
+import { useServices, formatNaira } from '../catalog';
+import { Chip } from '../components';
+import { supabase, supabaseConfigured } from '../lib/supabase';
 
 export default function Services() {
-  const store = useStore();
-  const services = store.state.services.filter((s) => s.status !== 'hidden');
-  const open = services.filter((s) => s.status === 'available');
-  const [form, setForm] = useState({ name: '', whatsapp: '', service: '', message: '' });
+  const { services, loading, error } = useServices();
+  const [form, setForm] = useState({ name: '', whatsapp: '', serviceId: '', message: '', scheduledAt: '' });
   const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [formError, setFormError] = useState('');
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
-    store.addBooking({ ...form, service: form.service || (open[0] && open[0].name) });
-    setDone(true);
-    setForm({ name: '', whatsapp: '', service: '', message: '' });
+    setFormError('');
+    setBusy(true);
+    try {
+      if (!supabaseConfigured || !supabase) {
+        throw new Error('Bookings are not connected yet. Please message RAW HAIRS on Instagram or WhatsApp.');
+      }
+      const { data: sessionData } = await supabase.auth.getSession();
+      const user = sessionData?.session?.user;
+      if (!user) {
+        throw new Error('Please sign in from the Account page first, then send your booking request.');
+      }
+
+      const selected = services.find((s) => s.id === form.serviceId) || services[0];
+      const scheduled = form.scheduledAt
+        ? new Date(form.scheduledAt).toISOString()
+        : new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
+
+      const { error: insertError } = await supabase.from('bookings').insert({
+        customer_id: user.id,
+        service_id: selected?.id || null,
+        customer_name: form.name.trim(),
+        customer_phone: form.whatsapp.trim(),
+        scheduled_at: scheduled,
+        status: 'pending',
+        notes: form.message.trim() || null,
+      });
+      if (insertError) throw insertError;
+
+      setDone(true);
+      setForm({ name: '', whatsapp: '', serviceId: '', message: '', scheduledAt: '' });
+    } catch (err) {
+      setFormError(err?.message || 'Could not send booking request.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
     <div className="wrap page">
       <h1>Wig services</h1>
-      <p className="muted" style={{ marginBottom: 16 }}>Bring your wig in, or send us a request. We will confirm the price and the date with you.</p>
+      <p className="muted" style={{ marginBottom: 16 }}>
+        Bring your wig in, or send us a request. We will confirm the price and the date with you.
+      </p>
 
-      <div className="stack services-grid">
-        {services.map((s) => {
-          const paused = s.status === 'paused';
-          return (
+      {loading && <div className="placeholder-box">Loading services…</div>}
+      {error && <div className="notice auth-error" role="alert">{error}</div>}
+
+      {!loading && !error && services.length === 0 && (
+        <div className="placeholder-box">
+          <span className="big">Services coming soon.</span>
+          <span className="muted small">Published services will appear here.</span>
+        </div>
+      )}
+
+      {!loading && services.length > 0 && (
+        <div className="stack services-grid">
+          {services.map((s) => (
             <article key={s.id} className="card">
-              <div style={{ position: 'relative', height: 170, opacity: paused ? 0.6 : 1 }}><Photo label={s.name} className="fill" /></div>
               <div className="card-body" style={{ gap: 8, padding: 16 }}>
-                <div className="row-top"><h2 style={{ fontSize: 26 }}>{s.name}</h2><Chip tone={paused ? 'warn' : 'ok'}>{paused ? 'Paused' : 'Available'}</Chip></div>
-                <p className="muted small" style={{ fontSize: 14 }}>{s.desc}</p>
-                <span className="price">From {naira(s.price)}</span>
-                {paused
-                  ? <button className="btn btn-disabled" disabled>Temporarily unavailable</button>
-                  : <a className="btn btn-primary" href="#book" onClick={() => setForm({ ...form, service: s.name })}>Book or enquire</a>}
+                <div className="row-top">
+                  <h2 style={{ fontSize: 26 }}>{s.name}</h2>
+                  <Chip tone="ok">Available</Chip>
+                </div>
+                {s.description && <p className="muted small" style={{ fontSize: 14 }}>{s.description}</p>}
+                <span className="price">From {formatNaira(s.price)}</span>
+                {s.duration_minutes && (
+                  <span className="muted small">{s.duration_minutes} minutes</span>
+                )}
+                <a
+                  className="btn btn-primary"
+                  href="#book"
+                  onClick={() => setForm((f) => ({ ...f, serviceId: s.id }))}
+                >
+                  Book or enquire
+                </a>
               </div>
             </article>
-          );
-        })}
-      </div>
-      <p className="muted small" style={{ margin: '12px 0' }}>Hidden services never appear here. Services do not use product stock numbers.</p>
+          ))}
+        </div>
+      )}
 
       <section id="book" style={{ paddingTop: 24, maxWidth: 560 }}>
         <h2 style={{ fontSize: 28, marginBottom: 4 }}>Request a booking</h2>
-        <p className="muted small" style={{ marginBottom: 16 }}>Sending this does not charge you.</p>
-        {done && <div className="notice" role="status" style={{ marginBottom: 16 }}>Request saved in this demo (this browser only). On the live site RAW HAIRS is notified and replies on WhatsApp.</div>}
+        <p className="muted small" style={{ marginBottom: 16 }}>Sending this does not charge you. Sign in from Account first.</p>
+        {done && (
+          <div className="notice" role="status" style={{ marginBottom: 16 }}>
+            Booking request received. RAW HAIRS will confirm on WhatsApp.
+          </div>
+        )}
         <form onSubmit={submit}>
-          <div className="field"><label htmlFor="b-n">Your name</label><input id="b-n" required value={form.name} onChange={set('name')} /></div>
-          <div className="field"><label htmlFor="b-w">WhatsApp number</label><input id="b-w" required inputMode="tel" value={form.whatsapp} onChange={set('whatsapp')} /></div>
-          <div className="field"><label htmlFor="b-s">Service</label>
-            <select id="b-s" value={form.service} onChange={set('service')}>
-              {open.map((s) => <option key={s.id}>{s.name}</option>)}
+          <div className="field">
+            <label htmlFor="b-n">Your name</label>
+            <input id="b-n" required value={form.name} onChange={set('name')} />
+          </div>
+          <div className="field">
+            <label htmlFor="b-w">WhatsApp number</label>
+            <input id="b-w" required inputMode="tel" value={form.whatsapp} onChange={set('whatsapp')} />
+          </div>
+          <div className="field">
+            <label htmlFor="b-s">Service</label>
+            <select
+              id="b-s"
+              value={form.serviceId}
+              onChange={set('serviceId')}
+              required={services.length > 0}
+            >
+              <option value="">Select a service</option>
+              {services.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
             </select>
           </div>
-          <div className="field"><label htmlFor="b-m">Tell us about your wig</label><textarea id="b-m" rows="3" value={form.message} onChange={set('message')} /></div>
-          <button className="btn btn-primary btn-lg btn-block" type="submit" disabled={open.length === 0}>Send request</button>
+          <div className="field">
+            <label htmlFor="b-d">Preferred date / time (optional)</label>
+            <input id="b-d" type="datetime-local" value={form.scheduledAt} onChange={set('scheduledAt')} />
+          </div>
+          <div className="field">
+            <label htmlFor="b-m">Tell us about your wig</label>
+            <textarea id="b-m" rows="3" value={form.message} onChange={set('message')} />
+          </div>
+          {formError && <div className="notice auth-error" role="alert" style={{ marginBottom: 12 }}>{formError}</div>}
+          <button className="btn btn-primary btn-lg btn-block" type="submit" disabled={busy || services.length === 0}>
+            {busy ? 'Sending…' : 'Send request'}
+          </button>
         </form>
+        <p className="muted small" style={{ marginTop: 12 }}>
+          No account yet? <Link to="/account">Create one on the Account page</Link>.
+        </p>
       </section>
     </div>
   );

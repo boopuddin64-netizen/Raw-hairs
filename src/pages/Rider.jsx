@@ -1,35 +1,91 @@
-import { useStore } from '../store';
-import { jobSteps } from '../data';
+import { useEffect, useState } from 'react';
+import { useOwnerAuth } from '../auth/OwnerAuth';
+import { supabase, supabaseConfigured } from '../lib/supabase';
 import { Chip } from '../components';
 
-const ACTION = ['START PICKUP', 'CONFIRM PICKED UP', 'CONFIRM DELIVERED', null];
+const JOB_STATUSES = ['unassigned', 'assigned', 'picked_up', 'in_transit', 'delivered', 'failed'];
 
 export default function Rider() {
-  const store = useStore();
-  const { jobs } = store.state;
-  return (
-    <div className="wrap page" style={{ maxWidth: 560 }}>
-      <p className="eyebrow">Rider · demo</p>
-      <h1>Today's deliveries</h1>
-      <p className="muted small" style={{ margin: '6px 0 12px' }}>Only deliveries assigned to you appear here.</p>
-      <div className="notice" style={{ marginBottom: 16 }}>Concept demo with no sign-in. On the live site each rider signs in securely and sees only their own jobs, with just a first name, address, package and phone.</div>
+  const { user } = useOwnerAuth();
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState('');
 
+  const refresh = async () => {
+    if (!supabase) {
+      setError('Supabase is not configured.');
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError('');
+    const { data, error: queryError } = await supabase
+      .from('rider_jobs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (queryError) {
+      setError(queryError.message);
+      setLoading(false);
+      return;
+    }
+    setJobs(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { refresh(); }, []);
+
+  const updateStatus = async (id, status) => {
+    setBusy(id);
+    setError('');
+    const { error: updateError } = await supabase.from('rider_jobs').update({ status }).eq('id', id);
+    if (updateError) setError(updateError.message);
+    else await refresh();
+    setBusy('');
+  };
+
+  if (!supabaseConfigured) {
+    return <div className="wrap page"><h1>Rider</h1><div className="notice">Supabase is not configured.</div></div>;
+  }
+
+  return (
+    <div className="wrap page" style={{ maxWidth: 640 }}>
+      <p className="eyebrow">Rider · owner access</p>
+      <h1>Delivery jobs</h1>
+      <p className="muted small" style={{ margin: '6px 0 12px' }}>
+        Owner preview of rider jobs. Dedicated rider accounts come later.
+      </p>
+      <p className="muted small">Signed in as {user?.email}</p>
+      <button className="btn btn-ghost" type="button" onClick={refresh} disabled={loading} style={{ marginBottom: 12 }}>
+        Refresh
+      </button>
+      {error && <div className="notice auth-error" role="alert">{error}</div>}
+      {loading && <p className="muted">Loading jobs…</p>}
+      {!loading && jobs.length === 0 && <p className="muted small">No rider jobs yet.</p>}
       <div className="stack">
-        {jobs.map((j) => (
-          <article key={j.id} className="row-card" style={{ flexDirection: 'column', gap: 10, border: j.step === 2 ? '1px solid var(--pink)' : '1px solid var(--line)' }}>
-            <div className="row-top"><h3 style={{ fontSize: 16 }}>Delivery {j.id}</h3><Chip tone={j.step === 3 ? 'ok' : j.step === 2 ? 'warn' : 'info'}>{jobSteps[j.step]}</Chip></div>
-            <div><span className="muted small">Deliver to</span><br />{j.customer}<br /><span style={{ color: 'var(--soft)' }}>{j.address}</span></div>
-            <div><span className="muted small">Package</span><br />{j.pack}</div>
-            <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 6, fontSize: 14 }}>
-              {jobSteps.map((s, i) => (
-                <li key={s} style={{ color: i < j.step ? 'var(--ok)' : i === j.step ? 'var(--pink)' : 'var(--muted)' }}>{i < j.step ? '✓' : i === j.step ? '●' : '○'} {s}</li>
-              ))}
-            </ol>
-            {ACTION[j.step] && <button className="btn btn-primary btn-lg" onClick={() => store.advanceJob(j.id)}>{ACTION[j.step]}</button>}
+        {jobs.map((job) => (
+          <article key={job.id} className="row-card" style={{ flexDirection: 'column', gap: 10 }}>
+            <div className="row-top">
+              <h3 style={{ fontSize: 16 }}>Job {job.id.slice(0, 8)}</h3>
+              <Chip tone="info">{String(job.status).replaceAll('_', ' ')}</Chip>
+            </div>
+            <span className="muted small">Order: {job.order_id}</span>
+            <span className="muted small">Rider: {job.rider_id || 'Unassigned'}</span>
+            <label className="small">
+              Status{' '}
+              <select
+                value={job.status}
+                disabled={busy === job.id}
+                onChange={(e) => updateStatus(job.id, e.target.value)}
+                style={{ minHeight: 44, marginLeft: 8 }}
+              >
+                {JOB_STATUSES.map((s) => <option key={s} value={s}>{s.replaceAll('_', ' ')}</option>)}
+              </select>
+            </label>
           </article>
         ))}
       </div>
-      <p className="muted small" style={{ marginTop: 16 }}>Riders never see product admin, payments, other riders' jobs or unrelated customers.</p>
     </div>
   );
 }

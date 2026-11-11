@@ -1,19 +1,39 @@
 # RAW HAIRS
 
-Premium, mobile-first wig boutique storefront. The active backend migration is Supabase.
+Premium, mobile-first wig boutique storefront. Backend: **Supabase** (Postgres, Auth, RLS, Storage).
 
 ## Stack
 
-- React 18 + Vite.
-- Supabase Postgres, Auth, Row Level Security and Storage.
-- NGN pricing.
-- Owner-only access to the admin and rider dashboards during the prototype phase.
+- React 18 + Vite + React Router
+- Supabase Postgres, Auth, Row Level Security and Storage
+- NGN pricing
+- Owner-only admin and rider dashboards (prototype)
+
+## What works now
+
+- Live product catalogue from Supabase (`is_active = true`)
+- Live services list from Supabase
+- Cart stored in the browser; lines sync price/stock from live products
+- Product detail page with **Add to bag**
+- Customer sign-up / sign-in on Account (Supabase Auth)
+- Signed-in customers can submit **bookings** and **international requests** (saved to Supabase)
+- Owner admin: products, services, orders, bookings, international requests, rider jobs, image upload
+- Owner-only `/admin` and `/rider` routes
+
+## Still not production-complete
+
+- Paystack checkout + payment verification webhook
+- Atomic stock reservation / decrement on payment
+- Product variants (length-based pricing)
+- Dedicated rider accounts (owner can preview jobs for now)
+- Public product image CDN policy (currently 24h signed URLs)
+- Help / policy pages still use placeholder copy
 
 ## Supabase project
 
 Project reference: `xcipemtyclinuyaadgxy`
 
-The frontend uses only the Supabase project URL and a publishable key. Never place a Supabase secret or service-role key in browser code or any `VITE_*` variable.
+The frontend uses only the Supabase project URL and a **publishable** key. Never place a secret or service-role key in browser code or any `VITE_*` variable.
 
 ## Local setup
 
@@ -23,30 +43,21 @@ The frontend uses only the Supabase project URL and a publishable key. Never pla
 4. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`.
 5. Run `npm run dev`.
 
-## Authentication and authorization
+## Authentication
 
-- Customers authenticate through Supabase Auth.
-- Owner sign-in uses email/password.
-- Owner authorization is checked using trusted `app_metadata.role = 'owner'`.
-- Never use user-editable `user_metadata` for authorization.
-- Public owner registration is disabled. Provision the owner role only through a trusted Supabase administrator process.
-- The current prototype intentionally keeps the admin and rider routes owner-only. Rider-specific accounts and restricted rider permissions are a later phase.
+- Customers: email/password via Supabase Auth (Account page).
+- Owner: email/password; authorized only when `app_metadata.role = 'owner'` (set via trusted admin process, never from the browser).
+- Public owner registration is disabled.
 
 ## Database
 
-The initial schema is in `supabase/migrations/20261111145717_raw_hairs_initial_schema.sql`. It defines profiles, products, services, bookings, orders, order items, international requests and rider jobs with RLS enabled.
+Schema: `supabase/migrations/20261111145717_raw_hairs_initial_schema.sql`
 
-The database foundation is not the completed commerce workflow. Checkout pricing, Paystack verification, transactional stock reservation (15 minutes), refund handling, delivery OTP verification, notifications and admin/rider operational workflows still require implementation and tests.
-
-## Storage
-
-The initial migration creates a private `product-images` bucket. Product image access is owner-restricted until the storefront image delivery policy is finalized.
+Tables: profiles, products, services, bookings, orders, order_items, international_requests, rider_jobs — all with RLS.
 
 ## Development status
 
-- Supabase client foundation: present.
-- Owner sign-in migration: in progress.
-- Storefront and admin data access: still uses demo/local browser state and must be migrated screen by screen.
-- Production deployment: not authorized by this development branch.
+Storefront catalogue, cart, customer auth, bookings, and international requests are wired to Supabase.
+Checkout / Paystack and stock reservation remain the next phase.
 
-Do not deploy this branch to production without explicit approval.
+Do not treat this branch as fully production-ready until payment verification and stock control are complete.
