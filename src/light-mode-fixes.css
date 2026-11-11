@@ -1,0 +1,84 @@
+/* Light mode contrast fixes — text must stay visible on dark backgrounds */
+
+:root[data-theme='light'] .hero {
+  /* Keep the dark gradient so the hero still looks premium */
+  background: linear-gradient(170deg, #3a1827 0%, #160c11 55%, #1a1216 100%);
+}
+
+:root[data-theme='light'] .hero h1,
+:root[data-theme='light'] .hero .eyebrow,
+:root[data-theme='light'] .hero p.lead,
+:root[data-theme='light'] .hero-note,
+:root[data-theme='light'] .hero-visual span {
+  color: #f5eef1 !important;
+}
+
+:root[data-theme='light'] .hero .btn-primary {
+  background: #f472a8;
+  color: #0a0a0b;
+  border-color: #f472a8;
+}
+
+:root[data-theme='light'] .hero .btn-outline {
+  border-color: #f5eef1;
+  color: #f5eef1;
+}
+
+:root[data-theme='light'] .hero .btn-outline:hover {
+  background: #f5eef1;
+  color: #0a0a0b;
+}
+
+/* Bottom nav is a dark surface — keep light text */
+:root[data-theme='light'] .bottom-nav {
+  background: #0f0f11;
+  border-top-color: #2a2a2e;
+}
+:root[data-theme='light'] .bottom-nav a {
+  color: #c9bec4;
+}
+:root[data-theme='light'] .bottom-nav a.active {
+  color: #f472a8;
+}
+
+/* Admin brand bar is dark — keep light text */
+:root[data-theme='light'] .admin-brandbar {
+  background: linear-gradient(115deg, #21121a, #111012 68%);
+  border-color: #49303b;
+  color: #f5eef1;
+}
+:root[data-theme='light'] .admin-brandbar .eyebrow,
+:root[data-theme='light'] .admin-live {
+  color: #b8aab1;
+}
+
+/* Photo placeholders and sold-out overlays stay dark with light text */
+:root[data-theme='light'] .soldout {
+  color: #f5eef1;
+}
+:root[data-theme='light'] .photo-tag {
+  color: #d9a9bf;
+}
+
+/* Toast stays high-contrast */
+:root[data-theme='light'] .toast {
+  background: #c45c7a;
+  color: #fff;
+}
+
+/* Ensure general body text is dark on light surfaces */
+:root[data-theme='light'] body,
+:root[data-theme='light'] h1,
+:root[data-theme='light'] h2,
+:root[data-theme='light'] h3,
+:root[data-theme='light'] p,
+:root[data-theme='light'] .card-body h3,
+:root[data-theme='light'] .section-head h2 {
+  color: #24211f;
+}
+
+/* Re-apply hero override after the general rule above */
+:root[data-theme='light'] .hero h1,
+:root[data-theme='light'] .hero p.lead {
+  color: #f5eef1 !important;
+}
