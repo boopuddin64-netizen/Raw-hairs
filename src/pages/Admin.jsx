@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useStore, stockLabel } from '../store';
 import { Chip } from '../components';
+import { useOwnerAuth } from '../auth/OwnerAuth';
 
 const TABS = ['Overview', 'Products', 'Services', 'Requests', 'Riders'];
 
 export default function Admin() {
   const store = useStore();
+  const { user, signOut } = useOwnerAuth();
   const { state } = store;
   const [tab, setTab] = useState('Overview');
   const [rider, setRider] = useState('');
@@ -16,9 +18,9 @@ export default function Admin() {
   return (
     <div className="wrap page">
       <p className="eyebrow">Owner admin · demo</p>
-      <h1>Manage RAW HAIRS</h1>
+      <div className="row-top" style={{ alignItems: "center" }}><div><h1>Manage RAW HAIRS</h1><p className="muted small">Signed in as {user?.email || "authorized owner"}</p></div><button className="btn btn-ghost" onClick={() => signOut()}>Sign out</button></div>
       <div className="notice" style={{ margin: '12px 0 16px' }}>
-        Concept demo. There is no sign-in, no server and no audit log yet: changes are saved only in this browser. The real admin will require a protected login with two-step verification.
+        Owner access is verified using Firebase Authentication and a server-issued owner claim. Admin data is still demo data stored in this browser; Firestore persistence and audit logging are not enabled yet.
       </div>
       <div className="tabs" role="tablist">
         {TABS.map((t) => <button key={t} role="tab" className="tab" aria-selected={tab === t} onClick={() => setTab(t)}>{t}</button>)}
