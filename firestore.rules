@@ -1,0 +1,15 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isOwner() {
+      return request.auth != null && request.auth.token.owner == true;
+    }
+
+    // Phase 1: deny every non-owner. Replace with collection-specific,
+    // least-privilege rules before customer or rider access is introduced.
+    match /{document=**} {
+      allow read, write: if isOwner();
+    }
+  }
+}
