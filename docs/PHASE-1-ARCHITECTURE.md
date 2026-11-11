@@ -25,7 +25,7 @@
 2. Create the owner's user in Firebase Authentication using the trusted Firebase console.
 3. Obtain the owner's Firebase Authentication UID.
 4. In a trusted environment, install the Functions dependencies and authenticate the Firebase Admin SDK using Application Default Credentials for the correct project.
-5. Run OWNER_UID=<owner-auth-uid> npm run set-owner-claim.
+5. From the functions directory, run OWNER_UID=<owner-auth-uid> npm run set-owner-claim.
 6. The script preserves existing custom claims, adds owner: true, and revokes existing refresh tokens.
 7. The owner signs in again. The frontend checks the signed ID token claim; Firestore rules independently enforce it.
 
@@ -78,4 +78,4 @@ This is the target model. Phase 1 does not yet migrate demo localStorage records
 
 The existing admin screens still use demo data from browser localStorage. Owner authentication protects entry to the screens, but does not turn those demo mutations into durable Firestore operations. That data migration and server-side business logic are separate implementation work and must be completed before real operations.
 
-The frontend can be built without Firebase credentials, but owner sign-in remains disabled until the environment variables and Firebase project are configured.
+The frontend can be built without Firebase credentials, but owner sign-in remains disabled until the environment variables and Firebase project are configured. No Firebase project has been provisioned and no Firebase rules or functions have been deployed by this change. Do not deploy Firebase resources or the frontend to production until the owner explicitly approves the deployment.
