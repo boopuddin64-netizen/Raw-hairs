@@ -20,7 +20,7 @@ const NAV = [
   { id: 'Settings', label: 'Settings' },
 ];
 
-const ORDER_STATUSES = ['processing', 'dispatched', 'delivered', 'cancelled'];
+const ORDER_STATUSES = ['awaiting_payment', 'paid', 'processing', 'dispatched', 'delivered', 'cancelled', 'refunded'];
 const BOOKING_STATUSES = ['pending', 'confirmed', 'completed', 'cancelled'];
 const REQUEST_STATUSES = ['pending', 'quoted', 'approved', 'declined', 'converted'];
 const JOB_STATUSES = ['unassigned', 'assigned', 'picked_up', 'in_transit', 'delivered', 'failed'];
@@ -294,7 +294,7 @@ export default function Admin() {
                 <tbody>
                   {orders.map((o) => (
                     <tr key={o.id}>
-                      <td>{o.customer_name || o.email || o.id}</td>
+                      <td>{o.customer_name || o.email || o.customer_id || o.id}</td>
                       <td>{money(o.total || o.amount)}</td>
                       <td>
                         <StatusSelect value={o.status || 'processing'} options={ORDER_STATUSES} label="Order status" onSave={(v) => saveStatus('orders', o.id, v)} />
@@ -314,12 +314,12 @@ export default function Admin() {
                 <tbody>
                   {bookings.map((b) => (
                     <tr key={b.id}>
-                      <td>{b.customer_name || b.email || b.id}</td>
+                      <td>{b.customer_name || b.customer_phone || b.customer_id || b.id}</td>
                       <td>{b.service_name || b.service_id || '—'}</td>
                       <td>
                         <StatusSelect value={b.status || 'pending'} options={BOOKING_STATUSES} label="Booking status" onSave={(v) => saveStatus('bookings', b.id, v)} />
                       </td>
-                      <td>{dateTime(b.created_at)}</td>
+                      <td>{dateTime(b.scheduled_at || b.created_at)}</td>
                     </tr>
                   ))}
                   {!bookings.length && <tr><td colSpan={4} className="muted">No bookings</td></tr>}
@@ -337,7 +337,7 @@ export default function Admin() {
                       <td>{p.name}</td>
                       <td>{money(p.price)}</td>
                       <td>{p.stock ?? '—'}</td>
-                      <td>{p.active === false ? 'No' : 'Yes'}</td>
+                      <td>{p.is_active ? 'Yes' : 'No'}</td>
                     </tr>
                   ))}
                   {!products.length && <tr><td colSpan={4} className="muted">No products</td></tr>}
@@ -369,8 +369,8 @@ export default function Admin() {
                 <tbody>
                   {international.map((r) => (
                     <tr key={r.id}>
-                      <td>{r.customer_name || r.email || r.id}</td>
-                      <td>{r.notes || r.description || '—'}</td>
+                      <td>{r.customer_name || r.customer_email || r.customer_id || r.id}</td>
+                      <td>{r.request_details || '—'}</td>
                       <td>
                         <StatusSelect value={r.status || 'pending'} options={REQUEST_STATUSES} label="Request status" onSave={(v) => saveStatus('international_requests', r.id, v)} />
                       </td>
@@ -426,7 +426,7 @@ export default function Admin() {
                 {r.comment && <p className="muted" style={{ width: '100%' }}>{r.comment}</p>}
               </li>
             ))}
-            {!reviews.length && <li className="muted">No reviews yet (run docs/ADMIN-SETTINGS.sql in Supabase if table missing)</li>}
+            {!reviews.length && <li className="muted">No reviews yet</li>}
           </ul>
         </div>
       )}
