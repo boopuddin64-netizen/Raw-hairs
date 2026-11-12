@@ -4,6 +4,16 @@ import { useServices, formatNaira } from '../catalog';
 import { Chip } from '../components';
 import { supabase, supabaseConfigured } from '../lib/supabase';
 
+const BOOKING_ERRORS = {
+  sign_in_required: 'Please sign in from the Account page first, then send your booking request.',
+  invalid_time: 'Please choose a valid date and time.',
+  booking_too_soon: 'Please pick a time at least one hour from now.',
+  booking_too_far: 'We take bookings up to 90 days ahead. Please choose a nearer date.',
+  missing_details: 'Please fill in your name and WhatsApp number.',
+  service_unavailable: 'That service is not available right now. Please pick another.',
+  slot_taken: 'That time slot is already taken. Please choose a different time.',
+};
+
 export default function Services() {
   const { services, loading, error } = useServices();
   const [form, setForm] = useState({ name: '', whatsapp: '', serviceId: '', message: '', scheduledAt: '' });
@@ -23,24 +33,27 @@ export default function Services() {
       const { data: sessionData } = await supabase.auth.getSession();
       const user = sessionData?.session?.user;
       if (!user) {
-        throw new Error('Please sign in from the Account page first, then send your booking request.');
+        throw new Error(BOOKING_ERRORS.sign_in_required);
       }
 
       const selected = services.find((s) => s.id === form.serviceId) || services[0];
       const scheduled = form.scheduledAt
         ? new Date(form.scheduledAt).toISOString()
-        : new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
+        : null;
 
-      const { error: insertError } = await supabase.from('bookings').insert({
-        customer_id: user.id,
-        service_id: selected?.id || null,
-        customer_name: form.name.trim(),
-        customer_phone: form.whatsapp.trim(),
-        scheduled_at: scheduled,
-        status: 'pending',
-        notes: form.message.trim() || null,
+      // Phase 5: bookings go through the server-validated RPC (slot conflicts
+      // rejected server-side; direct inserts are closed by RLS).
+      const { data, error: rpcError } = await supabase.rpc('create_booking', {
+        p_service_id: selected?.id || null,
+        p_scheduled_at: scheduled,
+        p_customer_name: form.name.trim(),
+        p_customer_phone: form.whatsapp.trim(),
+        p_notes: form.message.trim() || null,
       });
-      if (insertError) throw insertError;
+      if (rpcError) throw rpcError;
+      if (!data || data.ok !== true) {
+        throw new Error(BOOKING_ERRORS[data?.error] || 'Could not send booking request.');
+      }
 
       setDone(true);
       setForm({ name: '', whatsapp: '', serviceId: '', message: '', scheduledAt: '' });
@@ -127,8 +140,8 @@ export default function Services() {
             </select>
           </div>
           <div className="field">
-            <label htmlFor="b-d">Preferred date / time (optional)</label>
-            <input id="b-d" type="datetime-local" value={form.scheduledAt} onChange={set('scheduledAt')} />
+            <label htmlFor="b-d">Preferred date / time</label>
+            <input id="b-d" type="datetime-local" required value={form.scheduledAt} onChange={set('scheduledAt')} />
           </div>
           <div className="field">
             <label htmlFor="b-m">Tell us about your wig</label>

@@ -220,17 +220,6 @@ async function removeImage(req, res) {
 // ---------------------------------------------------------------------------
 // Paystack payment endpoints (Phase 3). PUBLIC by design: customers (including
 // guests) call pay-init/pay-verify; Paystack calls pay-webhook.
-//
-// Security model:
-//   * The client NEVER sends an amount. pay-init reads the payment and order
-//     from the database (service role) and only then talks to Paystack.
-//   * pay-verify and pay-webhook never trust request payloads: after extracting
-//     a reference, both re-fetch the authoritative status from Paystack's
-//     verify API before recording anything.
-//   * Recording goes through the database RPC mark_payment_successful(), which
-//     is service-role-only, amount-validating, and idempotent (webhook replays
-//     and double-callbacks are no-ops).
-//   * PAYSTACK_SECRET_KEY is server-only and must never be VITE_-prefixed.
 // ---------------------------------------------------------------------------
 
 async function paystackFetch(res, path, init) {
@@ -340,6 +329,36 @@ async function payWebhook(req, res) {
   return json(res, 200, { ok: true });
 }
 
+// ---------------------------------------------------------------------------
+// Rider job assignment (Phase 6). Owner-session action; delegates to the
+// database RPC assign_rider_job which generates the one-time OTP and returns
+// it here so the owner can share it with the customer.
+// ---------------------------------------------------------------------------
+
+async function assignJob(req, res) {
+  const { job_id = '', rider_email = '' } = readBody(req);
+  if (!UUID.test(job_id)) return json(res, 400, { error: 'A valid job id is required.' });
+  if (!EMAIL_RE.test(String(rider_email).trim())) return json(res, 400, { error: 'A valid rider email is required.' });
+  const db = needDb(res);
+  if (!db) return;
+  const { data, error } = await db.rpc('assign_rider_job', {
+    p_job_id: job_id,
+    p_rider_email: String(rider_email).trim(),
+  });
+  if (error) return json(res, 500, { error: error.message });
+  if (!data || data.ok !== true) {
+    const messages = {
+      rider_not_found: 'No user with that email exists. The rider must sign in to the driver portal at least once.',
+      job_not_found: 'Job not found.',
+      job_in_progress: 'This job is already assigned or in progress.',
+      owner_only: 'Only the owner can assign jobs.',
+    };
+    return json(res, 400, { error: messages[data?.error] || 'Could not assign the rider.' });
+  }
+  // The OTP is shown ONCE here; the database stores only its hash.
+  return json(res, 200, { ok: true, job_id: job_id, otp: data.otp });
+}
+
 const ROUTES = {
   login: { method: 'POST', public: true, run: login },
   logout: { method: 'POST', public: true, run: logout },
@@ -354,6 +373,7 @@ const ROUTES = {
   'pay-init': { method: 'POST', public: true, run: payInit },
   'pay-verify': { method: 'POST', public: true, run: payVerify },
   'pay-webhook': { method: 'POST', public: true, run: payWebhook },
+  'assign-job': { method: 'POST', run: assignJob },
 };
 
 export default async function handler(req, res) {
