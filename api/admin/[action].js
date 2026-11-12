@@ -158,7 +158,7 @@ async function mutate(req, res) {
 
   // Kobo safety: convert naira money fields coming from the admin UI into kobo.
   if (row && KOBO_TABLES.has(table)) {
-    for (field of KOBO_FIELDS[table]) {
+    for (const field of KOBO_FIELDS[table]) {
       if (row[field] != null && row[`${field}_kobo`] == null) {
         const kobo = toKobo(row[field]);
         if (kobo == null) return json(res, 400, { error: `Invalid amount for ${field}.` });
