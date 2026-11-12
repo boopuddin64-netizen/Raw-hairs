@@ -38,7 +38,7 @@ begin
   end if;
 
   v_otp := lpad((floor(random() * 1000000))::int::text, 6, '0');
-  v_hash := encode(digest(v_otp, 'sha256'), 'hex');
+  v_hash := encode(extensions.digest(v_otp, 'sha256'), 'hex');
 
   update public.rider_jobs
      set rider_id = v_rider,
@@ -77,7 +77,7 @@ begin
     return jsonb_build_object('ok', false, 'error', 'invalid_state');
   end if;
   if coalesce(p_otp, '') = '' or v_job.delivery_otp_hash is null
-     or encode(digest(p_otp, 'sha256'), 'hex') <> v_job.delivery_otp_hash then
+     or encode(extensions.digest(p_otp, 'sha256'), 'hex') <> v_job.delivery_otp_hash then
     return jsonb_build_object('ok', false, 'error', 'wrong_otp');
   end if;
 
