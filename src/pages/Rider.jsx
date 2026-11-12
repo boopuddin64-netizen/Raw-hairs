@@ -14,10 +14,13 @@ const RIDER_TRANSITIONS = {
   unassigned: [], // only admin can assign
   assigned: ['picked_up'],
   picked_up: ['in_transit'],
-  in_transit: ['delivered', 'failed'],
+  in_transit: [], // delivery now happens via OTP confirmation, not a plain status button
   delivered: [],
   failed: [],
 };
+
+const DELIVERY_EVIDENCE_BUCKET = 'delivery-evidence';
+const PHOTO_TYPES = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
 
 export default function Rider() {
   const { user, role, signOut } = useStaffAuth();
@@ -26,6 +29,9 @@ export default function Rider() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
+  const [otp, setOtp] = useState({ jobId: '', value: '' });
+  const [photo, setPhoto] = useState({ jobId: '', file: null });
+  const [notice, setNotice] = useState('');
   const admin = isAdmin(user);
 
   const refresh = async () => {
@@ -40,7 +46,7 @@ export default function Rider() {
     if (!admin && user?.id) {
       query = query.eq('rider_id', user.id);
     }
-    const { data, queryError } = await query;
+    const { data, error: queryError } = await query;
     if (queryError) {
       setError(queryError.message);
       setLoading(false);
@@ -55,12 +61,76 @@ export default function Rider() {
   const updateStatus = async (id, status) => {
     setBusy(id);
     setError('');
+    setNotice('');
     const { error: updateError } = await supabase.from('rider_jobs').update({ status }).eq('id', id);
     if (updateError) {
       setError(updateError.message.includes('row-level security')
         ? 'That change is not allowed. You can only move your job forward: assigned → picked up → in transit → delivered or failed.'
         : updateError.message);
-    } else await refresh();
+    } else {
+      await refresh();
+    }
+    setBusy('');
+  };
+
+  const confirmDelivery = async (jobId) => {
+    if (!/^
+{6}$/.test(otp.value.trim())) {
+      setError('Enter the 6-digit code the customer gave you.');
+      return;
+    }
+    setBusy(jobId);
+    setError('');
+    const { data, error: rpcError } = await supabase.rpc('confirm_delivery_otp', {
+      p_job_id: jobId,
+      p_otp: otp.value.trim(),
+    });
+    if (rpcError) {
+      setError(rpcError.message);
+    } else if (!data || data.ok !== true) {
+      setError(data?.error === 'wrong_otp'
+        ? 'That code is not correct. Ask the customer for the code on their order.'
+        : data?.error === 'invalid_state'
+          ? 'This job is not in transit yet.'
+          : 'Delivery could not be confirmed.');
+    } else {
+      setNotice('Delivery confirmed. Thank you!');
+      setOtp({ jobId: '', value: '' });
+      await refresh();
+    }
+    setBusy('');
+  };
+
+  const uploadPhoto = async (jobId) => {
+    const file = photo.file;
+    if (!file) return;
+    const ext = PHOTO_TYPES[file.type];
+    if (!ext) {
+      setError('Use a JPG, PNG or WebP photo.');
+      return;
+    }
+    setBusy(jobId);
+    setError('');
+    const path = `jobs/${jobId}/evidence-${Date.now()}.${ext}`;
+    const { error: uploadError } = await supabase.storage
+      .from(DELIVERY_EVIDENCE_BUCKET)
+      .upload(path, file, { contentType: file.type, upsert: false });
+    if (uploadError) {
+      setError(uploadError.message);
+      setBusy('');
+      return;
+    }
+    const { data, error: markError } = await supabase.rpc('mark_delivery_photo', {
+      p_job_id: jobId,
+      p_path: path,
+    });
+    if (markError || !data || data.ok !== true) {
+      setError('Photo uploaded, but we could not attach it to the job. Contact the owner.');
+    } else {
+      setNotice('Delivery photo attached.');
+      setPhoto({ jobId: '', file: null });
+      await refresh();
+    }
     setBusy('');
   };
 
@@ -85,6 +155,7 @@ export default function Rider() {
         <button className="btn btn-ghost" type="button" onClick={() => signOut()}>Sign out</button>
       </div>
       {error && <div className="notice auth-error" role="alert">{error}</div>}
+      {notice && <div className="notice" role="status">{notice}</div>}
       {loading && <p className="muted">Loading jobs…</p>}
       {!loading && jobs.length === 0 && (
         <p className="muted small">
@@ -108,6 +179,7 @@ export default function Rider() {
                   Status{' '}
                   <select
                     value={job.status}
+                    no-typo="true"
                     disabled={busy === job.id}
                     onChange={(e) => updateStatus(job.id, e.target.value)}
                     style={{ minHeight: 44, marginLeft: 8 }}
@@ -133,7 +205,47 @@ export default function Rider() {
                   ))}
                 </div>
               )}
-              {!admin && !canUpdate && (
+              {!admin && job.status === 'in_transit' && job.rider_id === user?.id && (
+                <div className="stack" style={{ gap: 8, padding: 12, border: '1px solid var(--border)', borderRadius: 12 }}>
+                  <strong style={{ fontSize: 14 }}>Confirm delivery</strong>
+                  <div className="field">
+                    <label htmlFor={`otp-${job.id}`}>6-digit code from the customer</label>
+                    <input
+                      id={`otp-${job.id}`}
+                      inputMode="numeric"
+                      pattern="\d{6}"
+                      maxLength={6}
+                      value={otp.jobId === job.id ? otp.value : ''}
+                      onChange={(e) => setOtp({ jobId: job.id, value: e.target.value })}
+                      placeholder="000000"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={busy === job.id}
+                    onClick={() => confirmDelivery(job.id)}
+                  >
+                    {busy === job.id ? 'Confirming…' : 'Confirm delivery'}
+                  </button>
+                  <div className="field">
+                    <label htmlFor={`photo-${job.id}`}>Delivery photo (optional evidence)</label>
+                    <input
+                      id={`photo-${job.id}`}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={(e) => setPhoto({ jobId: job.id, file: e.target.files?.[0] || null })}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    disabled={busy === job.id || !(photo.jobId === job.id && photo.file)}
+                    onClick={() => uploadPhoto(job.id)}
+                  >
+                    Upload photo
+                  </button>
+                </div>\  {admin && !canUpdate && (
                 <span className="muted small">
                   {job.rider_id !== user?.id
                     ? 'Not assigned to you.'
