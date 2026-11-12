@@ -2,17 +2,25 @@ import { Link } from 'react-router-dom';
 import { categories, INSTAGRAM_URL, policyLinks } from '../data';
 import { LiveProductCard, useCatalog } from '../catalog';
 
+const pexels = (id) => `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg`;
 const categoryImages = {
-  "straight": "https://images.pexels.com/photos/6923383/pexels-photo-6923383.jpeg",
-  "body-wave": "https://images.pexels.com/photos/6923442/pexels-photo-6923442.jpeg",
-  "curly": "https://images.pexels.com/photos/6923442/pexels-photo-6923442.jpeg",
-  "bob": "https://images.pexels.com/photos/6923351/pexels-photo-6923351.jpeg",
-  "colored": "https://images.pexels.com/photos/6923557/pexels-photo-6923557.jpeg"
+  'bone-straight': pexels(6923383),
+  'body-wave': pexels(6923442),
+  'loose-wave': pexels(6923442),
+  'deep-wave': pexels(6923442),
+  'water-wave': pexels(6923442),
+  'curly': pexels(6923442),
+  'colored': pexels(6923557),
+  'lace': pexels(6923383),
+  'ready-units': pexels(6923351),
 };
+const slug = (value) => (value || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 export default function Home() {
   const { products, loading, error } = useCatalog();
   const arrivals = products.slice(0, 4);
+  const tileImage = (c) => products.find((p) => slug(p.category) === c.id && p.image_url)?.image_url || categoryImages[c.id] || categoryImages.curly;
+  const tileFallback = (c) => (event) => { const fb = categoryImages[c.id] || categoryImages.curly; if (event.currentTarget.src !== fb) event.currentTarget.src = fb; };
 
   return (
     <>
@@ -37,7 +45,7 @@ export default function Home() {
           <div className="section-head"><h2 id="h-style">Shop by style</h2></div>
           <div className="hscroll cats">
             {categories.map((c) => <Link key={c.id} to={`/shop?cat=${c.id}`} className="cat">
-              <span className="photo"><img src={categoryImages[c.id] || categoryImages.curly} alt={`${c.name} wig style inspiration`} loading="lazy" /></span>{c.name}
+              <span className="photo"><img src={tileImage(c)} alt={`${c.name} hair`} loading="lazy" onError={tileFallback(c)} /></span>{c.name}
             </Link>)}
             <Link to="/shop" className="cat"><span className="photo"><img src="https://images.pexels.com/photos/6923383/pexels-photo-6923383.jpeg" alt="Latest hair collection inspiration" loading="lazy" /></span>New arrivals</Link>
           </div>

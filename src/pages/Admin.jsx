@@ -6,6 +6,7 @@ import { supabase, supabaseConfigured } from '../lib/supabase';
 import { useRealtimeDashboard, buildAnalytics } from '../hooks/useRealtimeDashboard';
 import { useStoreConfig } from '../hooks/useStoreConfig';
 import { useTheme } from '../theme/ThemeContext';
+import ProductsManager from './admin/ProductsManager';
 
 const NAV = [
   { id: 'Overview', label: 'Overview' },
@@ -327,24 +328,7 @@ export default function Admin() {
               </table>
             </div>
           )}
-          {tab === 'Products' && (
-            <div className="table-wrap">
-              <table className="dash-table">
-                <thead><tr><th>Name</th><th>Price</th><th>Stock</th><th>Active</th></tr></thead>
-                <tbody>
-                  {products.map((p) => (
-                    <tr key={p.id}>
-                      <td>{p.name}</td>
-                      <td>{money(p.price)}</td>
-                      <td>{p.stock ?? '—'}</td>
-                      <td>{p.is_active ? 'Yes' : 'No'}</td>
-                    </tr>
-                  ))}
-                  {!products.length && <tr><td colSpan={4} className="muted">No products</td></tr>}
-                </tbody>
-              </table>
-            </div>
-          )}
+          {tab === 'Products' && <ProductsManager products={products} refresh={refresh} />}
           {tab === 'Services' && (
             <div className="table-wrap">
               <table className="dash-table">

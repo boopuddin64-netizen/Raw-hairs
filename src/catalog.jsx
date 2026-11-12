@@ -1,22 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase, supabaseConfigured } from './lib/supabase';
+import { productImageUrl } from './lib/images';
 import { useStore } from './store';
-
-async function withSignedImages(rows) {
-  return Promise.all((rows || []).map(async (product) => {
-    if (!product.image_path || !supabase) return { ...product, image_url: product.image_url || '' };
-    const { data: signed, error: imageError } = await supabase.storage
-      .from('product-images')
-      .createSignedUrl(product.image_path, 60 * 60 * 24);
-    return { ...product, image_url: imageError ? (product.image_url || '') : signed?.signedUrl || '' };
-  }));
-}
 
 export function useCatalog() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [tick, setTick] = useState(0);
   const store = useStore();
 
   useEffect(() => {
@@ -34,7 +26,7 @@ export function useCatalog() {
 
       const { data, error: queryError } = await supabase
         .from('products')
-        .select('id,name,slug,description,category,price,stock,image_path,is_active,created_at')
+        .select('*')
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
@@ -54,20 +46,18 @@ export function useCatalog() {
         return;
       }
 
-      const withImages = await withSignedImages(data);
-      if (!active) return;
+      const withImages = data.map((product) => ({ ...product, image_url: productImageUrl(product.image_path) }));
       setProducts(withImages);
       setLoading(false);
       if (store?.syncProductSnapshots) store.syncProductSnapshots(withImages);
     }
     load();
     return () => { active = false; };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [tick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const refresh = async () => {
     setLoading(true);
-    // re-trigger by calling load logic again would need refactor; simple reload for now
-    window.location.reload();
+    setTick((t) => t + 1);
   };
 
   return { products, loading, error, refresh };
@@ -116,6 +106,13 @@ export const formatNaira = (value) => value == null
   ? 'Price on request'
   : new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(Number(value));
 
+export const hideBrokenImage = (event) => { event.currentTarget.style.display = 'none'; };
+
+export const productSpec = (product) => [
+  product.base_length ? `${product.base_length}″` : null,
+  product.weight_grams ? `${product.weight_grams}g` : null,
+].filter(Boolean).join(' · ');
+
 export function LiveProductCard({ product }) {
   return (
     <article className="card">
@@ -126,7 +123,7 @@ export function LiveProductCard({ product }) {
             role={product.image_url ? undefined : 'img'}
             aria-label={product.image_url ? undefined : `Product photograph pending for ${product.name}`}
           >
-            {product.image_url && <img src={product.image_url} alt={product.name} loading="lazy" />}
+            {product.image_url && <img src={product.image_url} alt={product.name} loading="lazy" onError={hideBrokenImage} />}
             <span className="photo-tag">{product.category || 'RAW HAIRS'}</span>
             {product.stock <= 0 && <span className="soldout">SOLD OUT</span>}
           </div>
@@ -134,7 +131,7 @@ export function LiveProductCard({ product }) {
       </div>
       <div className="card-body">
         <h3>{product.name}</h3>
-        <span className="muted small">{product.category || 'Wig collection'}</span>
+        <span className="muted small">{[product.category || 'Wig collection', productSpec(product)].filter(Boolean).join(' · ')}</span>
         <span className="price">{formatNaira(product.price)}</span>
         <span className="muted small">
           {product.stock > 0

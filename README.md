@@ -60,3 +60,10 @@ npm run dev
 - Product length variants
 - Real policy/contact copy
 - `app_metadata.role` provisioning script (optional)
+
+## Catalogue and admin product manager
+
+- Products and services live in Supabase. Admin → **Products** adds, edits, hides and deletes products and uploads photos to the `product-images` bucket; the storefront reads the same table.
+- `products.image_path` is either a static file (`/catalogue/bone.jpg`, served from `public/catalogue/`) or an uploaded object (`products/<uuid>.jpg`).
+- Database writes are authorised by the Supabase JWT claim `app_metadata.role = "admin"` (or `"owner"`). The `VITE_ADMIN_EMAILS` list only gates the admin screens in the browser; it does **not** grant database access. Set the claim on the admin user, then sign out and back in.
+- Apply `supabase/migrations/20261112070000_grok_catalogue_import.sql` before deploying: it adds the catalogue columns and seeds the 22 products and 6 services.
