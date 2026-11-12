@@ -3,24 +3,24 @@
 -- Branch: development/phase-1-security-fixes
 --
 -- Adds:
---   1) Reserved-stock model: products gets reserved_qty; available stock is
---      (stock - reserved_qty). Physical stock is never modified by checkout.
+--   1) Reserved-stock model: products.reserved_qty; available = stock - reserved.
+--      Physical stock is never touched by checkout.
 --   2) inventory_reservations table with a 15-minute expiry.
---   3) reserve_inventory() — atomic, concurrency-safe (locked-row update).
---   4) create_order_from_cart() — SECURITY DEFINER RPC that:
+--   3) reserve_inventory() — atomic, concurrency-safe (conditional locked UPDATE).
+--   4) create_order_from_cart() — SECURITY DEFINER RPC:
 --        - prices every line from live DB prices (client prices ignored),
---        - verifies product active + available stock,
+--        - verifies products are active and available,
 --        - creates reservation + order + order_items in one transaction,
 --        - accepts guest or signed-in customer identity,
---        - CANNOT set paid/approved status (always awaiting_payment).
---   5) release_expired_reservations() — releases expired stock; callable by
---      pg_cron (configure later) or the API.
+--        - always creates the order as awaiting_payment (never paid/approved).
+--   5) release_expired_reservations() — returns expired stock; schedule with
+--      pg_cron or call from the API.
 --
 -- All monetary values are integer kobo.
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
--- 1) Reserved-stock columns + reservations table
+-- 1) Reserved-stock column + reservations table
 -- -----------------------------------------------------------------------------
 alter table public.products
   add column if not exists reserved_qty integer not null default 0;
@@ -47,11 +47,12 @@ create index if not exists reservations_product_idx
   on public.inventory_reservations(product_id, status);
 
 alter table public.inventory_reservations enable row level security;
--- No client write policies: reservations are created/consumed/released only
--- by the SECURITY DEFINER functions below. Owner may inspect via admin API.
+drop policy if exists "Owner reads reservations" on public.inventory_reservations;
 create policy "Owner reads reservations"
   on public.inventory_reservations for select to authenticated
   using ((select public.is_raw_hairs_owner()));
+-- No client write policies: reservations are created/consumed/released only
+-- by the SECURITY DEFINER functions below (server flows).
 
 -- -----------------------------------------------------------------------------
 -- 2) Reservation window (15 minutes, server-controlled)
@@ -98,9 +99,11 @@ revoke all on function public.release_expired_reservations() from public;
 grant execute on function public.release_expired_reservations() to authenticated;
 
 -- -----------------------------------------------------------------------------
--- 4) reserve_inventory() — atomic stock reservation (single locked UPDATE)
+-- 4) reserve_inventory() — atomic stock reservation.
 --    The conditional UPDATE (stock - reserved - qty >= 0) is the concurrency
---    guard: two concurrent buyers cannot both take the last unit.
+--    guard: if another buyer already took the units, the UPDATE matches no
+--    row, we raise, and the whole transaction rolls back — reservation row
+--    included. Two buyers can never both take the last unit.
 -- -----------------------------------------------------------------------------
 create or replace function public.reserve_inventory(
   p_product_id uuid,
@@ -121,10 +124,6 @@ begin
     raise exception 'INVALID_QUANTITY';
   end if;
 
-  -- Reserve first (in the same transaction), then flip products.reserved_qty
-  -- conditionally. If the update affects no row, another buyer won the race
-  -- and the whole transaction rolls back (reservation included) — no partial
-  -- state, no overselling.
   insert into public.inventory_reservations (product_id, quantity, selected_length, order_id, expires_at)
   values (p_product_id, p_quantity, p_selected_length, p_order_id, v_expires)
   returning id into v_id;
@@ -147,16 +146,20 @@ grant execute on function public.reserve_inventory(uuid, integer, text, uuid) to
 
 -- -----------------------------------------------------------------------------
 -- 5) create_order_from_cart() — the ONLY way customers/guests create orders.
---    Client-supplied prices are ignored: every line is priced from the live
+--    Client-supplied prices are ignored: every line is priced from live
 --    products.price_kobo. Status is always awaiting_payment; is_paid stays
---    false. Delivery fee is provided by the server checkout API (validated
---    against store_settings in Phase 3; direct callers may only pass 0+).
+--    false. Delivery fee is validated against store_settings by the checkout
+--    API (Phase 3); this RPC only accepts a non-negative integer.
 -- -----------------------------------------------------------------------------
-create type if not exists public.cart_item_input as (
-  product_id uuid,
-  quantity integer,
-  selected_length text
-);
+do $$ begin
+  if not exists (select 1 from pg_type where typname = 'cart_item_input') then
+    create type public.cart_item_input as (
+      product_id uuid,
+      quantity integer,
+      selected_length text
+    );
+  end if;
+end $$;
 
 create or replace function public.create_order_from_cart(
   p_items public.cart_item_input[],
@@ -168,7 +171,7 @@ create or replace function public.create_order_from_cart(
   p_city text default null,
   p_instructions text default null,
   p_payment_method text default 'paystack',
-  p_delivery_fee_kobo bigint default 0
+  p p_delivery_fee_kobo bigint default null
 )
 returns table (order_id uuid, total_kobo bigint, expires_at timestamptz)
 language plpgsql
@@ -180,10 +183,11 @@ declare
   v_order uuid;
   v_subtotal bigint := 0;
   v_total bigint;
-  v_delivery bigint := greatest(coalesce(p_delivery_fee_kobo, 0), 0);
+  v_delivery bigint;
   v_method text := coalesce(nullif(p_payment_method, ''), 'paystack');
   v_expires timestamptz;
   v_lines integer := 0;
+  v_expected integer;
 begin
   -- ---- validation ----------------------------------------------------------
   if v_method not in ('paystack', 'bank_transfer') then
@@ -201,6 +205,9 @@ begin
   if v_customer is null and coalesce(nullif(trim(p_email), ''), '') = '' then
     raise exception 'GUEST_EMAIL_REQUIRED';
   end if;
+
+  -- Delivery fee: default 0 (flat-fee model until zones are configured).
+  v_delivery := greatest(coalesce(p_delivery_fee_kobo, 0), 0);
 
   -- ---- create the order shell (never paid, never approved) ----------------
   insert into public.orders (
@@ -224,36 +231,39 @@ begin
   )
   returning id, stock_reserved_until into v_order, v_expires;
 
-  -- ---- snapshot lines with LIVE prices, then reserve stock ----------------
-  -- Aggregate duplicate product lines so each product is reserved once.
-  with merged as (
+  -- ---- snapshot lines with LIVE prices -------------------------------------
+  insert into public.order_items (order_id, product_id, product_name, selected_length, quantity, unit_price_kobo)
+  select
+    v_order, m.product_id, p.name, m.selected_length, m.quantity, p.price_kobo
+  from (
     select product_id,
            sum(quantity)::int as quantity,
            min(selected_length) as selected_length
     from unnest(p_items)
     group by product_id
-  )
-  insert into public.order_items (order_id, product_id, product_name, selected_length, quantity, unit_price_kobo)
-  select
-    v_order, m.product_id, p.name, m.selected_length, m.quantity, p.price_kobo
-  from merged m
+  ) m
   join public.products p on p.id = m.product_id
   where p.is_active;
 
   get diagnostics v_lines = row_count;
-  if v_lines <> (select count(distinct product_id) from unnest(p_items)) then
+  select count(distinct product_id) into v_expected from unnest(p_items);
+  if v_lines <> v_expected then
     raise exception 'PRODUCT_UNAVAILABLE';
   end if;
 
+  -- ---- atomically reserve each product's stock -----------------------------
   perform public.reserve_inventory(
     m.product_id, m.quantity, m.selected_length, v_order
   )
   from (
-    select product_id, sum(quantity)::int as quantity, min(selected_length) as selected_length
-    from unnest(p_items) group by product_id
+    select product_id,
+           sum(quantity)::int as quantity,
+           min(selected_length) as selected_length
+    from unnest(p_items)
+    group by product_id
   ) m;
 
-  -- ---- compute totals from the inserted items ------------------------------
+  -- ---- compute totals from the inserted items --------------------------------
   select coalesce(sum(unit_price_kobo * quantity), 0) into v_subtotal
     from public.order_items where order_id = v_order;
 
@@ -275,8 +285,9 @@ grant execute on function public.create_order_from_cart(public.cart_item_input[]
 -- -----------------------------------------------------------------------------
 -- 6) consume_reservation_on_payment() — reserved -> sold on VERIFIED payment.
 --    Called server-side (service role) after Paystack verification or admin
---    bank-transfer verification. Physical stock deducted exactly once, order
---    moves to awaiting_approval (paid ≠ approved; admin approval comes next).
+--    bank-transfer verification. Physical stock is deducted exactly once and
+--    the order moves to awaiting_approval: paid does NOT mean approved; the
+--    owner approves separately.
 -- -----------------------------------------------------------------------------
 create or replace function public.consume_reservation_on_payment(p_order_id uuid)
 returns void
