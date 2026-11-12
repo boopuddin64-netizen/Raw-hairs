@@ -38,7 +38,6 @@ export default function Checkout() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [order, setOrder] = useState(null); // { order_id, total_kobo, subtotal_kobo, delivery_fee_kobo }
-  const [payment, setPayment] = useState(null); // { payment_id, reference, amount_kobo }
   const [expiry, setExpiry] = useState(null);
   const [bankForm, setBankForm] = useState({ senderName: '', bank: '', transferReference: '' });
   const [form, setForm] = useState({
@@ -99,7 +98,6 @@ export default function Checkout() {
 
       // 3) Get the payment reference, then start Paystack.
       const intent = await registerPaymentIntent(created.order_id);
-      setPayment(intent);
       const init = await initializePaystackTransaction({
         reference: intent.reference, email: form.email,
       });
@@ -125,7 +123,7 @@ export default function Checkout() {
       });
       setStep(STEPS.DONE);
     } catch (err) {
-      setError(checkoutErrorMessage(err.code) || err.message);
+      setError(err.message || 'Could not submit the receipt. Please try again.');
     } finally {
       setBusy(false);
     }
@@ -146,7 +144,7 @@ export default function Checkout() {
         {verified?.ok === true && (
           <div className="notice" role="status">
             <p><strong>Payment confirmed.</strong> Thank you for your order!</p>
-            <p className="muted small">You will get an email receipt. Keep your order id: {order?.order_id || ''}</p>
+            <p className="muted small">You will get an email receipt from Paystack. RAW HAIRS will contact you with delivery updates.</p>
             <Link to="/shop" className="btn btn-primary">Continue shopping</Link>
           </div>
         )}
@@ -178,7 +176,7 @@ export default function Checkout() {
   return (
     <div className="wrap page">
       <h1>Checkout</h1>
-      {expiry && step !== STEEPS?.DONE && <Countdown expiresAt={expiry} onExpire={expireReservation} />}
+      {expiry && step !== STEPS.DONE && <Countdown expiresAt={expiry} onExpire={expireReservation} />}
 
       {/* Step: delivery details + payment method */}
       {step === STEPS.DETAILS && (
@@ -206,7 +204,7 @@ export default function Checkout() {
 
             {error && <div className="notice auth-error" role="alert">{error}</div>}
             <button className="btn btn-primary btn-lg btn-block" type="submit" disabled={busy}>
-              {busy ? 'Reserving stock…' : `Pay ${naira(subtotalKobo / 100)}`}
+              {busy ? 'Reserving stock…' : `Continue to payment`}
             </button>
             <p className="muted small">Stock is reserved for {RESERVATION_MINUTES} minutes while you complete payment. Delivery fee is shown on the order after the address is confirmed.</p>
           </form>
