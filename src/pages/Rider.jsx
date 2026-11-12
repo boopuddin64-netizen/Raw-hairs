@@ -9,12 +9,14 @@ import { Chip } from '../components';
  * Server-enforced (RLS) forward transitions for riders:
  * assigned -> picked_up -> in_transit -> delivered | failed
  * The database rejects anything outside this path, so the UI offers the same set.
+ * Delivery itself is confirmed with the customer's OTP (confirm_delivery_otp),
+ * not a plain status button.
  */
 const RIDER_TRANSITIONS = {
   unassigned: [], // only admin can assign
   assigned: ['picked_up'],
   picked_up: ['in_transit'],
-  in_transit: [], // delivery now happens via OTP confirmation, not a plain status button
+  in_transit: [], // OTP confirmation, not a plain button
   delivered: [],
   failed: [],
 };
@@ -74,8 +76,7 @@ export default function Rider() {
   };
 
   const confirmDelivery = async (jobId) => {
-    if (!/^
-{6}$/.test(otp.value.trim())) {
+    if (!/^\d{6}$/.test(otp.value.trim())) {
       setError('Enter the 6-digit code the customer gave you.');
       return;
     }
@@ -179,7 +180,6 @@ export default function Rider() {
                   Status{' '}
                   <select
                     value={job.status}
-                    no-typo="true"
                     disabled={busy === job.id}
                     onChange={(e) => updateStatus(job.id, e.target.value)}
                     style={{ minHeight: 44, marginLeft: 8 }}
@@ -245,7 +245,9 @@ export default function Rider() {
                   >
                     Upload photo
                   </button>
-                </div>\  {admin && !canUpdate && (
+                </div>
+              )}
+              {!admin && !canUpdate && (
                 <span className="muted small">
                   {job.rider_id !== user?.id
                     ? 'Not assigned to you.'
