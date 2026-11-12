@@ -1,4 +1,3 @@
-import crypto from 'node:crypto';
 import {
   adminConfig, safeEqual, signToken, sessionCookie, getSession, requireAdmin, json,
   throttled, recordFailure, clearFailures, clientIp, SESSION_SECONDS,
@@ -13,6 +12,9 @@ const WRITABLE = {
   bookings: ['update'],
   international_requests: ['update'],
   rider_jobs: ['insert', 'update'],
+  return_requests: ['update'],
+  payments: ['insert', 'update'],
+  refund_transactions: ['insert', 'update'],
   reviews: ['insert', 'delete'],
   store_settings: ['upsert'],
 };
@@ -25,11 +27,30 @@ const SNAPSHOT = [
   ['bookings', 'bookings'],
   ['requests', 'international_requests'],
   ['jobs', 'rider_jobs'],
+  ['payments', 'payments'],
+  ['returns', 'return_requests'],
+  ['refunds', 'refund_transactions'],
 ];
 
 const IMAGE_EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Tables storing money in integer kobo. The admin UI sends naira for these
+// fields; convert here so nothing writes naira into a kobo column.
+const KOBO_TABLES = new Set(['products', 'orders', 'payments', 'refund_transactions']);
+const KOBO_FIELDS = {
+  products: ['price'],
+  orders: ['subtotal', 'delivery_fee', 'total'],
+  payments: ['amount'],
+  refund_transactions: ['amount'],
+};
+
+function toKobo(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.round(n * 100);
+}
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -106,6 +127,15 @@ async function settings(res) {
   return json(res, 200, { row: data || null });
 }
 
+async function auditLog(req, res) {
+  const db = needDb(res);
+  if (!db) return;
+  const limit = Math.min(Math.max(Number(req.query?.limit) || 100, 1), 500);
+  const { data, error } = await db.from('audit_log').select('*').order('created_at', { ascending: false }).limit(limit);
+  if (error) return json(res, 500, { error: error.message });
+  return json(res, 200, { audit: data || [] });
+}
+
 async function mutate(req, res) {
   const { table, op, id, values } = readBody(req);
   if (!WRITABLE[table]?.includes(op)) return json(res, 400, { error: 'That change is not allowed.' });
@@ -120,6 +150,24 @@ async function mutate(req, res) {
   if (op === 'update') { delete row.id; delete row.created_at; }
   if (op === 'insert') delete row.id;
   if (op === 'upsert' && row.id !== 'default') return json(res, 400, { error: 'Invalid settings row.' });
+
+  // Kobo safety: convert naira money fields coming from the admin UI into kobo.
+  if (row && KOBO_TABLES.has(table)) {
+    for (const field of KOBO_FIELDS[table]) {
+      if (row[field] != null && row[`${field}_kobo`] == null) {
+        const kobo = toKobo(row[field]);
+        if (kobo == null) return json(res, 400, { error: `Invalid amount for ${field}.` });
+        row[`${field}_kobo`] = kobo;
+      }
+      delete row[field]; // never write naira into the (now kobo-authoritative) columns
+    }
+  }
+
+  // Order workflow guard: manual payment-status faking is not allowed through
+  // generic mutation. Payment state lives in public.payments only.
+  if (table === 'orders' && row && ('paid' in row || 'payment_status' in row)) {
+    return json(res, 400, { error: 'Payment status is managed by the payment workflow, not by direct order edits.' });
+  }
 
   const db = needDb(res);
   if (!db) return;
@@ -171,6 +219,7 @@ const ROUTES = {
   data: { method: 'GET', run: (req, res) => snapshot(res) },
   reviews: { method: 'GET', run: (req, res) => reviews(res) },
   settings: { method: 'GET', run: (req, res) => settings(res) },
+  audit: { method: 'GET', run: auditLog },
   mutate: { method: 'POST', run: mutate },
   'upload-url': { method: 'POST', run: uploadUrl },
   'remove-image': { method: 'POST', run: removeImage },
