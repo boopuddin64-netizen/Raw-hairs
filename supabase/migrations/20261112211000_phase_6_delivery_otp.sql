@@ -86,7 +86,8 @@ begin
    where id = p_job_id;
 
   update public.orders
-     set status = 'delivered', updated_at = now()\   where id = v_job.order_id and status in ('processing', 'dispatched');
+     set status = 'delivered', updated_at = now()
+   where id = v_job.order_id and status in ('processing', 'dispatched');
 
   insert into public.notifications (user_id, channel, event_type, title, body, related_order)
   select o.customer_id, 'whatsapp', 'order_delivered', 'Order delivered',
@@ -129,39 +130,5 @@ begin
    where id = p_job_id;
   return jsonb_build_object('ok', true);
 end $$;
-revoke all on function public.mark_delivery_photo(uuid, text) from public;
+revoke all function public.mark_delivery_photo(uuid, text) from public;
 grant execute on function public.mark_delivery_photo(uuid, text) to authenticated;
-
--- 4) Evidence bucket + storage RLS: a rider can only write/read objects
---    inside the folder of a job assigned to them; the owner can read all.
-insert into storage.buckets (id, name, public)
-values ('delivery-evidence', 'delivery-evidence', false)
-on conflict (id) do nothing;
-
-drop policy if exists "Riders upload own delivery evidence" on storage.objects;
-create policy "Riders upload own delivery evidence" on storage.objects
-  for insert to authenticated
-  with check (
-    bucket_id = 'delivery-evidence'
-    and (storage.foldername(name))[1] = 'jobs'
-    and exists (
-      select 1 from public.rider_jobs j
-       where j.id::text = (storage.foldername(name))[2]
-         and j.rider_id = (select auth.uid())
-    )
-  );
-
-drop policy if exists "Riders read own delivery evidence" on storage.objects;
-create policy "Riders read own delivery evidence" on storage.objects
-  for select to authenticated
-  using (
-    bucket_id = 'delivery-evidence'
-    and (
-      exists (
-        select 1 from public.rider_jobs j
-         where j.id::text = (storage.foldername(name))[2]
-           and j.rider_id = (select auth.uid())
-      )
-      or (select public.is_raw_hairs_owner())
-    )
-  );
