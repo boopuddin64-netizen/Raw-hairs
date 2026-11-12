@@ -1,7 +1,11 @@
--- RAW HAIRS Phase 1 - CORRECTED, part 2 of 3
--- Matches live database. Apply after part 1.
+-- RAW HAIRS Phase 1 - CORRECTED, part 2 of 4
+-- Matches live database. Apply after part 1 / 1b.
 -- Inventory reservations, expiry release, availability view, and the two
 -- checkout RPCs (atomic reservation, server-priced order creation).
+--
+-- NOTE: this version already incorporates the fix the live database received
+-- as migration `fix_order_rpc_delivery_fee_null` (scalar-subquery fee lookup:
+-- an empty store_settings row means delivery fee 0, never NULL).
 
 create table if not exists public.inventory_reservations (
   id uuid primary key default gen_random_uuid(),
@@ -115,8 +119,6 @@ revoke all on function public.reserve_cart_items(jsonb, integer) from public;
 grant execute on function public.reserve_cart_items(jsonb, integer) to anon, authenticated;
 
 -- Reservation -> order. Prices computed from live products; client never sets amounts.
--- NOTE: the delivery-fee lookup here is made NULL-safe by the later fix-up
--- migration 20261112200000_fix_order_rpc_delivery_fee_null.sql (kept as history).
 create or replace function public.create_order_from_reservation(
   p_session_token uuid,
   p_customer_name text,
@@ -133,8 +135,8 @@ language plpgsql security definer set search_path = ''
 as $$
 declare
   v_subtotal bigint;
-  v_fee bigint := 0;
-  v_free_above bigint := 0;
+  v_fee bigint;
+  v_free_above bigint;
   v_order public.orders;
   v_customer uuid := auth.uid();
   v_min_expiry timestamptz;
@@ -176,10 +178,15 @@ begin
     return jsonb_build_object('ok', false, 'error', 'pricing_failed');
   end if;
 
-  select coalesce(nullif(s.settings ->> 'delivery_fee_default', '')::bigint, 0) into v_fee
-    from public.store_settings s where s.id = 'default';
-  select coalesce(nullif(s.settings ->> 'min_order_free_delivery', '')::bigint, 0) into v_free_above
-    from public.store_settings s where s.id = 'default';
+  -- Scalar subqueries: empty store_settings means fee = 0, never NULL.
+  v_fee := coalesce((
+    select nullif(s.settings ->> 'delivery_fee_default', '')::bigint
+    from public.store_settings s where s.id = 'default'
+  ), 0);
+  v_free_above := coalesce((
+    select nullif(s.settings ->> 'min_order_free_delivery', '')::bigint
+    from public.store_settings s where s.id = 'default'
+  ), 0);
   if v_free_above > 0 and v_subtotal >= v_free_above then
     v_fee := 0;
   end if;
