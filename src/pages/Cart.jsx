@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useStore, naira, stockLabel } from '../store';
 import { supabase, supabaseConfigured } from '../lib/supabase';
 import { onSwipe } from '../gestures';
@@ -56,6 +56,7 @@ function CartRow({ line, onRemove, store }) {
 
 export default function Cart() {
   const store = useStore();
+  const navigate = useNavigate();
   const { cart } = store;
   const [dest, setDest] = useState('ng');
   const [sent, setSent] = useState(false);
@@ -153,21 +154,21 @@ export default function Cart() {
 
           <div className="summary">
             <div className="line"><span className="muted">Subtotal</span><span>{allPriced ? naira(subtotal) : 'Price on request'}</span></div>
-            <div className="line"><span className="muted">Delivery</span><span>{dest === 'ng' ? 'Calculated at checkout' : 'Agreed with you first'}</span></div>
+            <div className="line"><span className="muted">Delivery</span><span>{dest === 'ng' ? 'Confirmed at checkout' : 'Agreed with you first'}</span></div>
             <div className="line total"><span>Total</span><span className="price">{allPriced && dest === 'ng' ? naira(subtotal) : 'Price on request'}</span></div>
           </div>
-          <p className="muted small">All prices in Nigerian naira. Stock is checked again when you pay.</p>
+          <p className="muted small">All prices in Nigerian naira. Stock is reserved for 15 minutes when you start checkout.</p>
 
           {dest === 'ng' && (
             <>
               <button
                 className="btn btn-primary btn-lg btn-block"
                 type="button"
-                onClick={() => setInfo('Online checkout with Paystack is the next step. Your bag is saved in this browser until payment is connected.')}
+                onClick={() => navigate('/checkout')}
               >
                 Checkout
               </button>
-              <span className="muted small" style={{ textAlign: 'center' }}>Payment is not live yet. Your bag stays on this device.</span>
+              <span className="muted small" style={{ textAlign: 'center' }}>Pay online with Paystack or by bank transfer. Your bag is saved in this browser.</span>
             </>
           )}
 
