@@ -36,6 +36,11 @@ const IMAGE_EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// Payment references come from the database (register_payment_intent RPC);
+// accept the provider-safe charset without guessing an exact format.
+const PAY_REF = /^[A-Za-z0-9._-]{6,100}$/;
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
 // Tables storing money in integer kobo. The admin UI sends naira for these
 // fields; convert here so nothing writes naira into a kobo column.
 const KOBO_TABLES = new Set(['products', 'orders', 'payments', 'refund_transactions']);
@@ -212,6 +217,129 @@ async function removeImage(req, res) {
   return json(res, 200, { ok: true });
 }
 
+// ---------------------------------------------------------------------------
+// Paystack payment endpoints (Phase 3). PUBLIC by design: customers (including
+// guests) call pay-init/pay-verify; Paystack calls pay-webhook.
+//
+// Security model:
+//   * The client NEVER sends an amount. pay-init reads the payment and order
+//     from the database (service role) and only then talks to Paystack.
+//   * pay-verify and pay-webhook never trust request payloads: after extracting
+//     a reference, both re-fetch the authoritative status from Paystack's
+//     verify API before recording anything.
+//   * Recording goes through the database RPC mark_payment_successful(), which
+//     is service-role-only, amount-validating, and idempotent (webhook replays
+//     and double-callbacks are no-ops).
+//   * PAYSTACK_SECRET_KEY is server-only and must never be VITE_-prefixed.
+// ---------------------------------------------------------------------------
+
+async function paystackFetch(res, path, init) {
+  const key = process.env.PAYSTACK_SECRET_KEY;
+  if (!key) { json(res, 503, { error: 'Payment is not configured yet.' }); return null; }
+  const r = await fetch('https://api.paystack.co' + path, {
+    ...init,
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', ...(init?.headers || {}) },
+  });
+  const out = await r.json().catch(() => null);
+  if (!out) { json(res, 502, { error: 'Could not reach Paystack. Please try again.' }); return null; }
+  return out;
+}
+
+async function payInit(req, res) {
+  const db = needDb(res);
+  if (!db) return;
+  const { reference = '', email = '' } = readBody(req);
+  if (!PAY_REF.test(reference)) return json(res, 400, { error: 'Invalid payment reference.' });
+
+  const { data: payment, error } = await db
+    .from('payments')
+    .select('id, order_id, status, amount_kobo, currency, reference')
+    .eq('reference', reference)
+    .maybeSingle();
+  if (error || !payment) return json(res, 404, { error: 'Payment reference not found.' });
+  if (payment.status !== 'pending') return json(res, 409, { error: 'This payment was already processed.' });
+
+  const { data: order, error: orderError } = await db
+    .from('orders')
+    .select('status, total_kobo, guest_email, stock_reserved_until')
+    .eq('id', payment.order_id)
+    .maybeSingle();
+  if (orderError || !order) return json(res, 404, { error: 'Order not found.' });
+  if (order.status !== 'awaiting_payment') return json(res, 409, { error: 'This order can no longer be paid.' });
+  if (order.stock_reserved_until && new Date(order.stock_reserved_until) < new Date()) {
+    return json(res, 409, { error: 'Your reservation window has passed. Please start checkout again.' });
+  }
+  if (order.total_kobo !== payment.amount_kobo) {
+    return json(res, 409, { error: 'Payment amount mismatch. Please contact support.' });
+  }
+
+  // Email is for the Paystack receipt only; money amounts are never taken from it.
+  const payerEmail = order.guest_email || String(email).trim().toLowerCase();
+  if (!EMAIL_RE.test(payerEmail)) return json(res, 400, { error: 'A valid email is required for your receipt.' });
+
+  const origin = `${req.headers?.['x-forwarded-proto'] || 'https'}://${req.headers?.host || ''}`;
+  const out = await paystackFetch(res, '/transaction/initialize', {
+    method: 'POST',
+    body: JSON.stringify({
+      email: payerEmail,
+      amount: payment.amount_kobo,
+      currency: 'NGN',
+      reference: payment.reference,
+      callback_url: `${origin}/#/cart?pay=${payment.reference}`,
+    }),
+  });
+  if (!out) return;
+  if (!out.status || !out.data?.authorization_url) {
+    return json(res, 502, { error: out.message || 'Paystack could not start the transaction.' });
+  }
+  return json(res, 200, {
+    ok: true,
+    authorization_url: out.data.authorization_url,
+    reference: payment.reference,
+    amount_kobo: payment.amount_kobo,
+  });
+}
+
+async function recordVerifiedPayment(res, db, reference) {
+  // Always re-verify with Paystack; never trust the caller's payload.
+  const out = await paystackFetch(res, `/transaction/verify/${encodeURIComponent(reference)}`, { method: 'GET' });
+  if (!out) return undefined; // paystackFetch already responded
+  if (!out.status || out.data?.status !== 'success') {
+    return { ok: false, status: out.data?.status || 'pending' };
+  }
+  const { data: result, error: rpcError } = await db.rpc('mark_payment_successful', {
+    p_reference: reference,
+    p_amount_kobo: out.data.amount,
+    p_provider_response: { channel: out.data.channel, paid_at: out.data.paid_at, gateway_response: out.data.gateway_response },
+  });
+  if (rpcError) return { ok: false, error: 'Could not record the payment. Please contact support.' };
+  if (result && result.ok === false) return { ok: false, error: result.error || 'Payment could not be recorded.' };
+  return { ok: true, status: result?.status || 'recorded' };
+}
+
+async function payVerify(req, res) {
+  const db = needDb(res);
+  if (!db) return;
+  const { reference = '' } = readBody(req);
+  if (!PAY_REF.test(reference)) return json(res, 400, { error: 'Invalid payment reference.' });
+  const result = await recordVerifiedPayment(res, db, reference);
+  if (!result) return;
+  return json(res, result.ok ? 200 : result.error ? 409 : 200, result);
+}
+
+async function payWebhook(req, res) {
+  const db = needDb(res);
+  if (!db) return;
+  const body = readBody(req);
+  const reference = body?.data?.reference || '';
+  if (body?.event !== 'charge.success' || !PAY_REF.test(reference)) {
+    return json(res, 200, { ok: true, ignored: true }); // acknowledge but ignore
+  }
+  const result = await recordVerifiedPayment(res, db, reference);
+  if (!result) return; // upstream fetch error already responded; webhook will retry
+  return json(res, 200, { ok: true });
+}
+
 const ROUTES = {
   login: { method: 'POST', public: true, run: login },
   logout: { method: 'POST', public: true, run: logout },
@@ -223,6 +351,9 @@ const ROUTES = {
   mutate: { method: 'POST', run: mutate },
   'upload-url': { method: 'POST', run: uploadUrl },
   'remove-image': { method: 'POST', run: removeImage },
+  'pay-init': { method: 'POST', public: true, run: payInit },
+  'pay-verify': { method: 'POST', public: true, run: payVerify },
+  'pay-webhook': { method: 'POST', public: true, run: payWebhook },
 };
 
 export default async function handler(req, res) {
