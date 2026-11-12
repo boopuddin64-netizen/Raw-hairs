@@ -3,12 +3,11 @@ import { Navigate, useLocation, Link } from 'react-router-dom';
 import {
   supabase,
   supabaseConfigured,
-  isAdmin,
   isDriver,
   getStaffRole,
-  adminEmails,
   driverEmails,
 } from '../lib/supabase';
+import { adminApi } from '../lib/adminApi';
 
 const StaffAuthContext = createContext(null);
 
@@ -16,6 +15,18 @@ export function StaffAuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState('');
+  // Admin session lives on the server (HttpOnly cookie); this only mirrors its state.
+  const [admin, setAdmin] = useState({ loading: true, ok: false, email: null, configured: true });
+
+  useEffect(() => {
+    let active = true;
+    adminApi.session()
+      .then((s) => active && setAdmin({ loading: false, ok: s.ok, email: s.email, configured: s.configured !== false }))
+      .catch(() => active && setAdmin({ loading: false, ok: false, email: null, configured: true }));
+    const onUnauthorized = () => setAdmin((a) => ({ ...a, ok: false, email: null }));
+    window.addEventListener('rh-admin-unauthorized', onUnauthorized);
+    return () => { active = false; window.removeEventListener('rh-admin-unauthorized', onUnauthorized); };
+  }, []);
 
   useEffect(() => {
     if (!supabase) {
@@ -55,7 +66,7 @@ export function StaffAuthProvider({ children }) {
     loading,
     authError,
     configured: supabaseConfigured,
-    adminEmailsConfigured: adminEmails.length > 0,
+    admin,
     driverEmailsConfigured: driverEmails.length > 0,
 
     async signIn(email, password) {
@@ -74,11 +85,22 @@ export function StaffAuthProvider({ children }) {
         await supabase.auth.signOut();
         setUser(null);
         throw new Error(
-          'This account is not on the admin or driver allow-list. Add the email to VITE_ADMIN_EMAILS or VITE_DRIVER_EMAILS, or set app_metadata.role in Supabase.'
+          'This account is not on the driver allow-list. Add the email to VITE_DRIVER_EMAILS, or set app_metadata.role in Supabase.'
         );
       }
       setUser(data.user);
       return { user: data.user, role };
+    },
+
+    async adminSignIn(email, password) {
+      const result = await adminApi.login(email, password);
+      setAdmin({ loading: false, ok: true, email: result.email, configured: true });
+    },
+
+    async adminSignOut() {
+      try { await adminApi.logout(); } finally {
+        setAdmin((a) => ({ ...a, ok: false, email: null }));
+      }
     },
 
     async signOut() {
@@ -88,7 +110,7 @@ export function StaffAuthProvider({ children }) {
       }
       setUser(null);
     },
-  }), [user, loading, authError]);
+  }), [user, loading, authError, admin]);
 
   return <StaffAuthContext.Provider value={value}>{children}</StaffAuthContext.Provider>;
 }
@@ -100,12 +122,10 @@ export function useStaffAuth() {
 }
 
 export function AdminRoute({ children }) {
-  const { user, loading, configured } = useStaffAuth();
+  const { admin } = useStaffAuth();
   const location = useLocation();
-  if (loading) return <div className="wrap page"><p className="muted">Checking admin access…</p></div>;
-  if (!configured || !isAdmin(user)) {
-    return <Navigate to="/admin/sign-in" replace state={{ from: location.pathname }} />;
-  }
+  if (admin.loading) return <div className="wrap page"><p className="muted">Checking admin access…</p></div>;
+  if (!admin.ok) return <Navigate to="/admin/sign-in" replace state={{ from: location.pathname }} />;
   return children;
 }
 
@@ -128,7 +148,6 @@ function StaffSignInForm({ portal, title, subtitle, successPath, requireRole }) 
     loading,
     configured,
     authError,
-    adminEmailsConfigured,
     driverEmailsConfigured,
   } = useStaffAuth();
   const [email, setEmail] = useState('');
@@ -181,13 +200,9 @@ function StaffSignInForm({ portal, title, subtitle, successPath, requireRole }) 
     }
   }
 
-  const allowListHint = portal === 'ADMIN'
-    ? (adminEmailsConfigured
-      ? `Admin allow-list is configured (${adminEmails.length} email${adminEmails.length === 1 ? '' : 's'}).`
-      : 'Set VITE_ADMIN_EMAILS in the environment (comma-separated) to allow admin emails.')
-    : (driverEmailsConfigured
-      ? `Driver allow-list is configured (${driverEmails.length} email${driverEmails.length === 1 ? '' : 's'}).`
-      : 'Set VITE_DRIVER_EMAILS in the environment (comma-separated) to allow driver emails.');
+  const allowListHint = driverEmailsConfigured
+    ? `Driver allow-list is configured (${driverEmails.length} email${driverEmails.length === 1 ? '' : 's'}).`
+    : 'Set VITE_DRIVER_EMAILS in the environment (comma-separated) to allow driver emails.';
 
   return (
     <section className="wrap page auth-page">
@@ -245,9 +260,7 @@ function StaffSignInForm({ portal, title, subtitle, successPath, requireRole }) 
         </p>
 
         <p className="muted small" style={{ marginTop: 8 }}>
-          {portal === 'ADMIN'
-            ? <Link to="/driver/sign-in">Driver sign in</Link>
-            : <Link to="/admin/sign-in">Admin sign in</Link>}
+          <Link to="/admin/sign-in">Admin sign in</Link>
           {' · '}
           <Link to="/">Back to shop</Link>
         </p>
@@ -257,14 +270,65 @@ function StaffSignInForm({ portal, title, subtitle, successPath, requireRole }) 
 }
 
 export function AdminSignIn() {
+  const { admin, adminSignIn } = useStaffAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const location = useLocation();
+
+  if (admin.loading) return <div className="wrap page"><p className="muted">Checking session…</p></div>;
+  if (admin.ok) return <Navigate to={location.state?.from || '/admin'} replace />;
+
+  async function submit(event) {
+    event.preventDefault();
+    setError('');
+    setBusy(true);
+    try {
+      await adminSignIn(email, password);
+    } catch (err) {
+      setError(err?.message || 'Sign-in failed. Check your details and try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
-    <StaffSignInForm
-      portal="ADMIN"
-      title="Admin sign in"
-      subtitle="Manage catalogue, orders, bookings and drivers."
-      successPath="/admin"
-      requireRole={isAdmin}
-    />
+    <section className="wrap page auth-page">
+      <div className="auth-panel">
+        <p className="eyebrow">RAW HAIRS · ADMIN</p>
+        <h1>Admin sign in</h1>
+        <p className="muted small">Manage catalogue, orders, bookings and drivers.</p>
+
+        {!admin.configured && (
+          <div className="notice auth-error" role="alert">
+            Admin login is not configured on the server yet. Set <code>ADMIN_EMAIL</code>, <code>ADMIN_PASSWORD</code>,{' '}
+            <code>ADMIN_SESSION_SECRET</code> and <code>SUPABASE_SERVICE_ROLE_KEY</code> in the Vercel project environment, then redeploy.
+          </div>
+        )}
+        {error && <div className="notice auth-error" role="alert">{error}</div>}
+
+        <form onSubmit={submit}>
+          <div className="field">
+            <label htmlFor="admin-email">Email address</label>
+            <input id="admin-email" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          </div>
+          <div className="field">
+            <label htmlFor="admin-password">Password</label>
+            <input id="admin-password" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+          </div>
+          <button className="btn btn-primary btn-lg btn-block" type="submit" disabled={!admin.configured || busy}>
+            {busy ? 'Signing in…' : 'Sign in'}
+          </button>
+        </form>
+
+        <p className="muted small" style={{ marginTop: 8 }}>
+          <Link to="/driver/sign-in">Driver sign in</Link>
+          {' · '}
+          <Link to="/">Back to shop</Link>
+        </p>
+      </div>
+    </section>
   );
 }
 

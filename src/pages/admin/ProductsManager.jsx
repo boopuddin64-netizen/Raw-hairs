@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { supabase, supabaseConfigured } from '../../lib/supabase';
+import { adminApi } from '../../lib/adminApi';
 import { categories } from '../../data';
-import { PRODUCT_BUCKET, isStoragePath, productImageUrl } from '../../lib/images';
+import { isStoragePath, productImageUrl } from '../../lib/images';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const IMAGE_EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
@@ -29,13 +29,8 @@ const toForm = (p) => ({
 });
 
 function friendlyError(err) {
-  const msg = err?.message || 'Something went wrong. Please try again.';
-  if (err?.code === '42501' || /row-level security|permission denied|not authorized/i.test(msg)) {
-    return 'You are signed in, but this account is not authorised to change the catalogue in Supabase. Set app_metadata.role to "admin" for this user, then sign out and back in.';
-  }
-  if (err?.code === '23505') return 'A product with that slug already exists. Change the slug and try again.';
-  if (/column .* does not exist/i.test(msg)) return 'The database is missing the latest catalogue columns. Apply the grok_catalogue_import migration first.';
-  return msg;
+  if (err?.status === 401) return 'Your admin session expired. Sign in again.';
+  return err?.message || 'Something went wrong. Please try again.';
 }
 
 export default function ProductsManager({ products, refresh }) {
@@ -76,12 +71,11 @@ export default function ProductsManager({ products, refresh }) {
   }
 
   async function removeImage(path) {
-    if (isStoragePath(path)) await supabase.storage.from(PRODUCT_BUCKET).remove([path]);
+    if (isStoragePath(path)) { try { await adminApi.removeImage(path); } catch { /* orphaned file is harmless */ } }
   }
 
   async function save(event) {
     event.preventDefault();
-    if (!supabaseConfigured) return;
     const price = Number(form.price);
     const stock = Number(form.stock === '' ? 0 : form.stock);
     const weight = form.weight_grams === '' ? null : Number(form.weight_grams);
@@ -98,11 +92,7 @@ export default function ProductsManager({ products, refresh }) {
     try {
       let imagePath = form.image_path || null;
       if (file) {
-        uploaded = `products/${crypto.randomUUID()}.${IMAGE_EXT[file.type]}`;
-        const { error: upErr } = await supabase.storage.from(PRODUCT_BUCKET).upload(uploaded, file, {
-          contentType: file.type, cacheControl: '31536000', upsert: false,
-        });
-        if (upErr) throw upErr;
+        uploaded = await adminApi.uploadProductImage(file);
         imagePath = uploaded;
       }
       const row = {
@@ -120,11 +110,7 @@ export default function ProductsManager({ products, refresh }) {
         is_active: form.is_active,
         image_path: imagePath,
       };
-      const query = form.id
-        ? supabase.from('products').update(row).eq('id', form.id)
-        : supabase.from('products').insert(row);
-      const { error: saveErr } = await query;
-      if (saveErr) throw saveErr;
+      await adminApi.mutate('products', form.id ? 'update' : 'insert', { id: form.id || undefined, values: row });
       if (uploaded && form.image_path && form.image_path !== uploaded) await removeImage(form.image_path);
       setMsg({ type: 'ok', text: form.id ? 'Product updated.' : 'Product added.' });
       close();
@@ -140,22 +126,30 @@ export default function ProductsManager({ products, refresh }) {
   async function toggleActive(product) {
     setBusy(true);
     setMsg(null);
-    const { error } = await supabase.from('products').update({ is_active: !product.is_active }).eq('id', product.id);
-    setBusy(false);
-    if (error) return setMsg({ type: 'error', text: friendlyError(error) });
-    refresh?.();
+    try {
+      await adminApi.mutate('products', 'update', { id: product.id, values: { is_active: !product.is_active } });
+      refresh?.();
+    } catch (err) {
+      setMsg({ type: 'error', text: friendlyError(err) });
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function remove(product) {
     if (!window.confirm(`Delete "${product.name}"? Past orders keep the product name. This cannot be undone.`)) return;
     setBusy(true);
     setMsg(null);
-    const { error } = await supabase.from('products').delete().eq('id', product.id);
-    if (error) { setBusy(false); return setMsg({ type: 'error', text: friendlyError(error) }); }
-    await removeImage(product.image_path);
-    setBusy(false);
-    setMsg({ type: 'ok', text: 'Product deleted.' });
-    refresh?.();
+    try {
+      await adminApi.mutate('products', 'delete', { id: product.id });
+      await removeImage(product.image_path);
+      setMsg({ type: 'ok', text: 'Product deleted.' });
+      refresh?.();
+    } catch (err) {
+      setMsg({ type: 'error', text: friendlyError(err) });
+    } finally {
+      setBusy(false);
+    }
   }
 
   const shownImage = preview || productImageUrl(form?.image_path);
