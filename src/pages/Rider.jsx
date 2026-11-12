@@ -5,7 +5,19 @@ import { useTheme } from '../theme/ThemeContext';
 import { supabase, supabaseConfigured, isAdmin } from '../lib/supabase';
 import { Chip } from '../components';
 
-const JOB_STATUSES = ['unassigned', 'assigned', 'picked_up', 'in_transit', 'delivered', 'failed'];
+/**
+ * Server-enforced (RLS) forward transitions for riders:
+ * assigned -> picked_up -> in_transit -> delivered | failed
+ * The database rejects anything outside this path, so the UI offers the same set.
+ */
+const RIDER_TRANSITIONS = {
+  unassigned: [], // only admin can assign
+  assigned: ['picked_up'],
+  picked_up: ['in_transit'],
+  in_transit: ['delivered', 'failed'],
+  delivered: [],
+  failed: [],
+};
 
 export default function Rider() {
   const { user, role, signOut } = useStaffAuth();
@@ -24,17 +36,11 @@ export default function Rider() {
     }
     setLoading(true);
     setError('');
-    let query = supabase
-      .from('rider_jobs')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(50);
-
+    let query = supabase.from('rider_jobs').select('*').order('created_at', { ascending: false }).limit(50);
     if (!admin && user?.id) {
       query = query.eq('rider_id', user.id);
     }
-
-    const { data, error: queryError } = await query;
+    const { data, queryError } = await query;
     if (queryError) {
       setError(queryError.message);
       setLoading(false);
@@ -50,8 +56,11 @@ export default function Rider() {
     setBusy(id);
     setError('');
     const { error: updateError } = await supabase.from('rider_jobs').update({ status }).eq('id', id);
-    if (updateError) setError(updateError.message);
-    else await refresh();
+    if (updateError) {
+      setError(updateError.message.includes('row-level security')
+        ? 'That change is not allowed. You can only move your job forward: assigned → picked up → in transit → delivered or failed.'
+        : updateError.message);
+    } else await refresh();
     setBusy('');
   };
 
@@ -83,29 +92,57 @@ export default function Rider() {
         </p>
       )}
       <div className="stack">
-        {jobs.map((job) => (
-          <article key={job.id} className="row-card" style={{ flexDirection: 'column', gap: 10 }}>
-            <div className="row-top">
-              <h3 style={{ fontSize: 16 }}>Job {job.id.slice(0, 8)}</h3>
-              <Chip tone="info">{String(job.status).replaceAll('_', ' ')}</Chip>
-            </div>
-            <span className="muted small">Order: {job.order_id}</span>
-            {admin && <span className="muted small">Driver: {job.rider_id || 'Unassigned'}</span>}
-            <label className="small">
-              Status{' '}
-              <select
-                value={job.status}
-                disabled={busy === job.id}
-                onChange={(e) => updateStatus(job.id, e.target.value)}
-                style={{ minHeight: 44, marginLeft: 8 }}
-              >
-                {JOB_STATUSES.map((s) => (
-                  <option key={s} value={s}>{s.replaceAll('_', ' ')}</option>
-                ))}
-              </select>
-            </label>
-          </article>
-        ))}
+        {jobs.map((job) => {
+          const next = RIDER_TRANSITIONS[job.status] || [];
+          const canUpdate = !admin && job.rider_id === user?.id && next.length > 0;
+          return (
+            <article key={job.id} className="row-card" style={{ flexDirection: 'column', gap: 10 }}>
+              <div className="row-top">
+                <h3 style={{ fontSize: 16 }}>Job {job.id.slice(0, 8)}</h3>
+                <Chip tone="info">{String(job.status).replaceAll('_', ' ')}</Chip>
+              </div>
+              <span className="muted small">Order: {job.order_id}</span>
+              {admin && <span className="muted small">Driver: {job.rider_id || 'Unassigned'}</span>}
+              {admin && (
+                <label className="small">
+                  Status{' '}
+                  <select
+                    value={job.status}
+                    disabled={busy === job.id}
+                    onChange={(e) => updateStatus(job.id, e.target.value)}
+                    style={{ minHeight: 44, marginLeft: 8 }}
+                  >
+                    {Object.keys(RIDER_TRANSITIONS).map((s) => (
+                      <option key={s} value={s}>{s.replaceAll('_', ' ')}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {!admin && next.length > 0 && (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {next.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      className="btn btn-primary"
+                      disabled={busy === job.id}
+                      onClick={() => updateStatus(job.id, s)}
+                    >
+                      Mark {s.replaceAll('_', ' ')}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {!admin && !canUpdate && (
+                <span className="muted small">
+                  {job.rider_id !== user?.id
+                    ? 'Not assigned to you.'
+                    : 'No further updates available for this job.'}
+                </span>
+              )}
+            </article>
+          );
+        })}
       </div>
     </div>
   );
