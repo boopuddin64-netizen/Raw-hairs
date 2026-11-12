@@ -15,6 +15,7 @@ import Home from './pages/Home';
 import Shop from './pages/Shop';
 import Product from './pages/Product';
 import Cart from './pages/Cart';
+import Checkout from './pages/Checkout';
 import Services from './pages/Services';
 import Account from './pages/Account';
 import Help from './pages/Help';
@@ -37,6 +38,7 @@ createRoot(document.getElementById('root')).render(
                 <Route path="shop" element={<Shop />} />
                 <Route path="product/:id" element={<Product />} />
                 <Route path="cart" element={<Cart />} />
+                <Route path="checkout" element={<Checkout />} />
                 <Route path="services" element={<Services />} />
                 <Route path="account" element={<Account />} />
                 <Route path="help/:topic" element={<Help />} />
