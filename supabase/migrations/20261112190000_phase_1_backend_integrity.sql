@@ -1,0 +1,29 @@
+-- SUPERSEDED (2026-11-12) - no SQL in this file; intentionally inert.
+--
+-- The original version of this migration contained an RLS policy on
+-- public.rider_jobs that referenced NEW.status / NEW.rider_id. PostgreSQL
+-- RLS policies cannot use NEW/OLD row aliases (trigger-only syntax), so the
+-- migration failed with:
+--   ERROR 42P01: missing FROM-clause entry for table "new"
+--
+-- The corrected migration, matching the live Supabase database
+-- (migration `phase_1_backend_integrity_corrected` + fix-ups, verified
+-- 2026-11-12), is split into these files - apply in order:
+--   20261112190010_phase_1_corrected_part1.sql   trusted-role helper functions
+--   20261112190012_phase_1_corrected_part1b.sql  kobo columns, naira<->kobo sync,
+--                                                guest-ready orders, statuses
+--   20261112190020_phase_1_corrected_part2.sql   reservations, availability view,
+--                                                reserve/order RPCs (NULL-safe fee)
+--   20261112190030_phase_1_corrected_part3.sql   payments/returns/refunds/
+--                                                notifications/audit tables, RLS
+--                                                hardening, rider transition
+--                                                trigger, audit triggers
+--
+-- Key corrections:
+--   * rider_jobs: ownership-only UPDATE policy + BEFORE UPDATE trigger
+--     validate_rider_transition() enforcing
+--     assigned -> picked_up -> in_transit -> delivered | failed
+--     and freezing rider_id / order_id / delivery_otp_hash / photo fields.
+--   * Every CREATE POLICY preceded by DROP POLICY IF EXISTS.
+--   * Bidirectional naira <-> kobo sync triggers.
+--   * Delivery-fee lookup is NULL-safe for an empty store_settings table.

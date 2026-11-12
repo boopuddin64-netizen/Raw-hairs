@@ -5,6 +5,7 @@ import { supabase, supabaseConfigured } from '../lib/supabase';
 const TONE = {
   awaiting_payment: 'info',
   paid: 'ok',
+  pending_admin_approval: 'warn',
   processing: 'info',
   dispatched: 'warn',
   delivered: 'ok',
@@ -25,6 +26,13 @@ export default function Account() {
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
 
+  // Forgot-password state
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetBusy, setResetBusy] = useState(false);
+  const [resetMsg, setResetMsg] = useState('');
+  const [resetError, setResetError] = useState('');
+  const [showReset, setShowReset] = useState(false);
+
   const refreshSession = async () => {
     if (!supabase) {
       setLoading(false);
@@ -35,7 +43,7 @@ export default function Account() {
     setUser(current);
     if (current) {
       const [ordersRes, bookingsRes] = await Promise.all([
-        supabase.from('orders').select('id,status,total,created_at').order('created_at', { ascending: false }).limit(20),
+        supabase.from('orders').select('id,status,total,total_kobo,created_at').order('created_at', { ascending: false }).limit(20),
         supabase.from('bookings').select('id,status,customer_name,scheduled_at,notes,created_at').order('created_at', { ascending: false }).limit(20),
       ]);
       setOrders(ordersRes.data || []);
@@ -99,6 +107,30 @@ export default function Account() {
     }
   };
 
+  const sendReset = async (e) => {
+    e.preventDefault();
+    setResetError('');
+    setResetMsg('');
+    setResetBusy(true);
+    try {
+      if (!supabaseConfigured || !supabase) {
+        throw new Error('Account services are not configured in this deployment.');
+      }
+      const trimmed = resetEmail.trim();
+      if (!trimmed) throw new Error('Enter the email address on your account.');
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(trimmed, {
+        redirectTo: `${window.location.origin}${window.location.pathname}#/account`,
+      });
+      if (resetError) throw resetError;
+      setResetMsg('If that email has a RAW HAIRS account, a password-reset link is on its way. Check your inbox (and spam folder).');
+      setResetEmail('');
+    } catch (err) {
+      setResetError(err?.message || 'Could not send the reset email.');
+    } finally {
+      setResetBusy(false);
+    }
+  };
+
   const signOut = async () => {
     setBusy(true);
     setError('');
@@ -149,7 +181,7 @@ export default function Account() {
               </div>
               <div className="row-top">
                 <span className="muted small">{o.created_at ? new Date(o.created_at).toLocaleString('en-NG') : ''}</span>
-                <span className="price">{o.total != null ? `₦${Number(o.total).toLocaleString('en-NG')}` : ''}</span>
+                <span className="price">{o.total_kobo != null ? `₦${Math.round(Number(o.total_kobo) / 100).toLocaleString('en-NG')}` : (o.total != null ? `₦${Number(o.total).toLocaleString('en-NG')}` : '')}</span>
               </div>
             </article>
           ))}
@@ -210,9 +242,41 @@ export default function Account() {
             {mode === 'signin' ? 'Create account' : 'Already have an account?'}
           </button>
         </div>
+        {mode === 'signin' && (
+          <p style={{ margin: '12px 0 0' }}>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => { setShowReset(!showReset); setResetMsg(''); setResetError(''); }}
+            >
+              Forgot your password?
+            </button>
+          </p>
+        )}
         {msg && <div className="notice" role="status" style={{ marginTop: 12 }}>{msg}</div>}
         {error && <div className="notice auth-error" role="alert" style={{ marginTop: 12 }}>{error}</div>}
       </form>
+
+      {showReset && (
+        <form onSubmit={sendReset} className="stack" style={{ maxWidth: 480 }}>
+          <h2 style={{ fontSize: 22, marginBottom: 4 }}>Reset your password</h2>
+          <p className="muted small" style={{ marginBottom: 12 }}>
+            Enter your account email and we will send you a secure link to choose a new password.
+          </p>
+          <div className="field">
+            <label htmlFor="a-r">Account email</label>
+            <input id="a-r" type="email" autoComplete="email" required value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} />
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button className="btn btn-primary" type="submit" disabled={resetBusy}>
+              {resetBusy ? 'Sending…' : 'Send reset link'}
+            </button>
+            <button className="btn btn-ghost" type="button" onClick={() => setShowReset(false)}>Cancel</button>
+          </div>
+          {resetMsg && <div className="notice" role="status">{resetMsg}</div>}
+          {resetError && <div className="notice auth-error" role="alert">{resetError}</div>}
+        </form>
+      )}
     </div>
   );
 }
