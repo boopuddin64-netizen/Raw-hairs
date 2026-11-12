@@ -2,10 +2,11 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Chip } from '../components';
 import { useStaffAuth } from '../auth/StaffAuth';
-import { supabase, supabaseConfigured } from '../lib/supabase';
+import { adminApi } from '../lib/adminApi';
 import { useRealtimeDashboard, buildAnalytics } from '../hooks/useRealtimeDashboard';
 import { useStoreConfig } from '../hooks/useStoreConfig';
 import { useTheme } from '../theme/ThemeContext';
+import ProductsManager from './admin/ProductsManager';
 
 const NAV = [
   { id: 'Overview', label: 'Overview' },
@@ -52,7 +53,7 @@ function Kpi({ label, value, hint, tone }) {
 }
 
 export default function Admin() {
-  const { staff, signOut } = useStaffAuth();
+  const { admin, adminSignOut: signOut } = useStaffAuth();
   const { theme, toggleTheme } = useTheme();
   const { config, setConfig, save, saving, message } = useStoreConfig();
   const { orders, bookings, products, services, international, riderJobs, loading, error, refresh } = useRealtimeDashboard();
@@ -74,17 +75,19 @@ export default function Admin() {
   }, [analytics, config.goals]);
 
   async function loadReviews() {
-    if (!supabaseConfigured) return;
-    const { data } = await supabase.from('reviews').select('*').order('created_at', { ascending: false }).limit(50);
-    setReviews(data || []);
+    try {
+      const { reviews: rows } = await adminApi.reviews();
+      setReviews(rows || []);
+    } catch (e) {
+      setStatusMsg(errorText(e));
+    }
   }
 
   async function saveStatus(table, id, status) {
     setBusy(true);
     setStatusMsg('');
     try {
-      const { error: err } = await supabase.from(table).update({ status }).eq('id', id);
-      if (err) throw err;
+      await adminApi.mutate(table, 'update', { id, values: { status } });
       setStatusMsg('Updated');
       refresh();
     } catch (e) {
@@ -97,16 +100,16 @@ export default function Admin() {
 
   async function addReview(e) {
     e.preventDefault();
-    if (!supabaseConfigured) return;
     setBusy(true);
     try {
-      const { error: err } = await supabase.from('reviews').insert({
-        customer_name: reviewForm.customer_name || 'Anonymous',
-        rating: Number(reviewForm.rating) || 5,
-        comment: reviewForm.comment || null,
-        product_id: reviewForm.product_id || null,
+      await adminApi.mutate('reviews', 'insert', {
+        values: {
+          customer_name: reviewForm.customer_name || 'Anonymous',
+          rating: Number(reviewForm.rating) || 5,
+          comment: reviewForm.comment || null,
+          product_id: reviewForm.product_id || null,
+        },
       });
-      if (err) throw err;
       setReviewForm({ customer_name: '', rating: 5, comment: '', product_id: '' });
       loadReviews();
     } catch (e) {
@@ -140,7 +143,7 @@ export default function Admin() {
         <div>
           <p className="eyebrow">Admin console</p>
           <h1>RAW HAIRS</h1>
-          <p className="muted">{staff?.email || 'Signed in'}</p>
+          <p className="muted">{admin?.email || 'Signed in'}</p>
         </div>
         <div className="dash-actions">
           <button className="btn btn-ghost" type="button" onClick={toggleTheme} aria-label="Toggle theme">
@@ -327,24 +330,7 @@ export default function Admin() {
               </table>
             </div>
           )}
-          {tab === 'Products' && (
-            <div className="table-wrap">
-              <table className="dash-table">
-                <thead><tr><th>Name</th><th>Price</th><th>Stock</th><th>Active</th></tr></thead>
-                <tbody>
-                  {products.map((p) => (
-                    <tr key={p.id}>
-                      <td>{p.name}</td>
-                      <td>{money(p.price)}</td>
-                      <td>{p.stock ?? '—'}</td>
-                      <td>{p.is_active ? 'Yes' : 'No'}</td>
-                    </tr>
-                  ))}
-                  {!products.length && <tr><td colSpan={4} className="muted">No products</td></tr>}
-                </tbody>
-              </table>
-            </div>
-          )}
+          {tab === 'Products' && <ProductsManager products={products} refresh={refresh} />}
           {tab === 'Services' && (
             <div className="table-wrap">
               <table className="dash-table">

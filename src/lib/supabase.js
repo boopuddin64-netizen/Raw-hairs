@@ -28,18 +28,17 @@ function parseEmailList(value) {
     .filter(Boolean);
 }
 
-/** Admin emails allowed via environment (bootstrap). Prefer app_metadata roles in production. */
-export const adminEmails = parseEmailList(import.meta.env.VITE_ADMIN_EMAILS);
-
 /** Driver emails allowed via environment (bootstrap). Prefer app_metadata roles in production. */
 export const driverEmails = parseEmailList(import.meta.env.VITE_DRIVER_EMAILS);
 
 export const staffConfigReady = supabaseConfigured;
 
 /**
- * Trusted roles:
+ * Supabase-auth roles (used by the driver portal):
  * 1) app_metadata.role / app_metadata.roles set by Supabase admin (preferred)
- * 2) email match against VITE_ADMIN_EMAILS / VITE_DRIVER_EMAILS (bootstrap until you set claims)
+ * 2) email match against VITE_DRIVER_EMAILS (bootstrap until you set claims)
+ * The ADMIN console does not use Supabase auth: it signs in against the server (/api/admin)
+ * with credentials held in server environment variables.
  * Never use user_metadata for authorization.
  */
 export function getStaffRole(user) {
@@ -53,7 +52,6 @@ export function getStaffRole(user) {
   if (metaRoles.includes('driver') || metaRoles.includes('rider')) return 'driver';
 
   const email = (user.email || '').trim().toLowerCase();
-  if (email && adminEmails.includes(email)) return 'admin';
   if (email && driverEmails.includes(email)) return 'driver';
   return null;
 }

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { useCatalog, formatNaira } from '../catalog';
+import { useCatalog, formatNaira, hideBrokenImage, productSpec } from '../catalog';
 import { useStore, isSoldOut, stockLabel } from '../store';
 import { useToast } from '../components';
 import { onSwipe, enablePinchZoom } from '../gestures';
@@ -10,9 +10,11 @@ export default function Product() {
   const { products, loading, error } = useCatalog();
   const store = useStore();
   const [qty, setQty] = useState(1);
+  const [length, setLength] = useState(null);
+  const [lace, setLace] = useState('');
   const [show, toast] = useToast();
   const photoRef = useRef(null);
-  const product = products.find((item) => item.id === id);
+  const product = products.find((item) => item.id === id || item.slug === id);
 
   const images = product
     ? [product.image_url, ...(product.gallery || [])].filter(Boolean)
@@ -20,6 +22,15 @@ export default function Product() {
   const [idx, setIdx] = useState(0);
 
   useEffect(() => setIdx(0), [id]);
+
+  const lengthOptions = product?.length_options?.length ? product.length_options : [];
+  const laceOptions = product?.lace_options || [];
+  useEffect(() => {
+    if (!product) return;
+    setLength(product.base_length || lengthOptions[0] || null);
+    setLace((product.lace_options || [])[0] || '');
+    setQty(1);
+  }, [product?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const el = photoRef.current;
@@ -44,7 +55,8 @@ export default function Product() {
   const currentImage = images[idx] || product.image_url;
 
   const add = () => {
-    const result = store.addToCart(product, null, qty);
+    const variant = [length ? `${length}″` : null, lace || null].filter(Boolean).join(' · ') || null;
+    const result = store.addToCart(product, variant, qty);
     show(result.message);
   };
 
@@ -58,7 +70,7 @@ export default function Product() {
           role={currentImage ? undefined : 'img'}
           aria-label={currentImage ? undefined : `Product photograph pending for ${product.name}`}
         >
-          {currentImage && <img src={currentImage} alt={product.name} />}
+          {currentImage && <img src={currentImage} alt={product.name} onError={hideBrokenImage} />}
           <span className="photo-tag">{product.category || 'RAW HAIRS'}</span>
           {out && <span className="soldout">SOLD OUT</span>}
           {images.length > 1 && (
@@ -88,6 +100,9 @@ export default function Product() {
           <h1>{product.name}</h1>
           <span className="price" style={{ fontSize: 26 }}>{formatNaira(product.price)}</span>
           <span className="muted small">{stockLabel(product)}</span>
+          {(productSpec(product) || product.hair_type) && (
+            <span className="muted small">{[product.hair_type, productSpec(product) && `Listed at ${productSpec(product)}`].filter(Boolean).join(' · ')}</span>
+          )}
           {product.description && (
             <div>
               <h2 style={{ fontSize: 22 }}>Product details</h2>
@@ -97,6 +112,27 @@ export default function Product() {
 
           {!out && (
             <div className="stack" style={{ gap: 12 }}>
+              {lengthOptions.length > 0 && (
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <label>Length</label>
+                  <div className="tabs" role="group" aria-label="Choose length">
+                    {lengthOptions.map((len) => (
+                      <button key={len} type="button" className="tab" aria-pressed={length === len} onClick={() => setLength(len)}>{len}″</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {laceOptions.length > 0 && (
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <label>Lace</label>
+                  <div className="tabs" role="group" aria-label="Choose lace">
+                    {laceOptions.map((opt) => (
+                      <button key={opt} type="button" className="tab" aria-pressed={lace === opt} onClick={() => setLace(opt)}>{opt}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {product.base_length && <p className="muted small" style={{ margin: 0 }}>Price is listed at {product.base_length}″. We confirm the exact piece on WhatsApp before it is packed.</p>}
               <div className="field" style={{ marginBottom: 0 }}>
                 <label>Quantity</label>
                 <div className="qty">

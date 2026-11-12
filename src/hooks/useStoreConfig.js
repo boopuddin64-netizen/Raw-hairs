@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { supabase, supabaseConfigured } from '../lib/supabase';
+import { adminApi } from '../lib/adminApi';
 
 const STORAGE_KEY = 'raw-hairs-store-config';
 
@@ -49,20 +49,16 @@ export function useStoreConfig() {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    if (!supabaseConfigured) return;
-    (async () => {
-      const { data, error } = await supabase
-        .from('store_settings')
-        .select('settings, rules, goals')
-        .eq('id', 'default')
-        .maybeSingle();
-      if (error || !data) return;
+    let active = true;
+    adminApi.settings().then(({ row }) => {
+      if (!active || !row) return;
       setConfig({
-        settings: { ...DEFAULTS.settings, ...(data.settings || {}) },
-        rules: { ...DEFAULTS.rules, ...(data.rules || {}) },
-        goals: { ...DEFAULTS.goals, ...(data.goals || {}) },
+        settings: { ...DEFAULTS.settings, ...(row.settings || {}) },
+        rules: { ...DEFAULTS.rules, ...(row.rules || {}) },
+        goals: { ...DEFAULTS.goals, ...(row.goals || {}) },
       });
-    })();
+    }).catch(() => {});
+    return () => { active = false; };
   }, []);
 
   const save = useCallback(async (next) => {
@@ -70,19 +66,18 @@ export function useStoreConfig() {
     setMessage('');
     const payload = next || config;
     try {
-      if (supabaseConfigured) {
-        const { error } = await supabase.from('store_settings').upsert({
+      await adminApi.mutate('store_settings', 'upsert', {
+        values: {
           id: 'default',
           settings: payload.settings,
           rules: payload.rules,
           goals: payload.goals,
           updated_at: new Date().toISOString(),
-        });
-        if (error) throw error;
-      }
+        },
+      });
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
       setConfig(payload);
-      setMessage(supabaseConfigured ? 'Saved to the store database' : 'Saved on this device only');
+      setMessage('Saved to the store database');
     } catch (e) {
       setMessage(e?.message || 'Could not save store settings. Please try again.');
     } finally {

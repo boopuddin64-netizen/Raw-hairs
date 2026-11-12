@@ -1,14 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { adminApi } from '../lib/adminApi';
 
-const TABLES = [
-  ['products', 'products'],
-  ['services', 'services'],
-  ['orders', 'orders'],
-  ['bookings', 'bookings'],
-  ['requests', 'international_requests'],
-  ['jobs', 'rider_jobs'],
-];
+const POLL_MS = 15000;
 
 export function useRealtimeDashboard() {
   const [data, setData] = useState({
@@ -22,70 +15,39 @@ export function useRealtimeDashboard() {
   const silent = useRef(false);
 
   const refresh = useCallback(async ({ quiet = false } = {}) => {
-    if (!supabase) {
-      setError('Supabase is not configured.');
-      setLoading(false);
-      return;
-    }
     if (!quiet) setLoading(true);
     silent.current = quiet;
     setError('');
-
-    const results = await Promise.all(TABLES.map(async ([key, table]) => {
-      const { data: rows, error: queryError } = await supabase
-        .from(table)
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(300);
-      return { key, rows, error: queryError };
-    }));
-
-    const failed = results.find((r) => r.error);
-    if (failed) {
-      setError(`${failed.error.message} (loading ${failed.key})`);
+    try {
+      const payload = await adminApi.data();
+      setData({
+        products: payload.products || [],
+        services: payload.services || [],
+        orders: payload.orders || [],
+        bookings: payload.bookings || [],
+        requests: payload.requests || [],
+        jobs: payload.jobs || [],
+      });
+      setUpdatedAt(new Date());
+    } catch (err) {
+      setError(err.message);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setData(Object.fromEntries(results.map((r) => [r.key, r.rows || []])));
-    setUpdatedAt(new Date());
-    setLoading(false);
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
 
+  // Admin data now comes through the server API (RLS would hide it from the browser client),
+  // so keep the dashboard fresh by polling instead of Supabase Realtime.
   useEffect(() => {
-    if (!supabase) return undefined;
-    const channel = supabase
-      .channel('raw-hairs-admin-analytics')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-        setLastEvent({ table: 'orders', event: payload.eventType, at: new Date() });
-        refresh({ quiet: true });
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, (payload) => {
-        setLastEvent({ table: 'bookings', event: payload.eventType, at: new Date() });
-        refresh({ quiet: true });
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'international_requests' }, (payload) => {
-        setLastEvent({ table: 'international_requests', event: payload.eventType, at: new Date() });
-        refresh({ quiet: true });
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, (payload) => {
-        setLastEvent({ table: 'products', event: payload.eventType, at: new Date() });
-        refresh({ quiet: true });
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'rider_jobs' }, (payload) => {
-        setLastEvent({ table: 'rider_jobs', event: payload.eventType, at: new Date() });
-        refresh({ quiet: true });
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'services' }, (payload) => {
-        setLastEvent({ table: 'services', event: payload.eventType, at: new Date() });
-        refresh({ quiet: true });
-      })
-      .subscribe((status) => { setLive(status === 'SUBSCRIBED'); });
-
+    setLive(true);
+    const timer = setInterval(() => refresh({ quiet: true }), POLL_MS);
+    const onVisible = () => { if (document.visibilityState === 'visible') refresh({ quiet: true }); };
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
-      supabase.removeChannel(channel);
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
       setLive(false);
     };
   }, [refresh]);
