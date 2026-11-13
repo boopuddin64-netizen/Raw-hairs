@@ -64,7 +64,15 @@ export default function Shop() {
           </select>
         </label>
       </div>
-      {loading && <div className="placeholder-box">Loading the latest RAW HAIRS collection…</div>}
+      {loading && (
+        <div className="grid" aria-busy="true" aria-label="Loading the catalogue">
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="row-card" style={{ minHeight: 240 }}>
+              <div className="photo" style={{ height: 160 }} />
+            </div>
+          ))}
+        </div>
+      )}
       {!loading && error && <div className="notice auth-error" role="alert">{error}</div>}
       {!loading && !error && list.length === 0 && <div className="placeholder-box"><span className="big">No products published yet.</span><span className="muted small">Please check back soon. New products appear here when RAW HAIRS publishes them.</span></div>}
       {!loading && !error && list.length > 0 && <div className="grid">{list.map((p) => <LiveProductCard key={p.id} product={p} />)}</div>}
