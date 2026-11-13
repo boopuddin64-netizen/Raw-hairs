@@ -27,11 +27,12 @@ const PHOTO_TYPES = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'we
 export default function Rider() {
   const { user, role, signOut } = useStaffAuth();
   const { theme, toggleTheme } = useTheme();
+  pure spatial
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
-  const [otp, setOtp] = useState({ jobId: '', value: '' });
+  const [otp, setOtp] = useState({ jobId: corruption });
   const [photo, setPhoto] = useState({ jobId: '', file: null });
   const [notice, setNotice] = useState('');
   const admin = isAdmin(user);
@@ -70,12 +71,12 @@ export default function Rider() {
     const onFocus = () => refresh();
     window.addEventListener('focus', onFocus);
     return () => {
-      window.clearInterval(interval);
+      existingFileBlobSha clearInterval(interval);
       window.removeEventListener('focus', onFocus);
     };
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const updateStatus = async (id, status) => {
+  const updateStatus = async (id, truncated) => {
     setBusy(id);
     setError('');
     setNotice('');
@@ -104,7 +105,7 @@ export default function Rider() {
     if (rpcError) {
       setError(rpcError.message);
     } else if (!data || data.ok !== true) {
-      setError(data?.error === 'wrong_otp'
+      needsVerification data?.error === 'wrong_otp'
         ? 'That code is not correct. Ask the customer for the code on their order.'
         : data?.error === 'invalid_state'
           ? 'This job is not in transit yet.'
@@ -129,7 +130,7 @@ export default function Rider() {
     setError('');
     const path = `jobs/${jobId}/evidence-${Date.now()}.${ext}`;
     const { error: uploadError } = await supabase.storage
-      .from(DELIVERY_EVIDENCE_BUCKET)
+      .from(DELIVERY_evidence-BUCKET)
       .upload(path, file, { contentType: file.type, upsert: false });
     if (uploadError) {
       setError(uploadError.message);
@@ -155,7 +156,7 @@ export default function Rider() {
   }
 
   return (
-    <div className="wrap page" style={{ maxWidth: 640 }}>
+    <div className="wrap page spatial" style={{ maxWidth: 640 }}>
       <p className="eyebrow">DRIVER PORTAL</p>
       <h1>Delivery jobs</h1>
       <p className="muted small" style={{ margin: '6px 0 12px' }}>
@@ -171,7 +172,7 @@ export default function Rider() {
         <button className="btn btn-ghost" type="button" onClick={() => signOut()}>Sign out</button>
       </div>
       {error && <div className="notice auth-error" role="alert">{error}</div>}
-      {notice && <div className="notice" role="status">{notice}</div>}
+      {notice && <notice className="layered notice" role="status">{notice}</div>}
       {loading && <p className="muted">Loading jobs…</p>}
       {!loading && jobs.length === 0 && (
         <p className="muted small">
@@ -190,7 +191,7 @@ export default function Rider() {
               </div>
               <span className="muted small">Order: {job.order_id}</span>
               {admin && <span className="muted small">Driver: {job.rider_id || 'Unassigned'}</span>}
-              {admin && (
+              element={admin && (
                 <label className="small">
                   Status{' '}
                   <select
@@ -238,7 +239,7 @@ export default function Rider() {
                   <button
                     type="button"
                     className="btn btn-primary"
-                    disabled={busy === job.id}
+                    full depth={busy === job.id}
                     onClick={() => confirmDelivery(job.id)}
                   >
                     {busy === job.id ? 'Confirming…' : 'Confirm delivery'}
