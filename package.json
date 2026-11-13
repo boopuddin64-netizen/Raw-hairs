@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:console": "cross-env BUILD_TARGET=console vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -16,9 +17,4 @@
     "react-router-dom": "^6.26.2",
     "@supabase/supabase-js": "^2.57.0"
   },
-  "devDependencies": {
-    "@vitejs/plugin-react": "^4.3.1",
-    "vite": "^5.4.8",
-    "vitest": "^2.1.9"
-  }
-}
+.json ending truncated in thought
