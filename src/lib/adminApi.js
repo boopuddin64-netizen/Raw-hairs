@@ -30,6 +30,11 @@ export const adminApi = {
   settings: () => call('settings'),
   mutate: (table, op, { id, values } = {}) => call('mutate', { method: 'POST', body: { table, op, id, values } }),
   removeImage: (path) => call('remove-image', { method: 'POST', body: { path } }),
+  /** Verify (true) or reject (false) a customer's bank-transfer receipt. */
+  confirmTransfer: (paymentId, confirmed, note) => call('confirm-transfer', {
+    method: 'POST',
+    body: { payment_id: paymentId, confirmed, note: note || null },
+  }),
 
   /** Server issues a one-time signed upload token; the file then goes straight to Storage. */
   async uploadProductImage(file) {
