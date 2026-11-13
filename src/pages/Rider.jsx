@@ -60,6 +60,21 @@ export default function Rider() {
 
   useEffect(() => { refresh(); }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Auto-refresh: poll every 30s while the portal is open and visible,
+  // and refresh immediately when the tab regains focus, so new
+  // assignments/status changes appear without tapping Refresh.
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') refresh();
+    }, 30000);
+    const onFocus = () => refresh();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const updateStatus = async (id, status) => {
     setBusy(id);
     setError('');
@@ -140,13 +155,13 @@ export default function Rider() {
   }
 
   return (
-    <div className="wrap page" style={{ maxWidth: 640 }}>
+    <div className="wrap page spatial" style={{ maxWidth: 640 }}>
       <p className="eyebrow">DRIVER PORTAL</p>
       <h1>Delivery jobs</h1>
       <p className="muted small" style={{ margin: '6px 0 12px' }}>
         {admin
           ? 'Admin view — all jobs. Drivers only see jobs assigned to their user id.'
-          : 'Only jobs assigned to you appear here.'}
+          : 'Only jobs assigned to you appear here. Jobs update automatically.'}
       </p>
       <p className="muted small">{user?.email} · role: {role}</p>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
