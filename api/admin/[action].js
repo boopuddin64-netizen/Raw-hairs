@@ -320,6 +320,16 @@ async function payVerify(req, res) {
   if (!PAY_REF.test(reference)) return json(res, 400, { error: 'Invalid payment reference.' });
   const result = await recordVerifiedPayment(res, db, reference);
   if (!result) return;
+  // Return the order id so the confirmation screen can link guests straight
+  // to their tracking page (they have no account to find it from).
+  if (result.ok) {
+    const { data: payment, error: payError } = await db
+      .from('payments')
+      .select('order_id')
+      .eq('reference', reference)
+      .maybeSingle();
+    if (!payError && payment?.order_id) result.order_id = payment.order_id;
+  }
   return json(res, result.ok ? 200 : result.error ? 409 : 200, result);
 }
 
