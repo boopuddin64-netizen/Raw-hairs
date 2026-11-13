@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Chip } from '../components';
 import { supabase, supabaseConfigured } from '../lib/supabase';
 
@@ -176,13 +177,14 @@ export default function Account() {
           {orders.map((o) => (
             <article key={o.id} className="row-card" style={{ flexDirection: 'column', gap: 8 }}>
               <div className="row-top">
-                <h3>Order {o.id.slice(0, 8)}</h3>
+                <h3><Link to={`/order/${o.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>Order {o.id.slice(0, 8)}</Link></h3>
                 <Chip tone={TONE[o.status] || 'muted'}>{String(o.status).replaceAll('_', ' ')}</Chip>
               </div>
               <div className="row-top">
                 <span className="muted small">{o.created_at ? new Date(o.created_at).toLocaleString('en-NG') : ''}</span>
                 <span className="price">{o.total_kobo != null ? `₦${Math.round(Number(o.total_kobo) / 100).toLocaleString('en-NG')}` : (o.total != null ? `₦${Number(o.total).toLocaleString('en-NG')}` : '')}</span>
               </div>
+              <Link to={`/order/${o.id}`} className="muted small" style={{ textDecoration: 'none' }}>View tracking →</Link>
             </article>
           ))}
         </div>
