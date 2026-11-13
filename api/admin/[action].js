@@ -32,9 +32,13 @@ const SNAPSHOT = [
   ['refunds', 'refund_transactions'],
 ];
 
+// return_requests stores its timestamp as submitted_at, not created_at.
+// Every other snapshot table sorts by created_at.
+const SNAPSHOT_SORT = { return_requests: 'submitted_at' };
+
 const IMAGE_EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Payment references come from the database (register_payment_intent RPC);
 // accept the provider-safe charset without guessing an exact format.
@@ -108,7 +112,8 @@ async function snapshot(res) {
   const db = needDb(res);
   if (!db) return;
   const results = await Promise.all(SNAPSHOT.map(async ([key, table]) => {
-    const { data, error } = await db.from(table).select('*').order('created_at', { ascending: false }).limit(300);
+    const sortCol = SNAPSHOT_SORT[table] || 'created_at';
+    const { data, error } = await db.from(table).select('*').order(sortCol, { ascending: false }).limit(300);
     return { key, table, data, error };
   }));
   const failed = results.find((r) => r.error);
