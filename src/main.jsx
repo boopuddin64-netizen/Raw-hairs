@@ -17,6 +17,7 @@ import './responsive.css';
 import './light-mode-fixes.css';
 import './interaction-fixes.css';
 import './skeletons.css';
+import './spatial.css';
 
 // Route-level code splitting: every page except Home loads on first visit,
 // so the storefront's first paint only ships Home.
