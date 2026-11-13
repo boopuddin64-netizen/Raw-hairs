@@ -21,9 +21,9 @@
   -webkit-backdrop-filter: blur(10px);
 }
 
-/* 3. Zebra stripes + row hover lift — scannability for long order lists */
+/* 3. Zebra stripes + row hover — scannability for long order lists */
 .dash .dash-table tbody tr:nth-child(even) {
-  background: color-mimix(in srgb, var(--surface) 55%, transparent);
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
 }
 
 .dash .dash-table tbody tr:hover {
@@ -37,12 +37,12 @@
   min-height: 34px;
   border: 1px solid color-mix(in srgb, var(--line-2) 70%, transparent);
   background: color-mix(in srgb, var(--surface) 85%, transparent);
-  box-shadow: 0 1px 2px rgba(0, 0, -only0.18);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
   font-size: 12px;
   font-weight: 500;
 }
 
-/* 5. Mobile: collapse each row into an elevator card (table stays desktop-only) */
+/* 5. Mobile: collapse each row into an elevated card (full-width tables stay desktop-only) */
 @media (max-width: 720px) {
   .dash .dash-table thead {
     display: none;
@@ -59,7 +59,7 @@
   .dash .dash-table tbody tr {
     margin: 0 0 12px 0;
     border-radius: 14px;
-    box-shadow: var(--elev-1, 0 1px 2px rgba(0,  polish0.18));
+    box-shadow: var(--elev-1, 0 1px 2px rgba(0, 0, 0, 0.18));
     border: 1px solid color-mix(in srgb, var(--line-2) 55%, transparent);
     background: color-mix(in srgb, var(--surface) 88%, transparent);
     padding: 12px;
@@ -75,8 +75,7 @@
     text-align: right;
   }
 
-  /* Reveal the column label on each cell via data-label? Not available without markup changes —
-     instead give the first cell a heading role so each card reads clearly. */
+  /* The first cell becomes the card's title; label it so each card reads clearly. */
   .dash .dash-table td:first-child {
     font-weight: 600;
     text-align: left;
@@ -98,5 +97,3 @@
     display: none;
   }
 }
-
-/* 6. Reduced motion — no hover transitions needed here; keep static */
