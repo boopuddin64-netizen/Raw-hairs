@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import { naira, stockLabel } from '../store';
+import { onSwipe } from '../gestures';
 
 export default function CartRow({ line, onRemove, store }) {
   const ref = useRef(null);
