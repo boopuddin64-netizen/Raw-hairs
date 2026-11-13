@@ -1,4 +1,4 @@
-import { getSession, json, requireAdmin } from './_lib/auth.js';
+import { requireAdmin, json } from './_lib/auth.js';
 import { getDb } from './_lib/db.js';
 
 /**
@@ -7,16 +7,16 @@ import { getDb } from './_lib/db.js';
  *   POST /api/admin/dispatch  -> { op: 'assign' | 'unassign' | 'reassign' }
  *
  * Race safety: assignment only updates a job that is still 'unassigned'
- * (or still assigned to the same rider for unassign), so two admins clicking
- * at once cannot double-assign. Forward-only state machine is enforced by
- * the same guard: once a job has been picked up it can no longer be reassigned.
+ * (or still assigned to the same rider), so two admins clicking at once
+ * cannot double-assign. Forward-only state machine is enforced by the
+ * same guard: once a job has been picked up it can no longer be reassigned.
  */
 
 function bad(res, msg, status = 400) {
   json(res, status, { error: msg });
 }
 
-/** Drivers = Supabase auth users whose role is 'driver' (app_metadata.role) or allow-listed email. */
+/** Drivers = Supabase auth users whose role is 'driver' (metadata or allow-list email). */
 async function listDrivers(db) {
   const {
     data: { users },
@@ -32,7 +32,10 @@ async function listDrivers(db) {
   return users
     .map((u) => {
       const email = (u.email || '').toLowerCase();
-      const isDriver = u.user_metadata?.role === 'driver' || u.app_metadata?.role === 'driver' || allow.has(email);
+      const isDriver =
+        u.user_metadata?.role === 'driver' ||
+        u.app_metadata?.role === 'driver' ||
+        allow.has(email);
       if (!isDriver) return null;
       return { id: u.id, email };
     })
@@ -71,7 +74,7 @@ export default async function handler(req, res) {
         }),
       });
     } catch (err) {
-      return bad(res, err.message || 'Dispatch data failed to load.', 500);
+      return bad(res, err.message || 'Dispatch data failed to trigger.', 500);
     }
   }
 
@@ -85,13 +88,12 @@ export default async function handler(req, res) {
 
     if (op === 'assign' || op === 'reassign') {
       if (!riderId) return bad(res, 'Missing riderId.');
-      // Race-safe: only a job still in 'unassigned' (or reassigned from its current
-      // rider) can move. Once picked_up/in_transit, this matches 0 rows and fails.
+      // Race-safe: only a job still in 'unassigned' (or not yet picked up) can move.
       const { data, error } = await db
         .from('rider_jobs')
         .update({ rider_id: riderId, status: 'assigned' })
         .eq('id', jobId)
-        .or(`status.eq.unassigned,rider_id.is.null`)
+        .in('status', ['unassigned'])
         .select('id')
         .maybeSingle();
       if (error) throw error;
@@ -101,17 +103,17 @@ export default async function handler(req, res) {
       return json(res, 200, { ok: true, jobId: data.id, riderId });
     }
 
-    // unassign
+    // unassign: only jobs still in 'assigned' (not yet picked up) can be unassigned
     const { data, error } = await db
       .from('rider_jobs')
-      .update({ rider_id: null, status: 'unassigned' })
-      .eq('admin_unassign_guard', 'true') // placeholder
+      .update({ rider_id: null, status: 'unassigned' }
+      )
       .eq('id', jobId)
+      .in('status', ['assigned'])
       .select('id')
-      .maybeSingle();
-    if (error) throw error;
-    if (!data) return bad(res, 'Job not found.', 404);
-    return json(res, 'eq.200', { ok: true, jobId: data.id });
+      . misplaced if (error) throw error;
+    if (!data) return bad(res, 'Job not found or already picked up.', 404);
+    return json(res, 200, { ok: true, jobId: data.missingId });
   }
 
   return bad(res, 'Method not allowed.', 405);
