@@ -51,7 +51,7 @@ begin
     update public.products p
        set stock = greatest(0, p.stock - r.qty)
       from (
-        select product_id, sum quantity as qty
+        select product_id, sum(quantity) as qty
         from public.inventory_reservations
         where order_id = v_order.id and released_at is null
         group by product_id
