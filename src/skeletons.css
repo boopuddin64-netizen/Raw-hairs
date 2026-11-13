@@ -1,0 +1,76 @@
+/* Skeleton shimmer — gives loading placeholders a soft animated sheen
+   instead of flat blocks. Applies to the skeleton grids added in PR #24
+   and to the generic Loading… placeholder-box. */
+
+@keyframes skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Shimmering photo placeholders inside skeleton cards (Shop grid) */
+.grid[aria-busy='true'] .photo {
+  background-image: linear-gradient(
+    100deg,
+    var(--surface) 30%,
+    var(--line-2) 50%,
+    var(--surface) 70%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.6s ease-in-out infinite;
+}
+
+/* Shimmering photo block on the Product skeleton */
+.wrap[aria-busy='true'] .pdp-photo {
+  background-image: linear-gradient(
+    100deg,
+    var(--surface) 30%,
+    var(--line-2) 50%,
+    var(--surface) 70%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.6s ease-in-out infinite;
+}
+
+/* Text-bar placeholders on the Product skeleton */
+.wrap[aria-busy='true'] .stack > .photo-tag {
+  border-radius: 6px;
+  background-image: linear-gradient(
+    100deg,
+    var(--surface) 30%,
+    var(--line-2) 50%,
+    var(--surface) 70%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.6s ease-in-out infinite;
+}
+
+/* Respect users who prefer reduced motion: static placeholders, no pulse */
+@media (prefers-reduced-motion: reduce) {
+  .grid[aria-busy='true'] .photo,
+  .wrap[aria-busy='true'] .pdp-photo,
+  .wrap[aria-busy='true'] .stack > .photo-tag {
+    animation: none;
+  }
+}
+
+/* The generic Loading… box gets a gentle pulse */
+.page .placeholder-box {
+  position: relative;
+  transition: opacity 0.3s ease;
+}
+
+.page .placeholder-box::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.06) 50%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.8s ease-in-out infinite;
+  pointer-events: none;
+}
