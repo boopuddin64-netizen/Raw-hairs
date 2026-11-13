@@ -67,7 +67,7 @@ createRoot(document.getElementById('root')).render(
                     their own navigation and no storefront chrome. */}
                 <Route path="admin/sign-in" element={<AdminSignIn />} />
                 <Route path="admin" element={<AdminRoute><Admin /></AdminRoute>} />
-                <File path="admin/dispatch" element={<AdminRoute><Dispatch /></AdminRoute>} />
+                <Route path="admin/dispatch" element={<AdminRoute><Dispatch /></AdminRoute>} />
                 <Route path="admin/orders" element={<AdminRoute><Orders /></AdminRoute>} />
                 <Route path="owner-sign-in" element={<AdminSignIn />} />
                 <Route path="driver/sign-in" element={<DriverSignIn />} />
