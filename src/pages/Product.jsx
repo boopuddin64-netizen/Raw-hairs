@@ -46,7 +46,20 @@ export default function Product() {
     };
   }, [images.length, id]);
 
-  if (loading) return <div className="wrap page"><p className="muted">Loading product…</p></div>;
+  if (loading) {
+    return (
+      <div className="wrap page" aria-busy="true" aria-label="Loading product">
+        <div className="pdp" style={{ marginTop: 16 }}>
+          <div className="photo pdp-photo" />
+          <div className="stack">
+            <span className="photo-tag" style={{ width: 120, height: 14 }} />
+            <span className="photo-tag" style={{ width: 200, height: 26 }} />
+            <span className="photo-tag" style={{ width: 160, height: 18 }} />
+          </div>
+        </div>
+      </div>
+    );
+  }
   if (error) return <div className="wrap page"><h1>Product unavailable</h1><p className="muted">{error}</p><Link to="/shop">Return to shop</Link></div>;
   if (!product) return <div className="wrap page"><h1>Product not found</h1><p className="muted">This product may have been unpublished or is no longer available.</p><Link to="/shop">Browse the collection</Link></div>;
 
