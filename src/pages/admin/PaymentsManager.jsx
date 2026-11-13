@@ -14,21 +14,20 @@ import { adminApi } from '../../lib/adminApi';
 
 const KOBO = (value) => (value == null ? '—' : '₦' + Math.round(Number(value) / 100).toLocaleString('en-NG'));
 
-function receiptDetails(payment) {
-  const raw = payment.provider_response;
-  if (!raw || typeof raw !== 'object') return null;
-  const obj = typeof raw === 'string' ? safeParse(raw) : raw;
-  if (!obj) return null;
-  return {
-    sender: obj.sender_name || obj.senderName || null,
-    bank: obj.bank || null,
-    ref: obj.transfer_reference || obj.transferReference || null,
-    submitted: obj.submitted_at || payment.updated_at || payment.created_at || null,
-  };
-}
-
 function safeParse(str) {
   try { return JSON.parse(str); } catch { return null; }
+}
+
+function receiptDetails(payment) {
+  const raw = payment.provider_response;
+  if (!raw || typeof raw !== 'object') {
+    if (typeof raw === 'string' && raw) {
+      const obj = safeParse(raw);
+      if (obj) return obj;
+    }
+    return null;
+  }
+  return raw;
 }
 
 export default function PaymentsManager({ payments, refresh }) {
@@ -54,7 +53,7 @@ export default function PaymentsManager({ payments, refresh }) {
   async function decide(paymentId, confirmed) {
     const ownerNote = (note[paymentId] || '').trim();
     if (!confirmed && ownerNote === '') {
-      setMsg(`Rejections should include a reason for the customer. Type one first.` );
+      setMsg('Rejections should include a reason for the customer. Type one first.');
       return;
     }
     setBusy(paymentId);
@@ -94,10 +93,10 @@ export default function PaymentsManager({ payments, refresh }) {
               <span className="chip chip-info">{KOBO(p.amount_kobo)}</span>
             </div>
             <ul className="muted small" style={{ listStyle: 'none', padding: 0, margin: '10px 0', display: 'grid', gap: 4 }}>
-              <li><strong>Sender:</strong> {d?.sender || '—'}</li>
+              <li><strong>Sender:</strong> {d?.sender_name || '—'}</li>
               <li><strong>Bank:</strong> {d?.bank || p.provider || '—'}</li>
-              <li><strong>Transfer ref:</strong> {d?.ref || '—'}</li>
-              <li><strong>Submitted:</strong> {d?.submitted ? new Date(d.submitted).toLocaleString('en-NG') : '—'}</li>
+              <li><strong>Transfer ref:</strong> {d?.transfer_reference || '—'}</li>
+              <li><strong>Submitted:</strong> {d?.submitted_at ? new Date(d.submitted_at).toLocaleString('en-NG') : (p.updated_at ? new Date(p.updated_at).toLocaleString('en-NG') : '—')}</li>
               <li><strong>Payment id:</strong> <code>{p.id}</code></li>
             </ul>
             <div className="field">
@@ -106,7 +105,7 @@ export default function PaymentsManager({ payments, refresh }) {
                 id={`note-${p.id}`}
                 value={note[p.id] || ''}
                 maxLength={300}
-                placeholder={confirmed(p) ? '' : 'e.g. Amount received does not match'}
+                placeholder="e.g. Amount received does not match the order"
                 onChange={(e) => setNote({ ...note, [p.id]: e.target.value })}
               />
             </div>
