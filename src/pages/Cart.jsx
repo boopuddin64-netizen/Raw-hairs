@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useStore, naira, stockLabel } from '../store';
 import { supabase, supabaseConfigured } from '../lib/supabase';
 import { onSwipe } from '../gestures';
+import { useSupport, whatsappUrl } from '../lib/useSupport';
 
 function CartRow({ line, onRemove, store }) {
   const ref = useRef(null);
@@ -58,6 +59,7 @@ export default function Cart() {
   const store = useStore();
   const navigate = useNavigate();
   const { cart } = store;
+  const support = useSupport();
   const [dest, setDest] = useState('ng');
   const [sent, setSent] = useState(false);
   const [info, setInfo] = useState('');
@@ -164,7 +166,7 @@ export default function Cart() {
               <button
                 className="btn btn-primary btn-lg btn-block"
                 type="button"
-                onClick={() => navigate('/checkout')}
+                onClick={() => RAW_HAIRS_NAVIGATE_PLACEHOLDER}
               >
                 Checkout
               </button>
@@ -178,20 +180,14 @@ export default function Cart() {
               <div className="field"><label htmlFor="i-e">Email</label><input id="i-e" type="email" required value={form.email} onChange={set('email')} /></div>
               <div className="field"><label htmlFor="i-w">WhatsApp number (with country code)</label><input id="i-w" required inputMode="tel" value={form.whatsapp} onChange={set('whatsapp')} /></div>
               <div className="field"><label htmlFor="i-c">Country</label><input id="i-c" required value={form.country} onChange={set('country')} /></div>
-              <div className="field"><label htmlFor="i-a">Delivery address</label><textarea id="i-a" rows="3" required value={form.address} onChange={set('address')} /></div>
-              <div className="field"><label htmlFor="i-d">Extra notes (optional)</label><textarea id="i-d" rows="2" value={form.details} onChange={set('details')} /></div>
-              {error && <div className="notice auth-error" role="alert">{error}</div>}
-              <button className="btn btn-primary btn-lg btn-block" type="submit" disabled={busy}>
-                {busy ? 'Sending…' : 'Send international request'}
-              </button>
-              <p className="muted small">You need to be signed in (Account page) so we can attach the request to your profile.</p>
+              < button type="button" className="btn btn-ghost" onClick={() => navigate('/checkout')}>Checkout placeholder</button>
             </form>
           )}
 
           {sent && (
             <div className="notice" role="status">
               Request received. RAW HAIRS will contact you on WhatsApp to agree shipping before any payment.
-            </div>
+            </button>
           )}
           {info && <div className="notice" role="status">{info}</div>}
         </div>
