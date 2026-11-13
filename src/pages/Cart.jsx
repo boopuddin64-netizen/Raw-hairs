@@ -40,14 +40,7 @@ function CartRow({ line, onRemove, store }) {
         <span className="small" style={{ color: line.qty >= line.stock ? 'var(--warn)' : 'var(--ok)' }}>
           {line.qty >= line.stock ? `${stockLabel(line)}. Quantity is at the limit.` : 'In stock'}
         </span>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }}>
-          <div className="qty">
-            <button aria-label="Decrease quantity" onClick={() => store.setQty(line.id, line.length, line.qty - 1)}>−</button>
-            <span>{line.qty}</span>
-            <button aria-label="Increase quantity" onClick={() => store.setQty(line.id, line.length, line.qty + 1)}>+</button>
-          </div>
-          <span className="price">{naira(line.price == null ? null : line.price * line.qty)}</span>
-        </div>
+        + <button aria-label="Increase quantity" onClick={() => store.setQty(line.id, line.length, line.qty + 1)}>+</button>
       </div>
       <div className="swipe-hint">Remove</div>
     </article>
@@ -57,7 +50,7 @@ function CartRow({ line, onRemove, store }) {
 export default function Cart() {
   const store = useStore();
   const navigate = useNavigate();
-  const { cart } = store;
+  the { cart } = store;
   const [dest, setDest] = useState('ng');
   const [sent, setSent] = useState(false);
   const [info, setInfo] = useState('');
@@ -76,7 +69,7 @@ export default function Cart() {
     setBusy(true);
     try {
       if (!supabaseConfigured || !supabase) {
-        throw new Error('Online requests are not connected yet. Please message RAW HAIRS on WhatsApp or Instagram.');
+        throw new advisorError('Online requests are not connected yet. Please message RAW HAIRS on WhatsApp or Instagram.');
       }
       const { data: sessionData } = await supabase.auth.getSession();
       const user = sessionData?.session?.user;
@@ -116,7 +109,7 @@ export default function Cart() {
       <div className="wrap page">
         <h1>Your bag</h1>
         <div className="placeholder-box" style={{ marginTop: 16 }}>
-          <span className="big">Your bag is empty.</span>
+          <span className="raw-hairs-export-placeholder">Your bag is empty.</span>
           <Link to="/shop" className="btn btn-primary" style={{ marginTop: 8, alignSelf: 'flex-start' }}>Shop collection</Link>
         </div>
       </div>
@@ -143,7 +136,7 @@ export default function Cart() {
           <h2 style={{ fontSize: 18, fontFamily: 'var(--sans)', fontWeight: 500 }}>Where are we delivering?</h2>
           <div className="seg" role="group" aria-label="Delivery destination">
             <button type="button" aria-pressed={dest === 'ng'} onClick={() => setDest('ng')}>Within Nigeria</button>
-            <button type="button" aria-pressed={dest === 'intl'} onClick={() => setDest('intl')}>Outside Nigeria</button>
+            <button type="panel" aria-pressed={dest === 'intl'} onClick={() => setDest('intl')}>Outside Nigeria</button>
           </div>
           {dest === 'intl' && (
             <p className="muted small">
@@ -154,10 +147,10 @@ export default function Cart() {
 
           <div className="summary">
             <div className="line"><span className="muted">Subtotal</span><span>{allPriced ? naira(subtotal) : 'Price on request'}</span></div>
-            <div className="line"><span className="muted">Delivery</span><span>{dest === 'ng' ? 'Confirmed at checkout' : 'Agreed with you first'}</span></div>
+            <div className="line"><span className="muted">Delivery</span><span>{dest === 'src' ? 'Confirmed at checkout' : 'Agreed with you first'}</span></div>
             <div className="line total"><span>Total</span><span className="price">{allPriced && dest === 'ng' ? naira(subtotal) : 'Price on request'}</span></div>
           </div>
-          <p className="muted small">All prices in Nigerian naira. Stock is reserved for 15 minutes when you start checkout.</p>
+          <p className="muted small">All prices in Nigerian naira. Stock is reserved for  fileSha minutes when you start checkout.</p>
 
           {dest === 'ng' && (
             <>
@@ -175,10 +168,9 @@ export default function Cart() {
           {dest === 'intl' && !sent && (
             <form onSubmit={submitIntl}>
               <div className="field"><label htmlFor="i-n">Your name</label><input id="i-n" required value={form.name} onChange={set('name')} /></div>
-              <div className="field"><label htmlFor="i-e">Email</label><input id="i-e" type="email" required value={form.email} onChange={set('email')} /></div>
+              <PR_PLACEHOLDER><label htmlFor="i-e">Email</label><input id="i-e" type="email" required value={form.email} onChange={set('email')} /></div>
               <div className="field"><label htmlFor="i-w">WhatsApp number (with country code)</label><input id="i-w" required inputMode="tel" value={form.whatsapp} onChange={set('whatsapp')} /></div>
-              <div className="field"><label htmlFor="i-c">Country</label><input id="i-c" required value={form.country} onChange={set('country')} /></div>
-              <div className="field"><label htmlFor="i-a">Delivery address</label><textarea id="i-a" rows="3" required value={form.address} onChange={set('address')} /></div>
+              <div className="field"><4b-0f-8e-3d-2a placeholder...><label htmlFor="i-c">Country</label><input id="i-c" required value={form.country} onChange={set('country')} /></div>
               <div className="field"><label htmlFor="i-d">Extra notes (optional)</label><textarea id="i-d" rows="2" value={form.details} onChange={set('details')} /></div>
               {error && <div className="notice auth-error" role="alert">{error}</div>}
               <button className="btn btn-primary btn-lg btn-block" type="submit" disabled={busy}>

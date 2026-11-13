@@ -224,7 +224,9 @@ async function removeImage(req, res) {
 
 // ---------------------------------------------------------------------------
 // Paystack payment endpoints (Phase 3). PUBLIC by design: customers (including
-// guests) call pay-init/pay-verify; Paystack calls pay-webhook.
+// guests) call pay-init/pay-verify. The webhook now lives in pay-webhook.js,
+// a static endpoint that shadows this catch-all so it can verify signatures
+// against the RAW request body.
 // ---------------------------------------------------------------------------
 
 async function paystackFetch(res, path, init) {
@@ -279,8 +281,6 @@ async function payInit(req, res) {
       amount: payment.amount_kobo,
       currency: 'NGN',
       reference: payment.reference,
-      // The ?pay= handler lives on the Checkout page (src/pages/Checkout.jsx),
-      // which verifies the transaction and shows the confirmation screen.
       callback_url: `${origin}/#/checkout?pay=${payment.reference}`,
     }),
   });
@@ -333,17 +333,41 @@ async function payVerify(req, res) {
   return json(res, result.ok ? 200 : result.error ? 409 : 200, result);
 }
 
-async function payWebhook(req, res) {
+// ---------------------------------------------------------------------------
+// Bank-transfer approval (owner-session action). Confirms or rejects a
+// customer's submitted transfer receipt via the admin_confirm_bank_transfer
+// RPC, which flips the payment + order, releases or consumes reservations and
+// decrements stock atomically. The RPC guards the business invariants; this
+// endpoint only authenticates the owner and forwards a validated payload.
+// ---------------------------------------------------------------------------
+
+async function confirmTransfer(req, res) {
+  const { payment_id = '', confirmed, note } = readBody(req);
+  if (typeof payment_id !== 'string' || !UUID.test(payment_id)) {
+    return json(res, 400, { error: 'A valid payment id is required.' });
+  }
+  if (typeof confirmed !== 'boolean') {
+    return json(res, 400, { error: 'Confirm must be true or false.' });
+  }
+  const noteText = typeof note === 'string' ? note.trim().slice(0, 300) : '';
   const db = needDb(res);
   if (!db) return;
-  const body = readBody(req);
-  const reference = body?.data?.reference || '';
-  if (body?.event !== 'charge.success' || !PAY_REF.test(reference)) {
-    return json(res, 200, { ok: true, ignored: true }); // acknowledge but ignore
+  const { data, error } = await db.rpc('admin_confirm_bank_transfer', {
+    p_payment_id: payment_id,
+    p_confirmed: confirmed,
+    p_note: noteText || null,
+  });
+  if (error) return json(res, 500, { error: error.message });
+  if (!data || data.ok !== true) {
+    const messages = {
+      forbidden: 'Only the owner can verify transfers.',
+      payment_not_found: 'Payment not found (it must be a bank-transfer payment).',
+      payment_not_pending_verification: 'This payment was already verified or rejected.',
+      order_not_awaiting_payment: 'The order is no longer awaiting payment.',
+    };
+    return json(res, 400, { error: messages[data?.error] || 'Could not update the payment.' });
   }
-  const result = await recordVerifiedPayment(res, db, reference);
-  if (!result) return; // upstream fetch error already responded; webhook will retry
-  return json(res, 200, { ok: true });
+  return json(res, 200, { ok: true, result: data.result, order_id: data.order_id });
 }
 
 // ---------------------------------------------------------------------------
@@ -389,7 +413,7 @@ const ROUTES = {
   'remove-image': { method: 'POST', run: removeImage },
   'pay-init': { method: 'POST', public: true, run: payInit },
   'pay-verify': { method: 'POST', public: true, run: payVerify },
-  'pay-webhook': { method: 'POST', public: true, run: payWebhook },
+  'confirm-transfer': { method: 'POST', run: confirmTransfer },
   'assign-job': { method: 'POST', run: assignJob },
 };
 
