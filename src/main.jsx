@@ -34,6 +34,7 @@ createRoot(document.getElementById('root')).render(
         <StoreProvider>
           <HashRouter>
             <Routes>
+              {/* Customer storefront — wrapped in Layout (header, footer, bottom nav). */}
               <Route element={<Layout />}>
                 <Route index element={<Home />} />
                 <Route path="shop" element={<Shop />} />
@@ -44,15 +45,18 @@ createRoot(document.getElementById('root')).render(
                 <Route path="account" element={<Account />} />
                 <Route path="order/:id" element={<OrderDetail />} />
                 <Route path="help/:topic" element={<Help />} />
-                <Route path="admin/sign-in" element={<AdminSignIn />} />
-                <Route path="admin" element={<AdminRoute><Admin /></AdminRoute>} />
-                <Route path="owner-sign-in" element={<AdminSignIn />} />
-                <Route path="driver/sign-in" element={<DriverSignIn />} />
-                <Route path="driver" element={<DriverRoute><Rider /></DriverRoute>} />
-                <Route path="rider" element={<DriverRoute><Rider /></DriverRoute>} />
-                <Route path="rider/sign-in" element={<DriverSignIn />} />
                 <Route path="*" element={<Home />} />
               </Route>
+
+              {/* Staff screens — OUTSIDE Layout, so they render full-screen with
+                  their own navigation and no storefront chrome. */}
+              <Route path="admin/sign-in" element={<AdminSignIn />} />
+              <Route path="admin" element={<AdminRoute><Admin /></AdminRoute>} />
+              <Route path="owner-sign-in" element={<AdminSignIn />} />
+              <Route path="driver/sign-in" element={<DriverSignIn />} />
+              <Route path="driver" element={<DriverRoute><Rider /></DriverRoute>} />
+              <Route path="rider" element={<DriverRoute><Rider /></DriverRoute>} />
+              <Route path="rider/sign-in" element={<DriverSignIn />} />
             </Routes>
           </HashRouter>
         </StoreProvider>
