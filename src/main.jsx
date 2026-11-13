@@ -18,6 +18,7 @@ import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
 import Services from './pages/Services';
 import Account from './pages/Account';
+import OrderDetail from './pages/OrderDetail';
 import Help from './pages/Help';
 import Admin from './pages/Admin';
 import Rider from './pages/Rider';
@@ -41,6 +42,7 @@ createRoot(document.getElementById('root')).render(
                 <Route path="checkout" element={<Checkout />} />
                 <Route path="services" element={<Services />} />
                 <Route path="account" element={<Account />} />
+                <Route path="order/:id" element={<OrderDetail />} />
                 <Route path="help/:topic" element={<Help />} />
                 <Route path="admin/sign-in" element={<AdminSignIn />} />
                 <Route path="admin" element={<AdminRoute><Admin /></AdminRoute>} />
