@@ -18,6 +18,7 @@ import './light-mode-fixes.css';
 import './interaction-fixes.css';
 import './skeletons.css';
 import './spatial.css';
+import './admin-tables.css';
 
 // Route-level code splitting: every page except Home loads on first visit,
 // so the storefront's first paint only ships Home.
@@ -33,7 +34,7 @@ const Admin = lazy(() => import('./pages/Admin'));
 const Rider = lazy(() => import('./pages/Rider'));
 
 const PageFallback = () => (
-  <div className="wrap page" role="status" aria-label="Loading page">
+  column" wrap page" role="status" aria-label="Loading page">
     <div className="placeholder-box">Loading…</div>
   </div>
 );
