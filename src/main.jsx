@@ -32,6 +32,7 @@ const OrderDetail = lazy(() => import('./pages/OrderDetail'));
 const Help = lazy(() => import('./pages/Help'));
 const Admin = lazy(() => import('./pages/Admin'));
 const Rider = lazy(() => import('./pages/Rider'));
+const Dispatch = lazy(() => import('./pages/Dispatch'));
 
 const PageFallback = () => (
   <div className="wrap page" role="status" aria-label="Loading page">
@@ -65,6 +66,7 @@ createRoot(document.getElementById('root')).render(
                     their own navigation and no storefront chrome. */}
                 <Route path="admin/sign-in" element={<AdminSignIn />} />
                 <Route path="admin" element={<AdminRoute><Admin /></AdminRoute>} />
+                <Route path="admin/dispatch" element={<AdminRoute><Dispatch /></AdminRoute>} />
                 <Route path="owner-sign-in" element={<AdminSignIn />} />
                 <Route path="driver/sign-in" element={<DriverSignIn />} />
                 <Route path="driver" element={<DriverRoute><Rider /></DriverRoute>} />
