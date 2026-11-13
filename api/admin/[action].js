@@ -279,7 +279,9 @@ async function payInit(req, res) {
       amount: payment.amount_kobo,
       currency: 'NGN',
       reference: payment.reference,
-      callback_url: `${origin}/#/cart?pay=${payment.reference}`,
+      // The ?pay= handler lives on the Checkout page (src/pages/Checkout.jsx),
+      // which verifies the transaction and shows the confirmation screen.
+      callback_url: `${origin}/#/checkout?pay=${payment.reference}`,
     }),
   });
   if (!out) return;
