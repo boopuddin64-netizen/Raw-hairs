@@ -5,7 +5,7 @@ const POLL_MS = 15000;
 
 export function useRealtimeDashboard() {
   const [data, setData] = useState({
-    products: [], services: [], orders: [], bookings: [], requests: [], jobs: [],
+    products: [], services: [], orders: [], bookings: [], requests: [], jobs: [], payments: [],
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -27,6 +27,7 @@ export function useRealtimeDashboard() {
         bookings: payload.bookings || [],
         requests: payload.requests || [],
         jobs: payload.jobs || [],
+        payments: payload.payments || [],
       });
       setUpdatedAt(new Date());
     } catch (err) {
@@ -60,6 +61,7 @@ export function useRealtimeDashboard() {
     bookings: data.bookings,
     international: data.requests,
     riderJobs: data.jobs,
+    payments: data.payments,
     data,
     loading,
     error,
