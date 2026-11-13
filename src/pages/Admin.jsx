@@ -7,6 +7,7 @@ import { useRealtimeDashboard, buildAnalytics } from '../hooks/useRealtimeDashbo
 import { useStoreConfig } from '../hooks/useStoreConfig';
 import { useTheme } from '../theme/ThemeContext';
 import ProductsManager from './admin/ProductsManager';
+import PaymentsManager from './admin/PaymentsManager';
 
 const NAV = [
   { id: 'Overview', label: 'Overview' },
@@ -15,6 +16,7 @@ const NAV = [
   { id: 'Orders', label: 'Orders' },
   { id: 'Bookings', label: 'Bookings' },
   { id: 'International', label: 'International' },
+  { id: 'Payments', label: 'Payments' },
   { id: 'Rider jobs', label: 'Drivers' },
   { id: 'Ratings', label: 'Ratings' },
   { id: 'Rules', label: 'Rules' },
@@ -56,7 +58,7 @@ export default function Admin() {
   const { admin, adminSignOut: signOut } = useStaffAuth();
   const { theme, toggleTheme } = useTheme();
   const { config, setConfig, save, saving, message } = useStoreConfig();
-  const { orders, bookings, products, services, international, riderJobs, loading, error, refresh } = useRealtimeDashboard();
+  const { orders, bookings, products, services, international, riderJobs, payments, loading, error, refresh } = useRealtimeDashboard();
   const [tab, setTab] = useState('Overview');
   const [reviews, setReviews] = useState([]);
   const [reviewForm, setReviewForm] = useState({ customer_name: '', rating: 5, comment: '', product_id: '' });
@@ -164,10 +166,7 @@ export default function Admin() {
             key={item.id}
             type="button"
             className={tab === item.id ? 'active' : ''}
-            onClick={() => {
-              setTab(item.id);
-              if (item.id === 'Ratings') loadReviews();
-            }}
+            onClick={() => { setTab(item.id); if (item.id === 'Ratings') loadReviews(); }}
           >
             {item.label}
           </button>
@@ -283,7 +282,9 @@ export default function Admin() {
         </>
       )}
 
-      {tab !== 'Overview' && tab !== 'Rules' && tab !== 'Settings' && tab !== 'Ratings' && (
+      {tab === 'Payments' && <PaymentsManager payments={payments} refresh={refresh} />}
+
+      {tab !== 'Overview' && tab !== 'Rules' && tab !== 'Settings' && tab !== 'Ratings' && tab !== 'Payments' && (
         <div className="dash-panel">
           <div className="dash-panel-head">
             <h2>{tab}</h2>
