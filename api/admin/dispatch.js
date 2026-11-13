@@ -3,13 +3,14 @@ import { getDb } from './_lib/db.js';
 
 /**
  * Dispatch console API — admin-only, session-cookie protected.
- *   GET  /api/admin/dispatch  -> jobs grouped by queue + driver list
- *   POST /api/admin/dispatch  -> { op: 'assign' | 'unassign' | 'reassign' }
+ *   GET  /api/admin/dispatch  -> jobs with order info + driver list
+ *   POST /api/admin/dispatch  -> { op: 'assign' | 'unassign', jobId, riderId }
  *
- * Race safety: assignment only updates a job that is still 'unassigned'
- * (or still assigned to the same rider), so two admins clicking at once
- * cannot double-assign. Forward-only state machine is enforced by the
- * same guard: once a job has been picked up it can no longer be reassigned.
+ * Race safety: assign only updates a job still in 'unassigned'; unassign
+ * only updates a job still in 'assigned'. Two admins clicking at once can
+ * never double-assign, and a job already picked up can never be reassigned —
+ * the state machine (unassigned -> assigned -> picked_up -> in_transit ->
+ * delivered) stays forward-only.
  */
 
 function bad(res, msg, status = 400) {
@@ -74,7 +75,7 @@ export default async function handler(req, res) {
         }),
       });
     } catch (err) {
-      return bad(res, err.message || 'Dispatch data failed to trigger.', 500);
+      return bad(res, err.message || 'Dispatch data failed to load.', 500);
     }
   }
 
@@ -84,36 +85,39 @@ export default async function handler(req, res) {
     try { body = JSON.parse(req.body || '{}'); } catch { return bad(res, 'Invalid JSON body.'); }
     const { op, jobId, riderId } = body;
     if (!jobId) return bad(res, 'Missing jobId.');
-    if (!op || !['assign', 'unassign', 'reassign'].includes(op)) return bad(res, 'Missing or unknown op.');
+    if (!op || !['assign', 'unassign'].includes(op)) return bad(res, 'Missing or unknown op.');
 
-    if (op === 'assign' || op === 'reassign') {
-      if (!riderId) return bad(res, 'Missing riderId.');
-      // Race-safe: only a job still in 'unassigned' (or not yet picked up) can move.
+    try {
+      if (op === 'assign') {
+        if (!riderId) return bad(res, 'Missing riderId.');
+        const { data, error } = await db
+          .from('rider_jobs')
+          .update({ rider_id: riderId, status: 'assigned' })
+          .eq('id', jobId)
+          .eq('status', 'unassigned')
+          .select('id')
+          .maybeSingle();
+        if (error) throw error;
+        if (!data) {
+          return bad(res, 'Job no longer available — it may already be assigned or picked up. Refresh and try again.', 409);
+        }
+        return json(res, 200, { ok: true, jobId: data.id, riderId });
+      }
+
+      // unassign: only a job still in 'assigned' (not yet picked up) can be pulled back
       const { data, error } = await db
         .from('rider_jobs')
-        .update({ rider_id: riderId, status: 'assigned' })
+        .update({ rider_id: null, status: 'unassigned' })
         .eq('id', jobId)
-        .in('status', ['unassigned'])
+        .eq('status', 'assigned')
         .select('id')
         .maybeSingle();
       if (error) throw error;
-      if (!data) {
-        return bad(res, 'Job no longer available — it may have been assigned or picked up already. Refresh and try again.', 409);
-      }
-      return json(res, 200, { ok: true, jobId: data.id, riderId });
+      if (!data) return bad(res, 'Job not found or already picked up — it can no longer be unassigned.', 404);
+      return json(res, 200, { ok: true, jobId: data.id });
+    } catch (err) {
+      return bad(res, err.message || 'The change could not be saved.', 500);
     }
-
-    // unassign: only jobs still in 'assigned' (not yet picked up) can be unassigned
-    const { data, error } = await db
-      .from('rider_jobs')
-      .update({ rider_id: null, status: 'unassigned' }
-      )
-      .eq('id', jobId)
-      .in('status', ['assigned'])
-      .select('id')
-      . misplaced if (error) throw error;
-    if (!data) return bad(res, 'Job not found or already picked up.', 404);
-    return json(res, 200, { ok: true, jobId: data.missingId });
   }
 
   return bad(res, 'Method not allowed.', 405);
