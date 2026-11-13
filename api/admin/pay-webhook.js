@@ -51,7 +51,7 @@ export default async function handler(request) {
   // Only charge.success matters; acknowledge-and-ignore everything else.
   const reference = event?.data?.reference || '';
   if (event?.event !== 'charge.success' || !PAY_REF.test(reference)) {
-    return Response.json({ ok: true, ignored: unverifiedCount });
+    return Response.json({ ok: true, ignored: true });
   }
 
   // Re-verify with Paystack — the signature only proves origin, not truth.
