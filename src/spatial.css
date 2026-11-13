@@ -1,0 +1,173 @@
+/* Spatial UI — layered depth for staff consoles.
+   Scope: admin console (.dash) and driver portal (.spatial).
+   The storefront is untouched.
+
+   Design language:
+   - Elevation via three stacked shadows (contact + ambient + diffuse) = fake z-depth
+   - Frosted-glass panels for transient chrome (notices, headers)
+   - Cards lift on hover, press down on tap — the page feels physical
+   - Soft ambient light glows behind the console
+*/
+
+/* 1. Depth tokens (per scope) */
+.dash,
+.wrap.page.spatial {
+  --elev-1: 0 1px 2px rgba(0, 0, 0, 0.22), 0 2px 6px rgba(0, 0, 0, 0.16), 0 6px 16px rgba(0, 0, 0, 0.10);
+  --elev-2: 0 2px 4px rgba(0, 0, 0, 0.26), 0 8px 20px rgba(0, 0, 0, 0.18), 0 16px 32px rgba(0, 0, 0, 0.12);
+  --elev-3: 0 4px 8px rgba(0, 0, 0, 0.28), 0 16px 36px rgba(0, 0, 0, 0.20), 0 28px 60px rgba(0, 0, 0, 0.14);
+  --glass-blur: 14px;
+}
+
+/* 2. Ambient light behind the console — two soft radial glows */
+.dash,
+.wrap.page.spatial {
+  background:
+    radial-gradient(1100px 480px at 18% -8%, rgba(255, 255, 255, 0.05), transparent 62%),
+    radial-gradient(900px 420px at 92% 108%, rgba(255, 255, 255, 0.04), transparent 62%);
+  background-attachment: fixed;
+}
+
+/* 3. Admin header floats as a glass island above the content */
+.dash .dash-top {
+  position: relative;
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  box-shadow: var(--elev-1);
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--line-2) 70%, transparent);
+}
+
+/* 4. Cards sit on their own plane: elevated, top-lit, lift on hover */
+.dash .row-card,
+.dash .notice,
+.dash .placeholder-box,
+.dash .summary,
+.spatial .row-card,
+.spatial .notice,
+.spatial .summary,
+.spatial .placeholder-box {
+  position: relative;
+  box-shadow: var(--elev-1);
+  border-radius: 16px;
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+}
+
+/* Top light edge — reads as a lit surface, not a flat box */
+.dash .row-card::before,
+.spatial .row-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), transparent 28%);
+}
+
+.dash .row-card:hover,
+.spatial .row-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--elev-2);
+}
+
+/* 5. Notices are floating glass chips */
+.dash .notice,
+.spatial .notice {
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid color-mix(in srgb, var(--line-2) 65%, transparent);
+}
+
+/* 6. Buttons: raised at rest, higher on hover, pressed into the page on tap */
+.dash .btn,
+.spatial .btn {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 3px 8px rgba(0, 0, 0, 0.14);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+}
+
+.dash .btn:not(:disabled):hover,
+.spatial .btn:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.28), 0 8px 18px rgba(0, 0, 0, 0.18);
+}
+
+.dash .btn:not(:disabled):active,
+.spatial .btn:not(:disabled):active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* 7. Inputs sit recessed (inset shadow = carved into the surface) */
+.dash .field input,
+.dash .field textarea,
+.dash .field select,
+.spatial .field input,
+.spatial .field textarea,
+.spatial .field select {
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.18), inset 0 0 0 1px transparent;
+  transition: box-shadow 0.18s ease;
+}
+
+.dash .field input:focus,
+.dash .field textarea:focus,
+.dash .field select:focus,
+.spatial .field input:focus,
+.spatial .field textarea:focus,
+.spatial .field select:focus {
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 3px color-mix(in srgb, var(--pink) 28%, transparent);
+}
+
+/* 8. Chips/tags float slightly above their card */
+.dash .photo-tag,
+.spatial .photo-tag {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* 9. Segmented controls and tabs: the active pill pops forward */
+.dash .seg .active,
+.dash .tab[aria-pressed='true'],
+.spatial .tab[aria-pressed='true'] {
+  box-shadow: var(--elev-1);
+}
+
+/* 10. Motion-safety: no lifts/transitions for reduced-motion users */
+@media (prefers-reduced-motion: reduce) {
+  .dash .row-card,
+  .dash .btn,
+  .dash .field input,
+  .dash .field textarea,
+  .dash .field select,
+  .spatial .row-card,
+  .spatial .btn,
+  .spatial .field input,
+  .spatial .field textarea,
+  .spatial .field select {
+    transition: none;
+  }
+
+  .dash .row-card:hover,
+  .spatial .row-card:hover,
+  .dash .btn:not(:disabled):hover,
+  .spatial .btn:not(:disabled):hover {
+    transform: none;
+  }
+}
+
+/* 11. Light-mode tuning: shadows stay soft, glass stays subtle */
+@media (prefers-color-scheme: light) {
+  .dash,
+  .wrap.page.spatial {
+    --elev-1: 0 1px 2px rgba(23, 15, 32, 0.08), 0 2px 6px rgba(23, 15, 32, 0.06), 0 6px 16px rgba(23, 15, 32, 0.05);
+    --elev-2: 0 2px 4px rgba(23, 15, 32, 0.10), 0 8px 20px rgba(23, 15, 32, 0.08), 0 16px 32px rgba(23, 15, 32, 0.06);
+    --elev-3: 0 4px 8px rgba(23, 15, 32, 0.12), 0 16px 36px rgba(23, 15, 32, 0.10), 0 28px 60px rgba(23, 15, 32, 0.08);
+  }
+
+  .dash,
+  .wrap.page.spatial {
+    background:
+      radial-gradient(1100px 480px at 18% -8%, rgba(23, 15, 32, 0.035), transparent 62%),
+      radial-gradient(900px 420px at 92% 108%, rgba(23, 15, 32, 0.028), transparent 62%);
+    background-attachment: fixed;
+  }
+}
