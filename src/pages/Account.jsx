@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Chip } from '../components';
 import { supabase, supabaseConfigured } from '../lib/supabase';
 
@@ -26,6 +26,7 @@ export default function Account() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
+  const [trackId, setTrackId] = useState('');
 
   // Forgot-password state
   const [resetEmail, setResetEmail] = useState('');
@@ -33,6 +34,8 @@ export default function Account() {
   const [resetMsg, setResetMsg] = useState('');
   const [resetError, setResetError] = useState('');
   const [showReset, setShowReset] = useState(false);
+
+  const navigate = useNavigate();
 
   const refreshSession = async () => {
     if (!supabase) {
@@ -65,6 +68,18 @@ export default function Account() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // After sign-in/sign-up: attach past guest orders placed with the same
+  // (verified) email to this account. Best-effort — never blocks sign-in.
+  const claimGuestOrders = async (prefix) => {
+    try {
+      const { data } = await supabase.rpc('claim_guest_orders', {});
+      if (data?.ok && data.claimed > 0) {
+        return `${prefix} We also linked ${data.claimed} past order${data.claimed > 1 ? 's' : ''} placed with this email to your account.`;
+      }
+    } catch { /* best-effort */ }
+    return prefix;
+  };
+
   const submit = async (e) => {
     e.preventDefault();
     setError('');
@@ -80,7 +95,7 @@ export default function Account() {
           password,
         });
         if (signError) throw signError;
-        setMsg('Signed in successfully.');
+        setMsg(await claimGuestOrders('Signed in successfully.'));
       } else {
         const { data, error: signError } = await supabase.auth.signUp({
           email: email.trim(),
@@ -96,7 +111,7 @@ export default function Account() {
           });
         }
         setMsg(data.session
-          ? 'Account created and signed in.'
+          ? await claimGuestOrders('Account created and signed in.')
           : 'Account created. Check your email to confirm, then sign in.');
         setMode('signin');
       }
@@ -214,7 +229,8 @@ export default function Account() {
       <p className="eyebrow">My account</p>
       <h1>{mode === 'signin' ? 'Sign in' : 'Create account'}</h1>
       <p className="muted small" style={{ margin: '4px 0 16px' }}>
-        Sign in to send booking and international requests, and to see your orders.
+        Sign in to see your orders, track deliveries, and send booking and international requests.
+        Orders you placed earlier with the same email are linked automatically.
       </p>
 
       <form onSubmit={submit} style={{ marginBottom: 24 }}>
@@ -258,6 +274,17 @@ export default function Account() {
         {msg && <div className="notice" role="status" style={{ marginTop: 12 }}>{msg}</div>}
         {error && <div className="notice auth-error" role="alert" style={{ marginTop: 12 }}>{error}</div>}
       </form>
+
+      <div className="notice" role="status" style={{ marginBottom: 24, maxWidth: 480 }}>
+        <p className="small" style={{ fontWeight: 600, marginBottom: 6 }}>Paid without an account?</p>
+        <p className="muted small" style={{ marginBottom: 10 }}>
+          Enter the order id from your payment confirmation to track your order and delivery.
+        </p>
+        <form onSubmit={(e) => { e.preventDefault(); if (trackId.trim()) navigate(`/order/${trackId.trim()}`); }} style={{ display: 'flex', gap: 8 }}>
+          <input id="a-t" placeholder="Order id from your confirmation" required value={trackId} onChange={(e) => setTrackId(e.target.value)} />
+          <button className="btn btn-ghost" type="submit">Track</button>
+        </form>
+      </div>
 
       {showReset && (
         <form onSubmit={sendReset} className="stack" style={{ maxWidth: 480 }}>

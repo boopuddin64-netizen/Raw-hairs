@@ -138,14 +138,22 @@ export default function Checkout() {
   // ---- Paystack return screen -------------------------------------------
   if (callbackRef) {
     return (
-      <div className="wrap page">
+      <div className="wrap page" style={{ maxWidth: 640 }}>
         <h1>Payment status</h1>
         {verified == null && <p className="muted">Confirming your payment…</p>}
         {verified?.ok === true && (
           <div className="notice" role="status">
             <p><strong>Payment confirmed.</strong> Thank you for your order!</p>
+            {verified.order_id && (
+              <p className="small">Order id: <code>{verified.order_id}</code></p>
+            )}
             <p className="muted small">You will get an email receipt from Paystack. RAW HAIRS will contact you with delivery updates.</p>
-            <Link to="/shop" className="btn btn-primary">Continue shopping</Link>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+              {verified.order_id && (
+                <Link to={`/order/${verified.order_id}`} className="btn btn-primary">Track your order</Link>
+              )}
+              <Link to="/shop" className="btn btn-ghost">Continue shopping</Link>
+            </div>
           </div>
         )}
         {verified?.ok === false && (
@@ -231,6 +239,7 @@ export default function Checkout() {
             <p><strong>Order placed.</strong> Order id: <code>{order.order_id}</code></p>
             <p className="muted small">Amount to transfer: {formatKobo(order.total_kobo)}</p>
             <p className="muted small">Bank details were sent to your email. Submit your transfer reference below so we can verify it.</p>
+            <p className="muted small">Save your order id — you can track the order any time from the Account page with it.</p>
           </div>
           <form className="stack" onSubmit={submitBankReceipt} style={{ gap: 12 }}>
             <div className="field"><label htmlFor="b-n">Sender name on the transfer</label><input id="b-n" required value={bankForm.senderName} onChange={(e) => setBankForm({ ...bankForm, senderName: e.target.value })} /></div>
@@ -251,7 +260,12 @@ export default function Checkout() {
           <div className="notice" role="status">
             <p><strong>Receipt received.</strong> Thank you!</p>
             <p className="muted small">We are verifying your transfer. Keep your order id: <code>{order?.order_id}</code></p>
-            <Link to="/shop" className="btn btn-primary">Continue shopping</Link>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+              {order?.order_id && (
+                <Link to={`/order/${order.order_id}`} className="btn btn-primary">Track your order</Link>
+              )}
+              <Link to="/shop" className="btn btn-ghost">Continue shopping</Link>
+            </div>
           </div>
         </div>
       )}
