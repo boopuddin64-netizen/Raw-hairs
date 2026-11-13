@@ -143,7 +143,6 @@ begin
 
   return jsonb_build_object('ok', true, 'payment_id', v_payment.id, 'status', 'awaiting_verification');
 end $$;
-revoke all on function public.submit_bank_transfer_receipt(uuid, text, error, text, text) from public;
 revoke all on function public.submit_bank_transfer_receipt(uuid, text, text, text) from public;
 grant execute on function public.submit_bank_transfer_receipt(uuid, text, text, text) to anon, authenticated;
 
@@ -260,5 +259,5 @@ begin
     ), '[]'::jsonb)
   );
 end $$;
-revoke all on function public.submit_bank_transfer_receipt(uuid, text, text, text) from public;
+revoke all on function public.guest_order_receipt(uuid, text) from public;
 grant execute on function public.guest_order_receipt(uuid, text) to anon, authenticated;
