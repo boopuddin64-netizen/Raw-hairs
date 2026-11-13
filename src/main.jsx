@@ -34,7 +34,7 @@ const Admin = lazy(() => import('./pages/Admin'));
 const Rider = lazy(() => import('./pages/Rider'));
 
 const PageFallback = () => (
-  column" wrap page" role="status" aria-label="Loading page">
+  <div className="wrap page" role="status" aria-label="Loading page">
     <div className="placeholder-box">Loading…</div>
   </div>
 );
