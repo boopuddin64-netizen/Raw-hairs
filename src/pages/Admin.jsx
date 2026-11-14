@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Chip } from '../components';
+import { BrandLogo, Chip } from '../components';
 import { useStaffAuth } from '../auth/StaffAuth';
 import { adminApi } from '../lib/adminApi';
 import { useRealtimeDashboard, buildAnalytics } from '../hooks/useRealtimeDashboard';
@@ -8,6 +8,7 @@ import { useStoreConfig } from '../hooks/useStoreConfig';
 import { useTheme } from '../theme/ThemeContext';
 import ProductsManager from './admin/ProductsManager';
 import PaymentsManager from './admin/PaymentsManager';
+import ServicesManager from './admin/ServicesManager';
 
 const NAV = [
   { id: 'Overview', label: 'Overview' },
@@ -147,10 +148,13 @@ export default function Admin() {
   return (
     <div className="dash">
       <header className="dash-top">
-        <div>
-          <p className="eyebrow">Admin console</p>
-          <h1>RAW HAIRS</h1>
-          <p className="muted">{admin?.email || 'Signed in'}</p>
+        <div className="dash-brand-block">
+          <BrandLogo />
+          <div>
+            <p className="eyebrow">OWNER OPERATIONS</p>
+            <h1>Store dashboard</h1>
+            <p className="muted">{admin?.email || 'Signed in'} · business data is read from the store database</p>
+          </div>
         </div>
         <div className="dash-actions">
           <button className="btn btn-ghost" type="button" onClick={toggleTheme} aria-label="Toggle theme">
@@ -158,6 +162,7 @@ export default function Admin() {
           </button>
           <button className="btn btn-ghost" type="button" onClick={refresh} disabled={loading}>Refresh</button>
           <button className="btn btn-ghost" type="button" onClick={exportCsv}>Export CSV</button>
+          <Link className="btn btn-outline" to="/admin/dispatch">Open dispatch</Link>
           <button className="btn btn-ghost" type="button" onClick={signOut}>Sign out</button>
         </div>
       </header>
@@ -165,7 +170,7 @@ export default function Admin() {
       {error && <div className="dash-alert">{error}</div>}
       {statusMsg && <div className="dash-alert ok">{statusMsg}</div>}
 
-      <nav className="dash-nav">
+      <nav className="dash-nav" aria-label="Admin sections">
         {NAV.map((item) => (
           <button
             key={item.id}
@@ -289,7 +294,10 @@ export default function Admin() {
 
       {tab === 'Payments' && <PaymentsManager payments={payments} refresh={refresh} />}
 
-      {tab !== 'Overview' && tab !== 'Rules' && tab !== 'Settings' && tab !== 'Ratings' && tab !== 'Payments' && (
+      {tab === 'Products' && <div className="dash-workspace"><ProductsManager products={products} refresh={refresh} /></div>}
+      {tab === 'Services' && <div className="dash-workspace"><ServicesManager services={services} refresh={refresh} /></div>}
+
+      {tab !== 'Overview' && tab !== 'Rules' && tab !== 'Settings' && tab !== 'Ratings' && tab !== 'Payments' && tab !== 'Products' && tab !== 'Services' && (
         <div className="dash-panel">
           <div className="dash-panel-head">
             <h2>{tab}</h2>
@@ -332,24 +340,6 @@ export default function Admin() {
                     </tr>
                   ))}
                   {!bookings.length && <tr><td colSpan={4} className="muted">No bookings</td></tr>}
-                </tbody>
-              </table>
-            </div>
-          )}
-          {tab === 'Products' && <ProductsManager products={products} refresh={refresh} />}
-          {tab === 'Services' && (
-            <div className="table-wrap">
-              <table className="dash-table">
-                <thead><tr><th>Name</th><th>Price</th><th>Active</th></tr></thead>
-                <tbody>
-                  {services.map((s) => (
-                    <tr key={s.id}>
-                      <td>{s.name}</td>
-                      <td>{money(s.price)}</td>
-                      <td>{s.active === false ? 'No' : 'Yes'}</td>
-                    </tr>
-                  ))}
-                  {!services.length && <tr><td colSpan={3} className="muted">No services</td></tr>}
                 </tbody>
               </table>
             </div>

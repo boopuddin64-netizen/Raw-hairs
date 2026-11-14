@@ -85,6 +85,37 @@ describe('admin mutation security', () => {
     })).toBeNull();
   });
 
+  it('accepts database-backed types, categories, custom product attributes, and a bounded gallery', () => {
+    const id = '11111111-2222-4333-8444-555555555555';
+    expect(validateMutation('products', 'insert', {
+      name: 'Hair accessory', slug: 'hair-accessory', price: 2500, stock: 2, is_active: true,
+      product_type_id: id, category_id: id, attributes: { finish: 'Gold tone' },
+      gallery_paths: ['/catalogue/body.jpg'],
+    })).toBeNull();
+    expect(validateMutation('catalog_product_types', 'insert', {
+      name: 'Hair accessories', slug: 'hair-accessories', is_active: true, sort_order: 20,
+    })).toBeNull();
+    expect(validateMutation('catalog_categories', 'insert', {
+      product_type_id: id, name: 'Care tools', slug: 'care-tools', is_active: true, sort_order: 10,
+    })).toBeNull();
+    expect(validateMutation('catalog_attribute_definitions', 'insert', {
+      product_type_id: id, key: 'finish', label: 'Finish', field_type: 'select',
+      options: ['Gold tone', 'Silver tone'], is_required: false, display_in_specs: true,
+      is_active: true, sort_order: 10,
+    })).toBeNull();
+  });
+
+  it('rejects unsafe catalogue edits, invalid references, oversized galleries, and destructive deletes', () => {
+    const id = '11111111-2222-4333-8444-555555555555';
+    expect(validateMutation('catalog_product_types', 'update', { slug: 'new-type-slug' })).toMatch(/cannot be changed/);
+    expect(validateMutation('catalog_attribute_definitions', 'update', { key: 'renamed_key' })).toMatch(/cannot be changed/);
+    expect(validateMutation('catalog_attribute_definitions', 'update', { field_type: 'number' })).toMatch(/cannot be changed/);
+    expect(validateMutation('products', 'update', { category_id: 'not-a-uuid' })).toMatch(/category is invalid/);
+    expect(validateMutation('products', 'update', { gallery_paths: Array(8).fill('/catalogue/body.jpg') })).toMatch(/gallery is invalid/);
+    expect(validateMutation('catalog_categories', 'delete', { id })).toMatch(/not allowed/);
+    expect(validateMutation('products', 'delete', { id })).toMatch(/not allowed/);
+  });
+
   it('rejects sensitive columns and generic writes to protected resources', () => {
     expect(validateMutation('products', 'update', { name: 'Unit', delivery_otp_hash: 'secret' })).toMatch(/cannot be changed/);
     expect(validateMutation('rider_jobs', 'update', { status: 'in_transit' })).toMatch(/not allowed/);

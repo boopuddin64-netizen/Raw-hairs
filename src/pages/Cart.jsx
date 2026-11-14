@@ -64,7 +64,7 @@ export default function Cart() {
 
   if (lines.length === 0 && !sent) {
     return (
-      <div className="wrap page">
+      <div className="wrap page cart-page">
         <h1>Your bag</h1>
         <div className="placeholder-box" style={{ marginTop: 16 }}>
           <span className="big">Your bag is empty.</span>
@@ -75,11 +75,11 @@ export default function Cart() {
   }
 
   return (
-    <div className="wrap page">
+    <div className="wrap page cart-page">
       <h1>Your bag</h1>
       <p className="muted small" style={{ marginBottom: 16 }}>{lines.reduce((a, l) => a + l.qty, 0)} items · Swipe left to remove</p>
       <div className="cart-grid">
-        <div className="stack">
+        <div className="cart-lines stack">
           {lines.map((l) => (
             <CartRow
               key={l.id + String(l.length)}
@@ -90,7 +90,7 @@ export default function Cart() {
           ))}
         </div>
 
-        <div className="stack" style={{ marginTop: 16 }}>
+        <div className="cart-summary stack" style={{ marginTop: 16 }}>
           <h2 style={{ fontSize: 18, fontFamily: 'var(--sans)', fontWeight: 500 }}>Where are we delivering?</h2>
           <div className="seg" role="group" aria-label="Delivery destination">
             <button type="button" aria-pressed={dest === 'ng'} onClick={() => setDest('ng')}>Within Nigeria</button>

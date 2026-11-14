@@ -26,6 +26,7 @@ export const adminApi = {
   login: (email, password) => call('login', { method: 'POST', body: { email, password } }),
   logout: () => call('logout', { method: 'POST' }),
   data: () => call('data'),
+  catalog: () => call('catalog'),
   reviews: () => call('reviews'),
   settings: () => call('settings'),
   mutate: (table, op, { id, values } = {}) => call('mutate', { method: 'POST', body: { table, op, id, values } }),

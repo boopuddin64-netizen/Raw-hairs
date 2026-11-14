@@ -10,19 +10,29 @@ import { isSameOriginRequest, readJsonBody, trustedRequestOrigin } from '../_lib
 // Tables the admin console may change, and how. Anything else is rejected.
 const MUTABLE_FIELDS = {
   products: {
-    insert: ['name', 'slug', 'category', 'price', 'stock', 'weight_grams', 'base_length', 'length_options', 'lace_options', 'hair_type', 'description', 'is_active', 'image_path'],
-    update: ['name', 'slug', 'category', 'price', 'stock', 'weight_grams', 'base_length', 'length_options', 'lace_options', 'hair_type', 'description', 'is_active', 'image_path'],
-    delete: [],
+    insert: ['name', 'slug', 'category', 'price', 'stock', 'weight_grams', 'base_length', 'length_options', 'lace_options', 'hair_type', 'description', 'is_active', 'image_path', 'product_type_id', 'category_id', 'attributes', 'gallery_paths'],
+    update: ['name', 'slug', 'category', 'price', 'stock', 'weight_grams', 'base_length', 'length_options', 'lace_options', 'hair_type', 'description', 'is_active', 'image_path', 'product_type_id', 'category_id', 'attributes', 'gallery_paths'],
+  },
+  catalog_product_types: {
+    insert: ['name', 'slug', 'is_active', 'sort_order'],
+    update: ['name', 'is_active', 'sort_order'],
+  },
+  catalog_categories: {
+    insert: ['product_type_id', 'name', 'slug', 'is_active', 'sort_order'],
+    update: ['name', 'slug', 'is_active', 'sort_order'],
+  },
+  catalog_attribute_definitions: {
+    insert: ['product_type_id', 'key', 'label', 'field_type', 'options', 'is_required', 'display_in_specs', 'is_active', 'sort_order'],
+    update: ['label', 'options', 'is_required', 'display_in_specs', 'is_active', 'sort_order'],
   },
   services: {
     insert: ['name', 'description', 'price', 'duration_minutes', 'is_active'],
     update: ['name', 'description', 'price', 'duration_minutes', 'is_active'],
-    delete: [],
   },
   orders: { update: ['status'] },
   bookings: { update: ['status'] },
   international_requests: { update: ['status'] },
-  reviews: { insert: ['customer_name', 'rating', 'comment', 'product_id'], delete: [] },
+  reviews: { insert: ['customer_name', 'rating', 'comment', 'product_id'] },
   store_settings: { upsert: ['id', 'settings', 'rules', 'goals', 'updated_at'] },
 };
 
@@ -95,6 +105,30 @@ export function validateMutation(table, op, row) {
     if ('lace_options' in row && (!Array.isArray(row.lace_options) || row.lace_options.length > 30 || row.lace_options.some((v) => typeof v !== 'string' || v.length > 100))) return 'Product options are invalid.';
     if ('is_active' in row && typeof row.is_active !== 'boolean') return 'Product visibility is invalid.';
     if ('image_path' in row && row.image_path != null && (typeof row.image_path !== 'string' || row.image_path.length > 1024)) return 'Product image path is invalid.';
+    if ('product_type_id' in row && row.product_type_id != null && !UUID.test(String(row.product_type_id))) return 'Product type is invalid.';
+    if ('category_id' in row && row.category_id != null && !UUID.test(String(row.category_id))) return 'Product category is invalid.';
+    if ('attributes' in row && (!isPlainRecord(row.attributes) || !withinJsonLimit(row.attributes, 8192) || Object.keys(row.attributes).length > 30)) return 'Product attributes are invalid or too large.';
+    if ('gallery_paths' in row && (!Array.isArray(row.gallery_paths) || row.gallery_paths.length > 7 || row.gallery_paths.some((path) => typeof path !== 'string' || path.length > 1024))) return 'Product gallery is invalid.';
+  }
+  if (table === 'catalog_product_types' || table === 'catalog_categories') {
+    const nameLimit = table === 'catalog_categories' ? 100 : 80;
+    if (op === 'insert' && table === 'catalog_categories' && !UUID.test(String(row.product_type_id || ''))) return 'Choose a valid product type.';
+    if (op === 'insert' && (!String(row.name || '').trim() || !String(row.slug || '').trim())) return 'A name and slug are required.';
+    if ('name' in row && (typeof row.name !== 'string' || row.name.trim().length < 1 || row.name.length > nameLimit)) return 'Catalogue name is invalid.';
+    if ('slug' in row && (typeof row.slug !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(row.slug))) return 'Catalogue slug is invalid.';
+    if ('is_active' in row && typeof row.is_active !== 'boolean') return 'Catalogue visibility is invalid.';
+    if ('sort_order' in row && (!Number.isInteger(Number(row.sort_order)) || Number(row.sort_order) < 0 || Number(row.sort_order) > 10000)) return 'Sort order is invalid.';
+  }
+  if (table === 'catalog_attribute_definitions') {
+    if (op === 'insert' && !UUID.test(String(row.product_type_id || ''))) return 'Choose a valid product type.';
+    if (op === 'insert' && (!String(row.key || '').trim() || !String(row.label || '').trim())) return 'Attribute key and label are required.';
+    if ('key' in row && (typeof row.key !== 'string' || !/^[a-z][a-z0-9_]{0,39}$/.test(row.key))) return 'Attribute key must use lowercase letters, numbers, and underscores.';
+    if ('label' in row && (typeof row.label !== 'string' || row.label.trim().length < 1 || row.label.length > 100)) return 'Attribute label is invalid.';
+    if ('field_type' in row && !['text', 'number', 'select', 'boolean'].includes(row.field_type)) return 'Attribute field type is invalid.';
+    if ('options' in row && (!Array.isArray(row.options) || row.options.length > 30 || row.options.some((value) => typeof value !== 'string' || value.trim().length < 1 || value.length > 80) || !withinJsonLimit(row.options, 4096))) return 'Attribute options are invalid.';
+    if (row.field_type === 'select' && Array.isArray(row.options) && row.options.length === 0) return 'A select attribute needs at least one option.';
+    for (const key of ['is_required', 'display_in_specs', 'is_active']) if (key in row && typeof row[key] !== 'boolean') return `${key} must be true or false.`;
+    if ('sort_order' in row && (!Number.isInteger(Number(row.sort_order)) || Number(row.sort_order) < 0 || Number(row.sort_order) > 10000)) return 'Sort order is invalid.';
   }
   if (table === 'services') {
     if ('name' in row && (typeof row.name !== 'string' || row.name.trim().length < 1 || row.name.length > 160)) return 'Service name is invalid.';
@@ -163,6 +197,70 @@ export async function validProductImage(db, path) {
   if (error || !data) return false;
   const bytes = Buffer.from(await data.arrayBuffer());
   return inspectImageBuffer(bytes, { expectedMime, maxBytes: MAX_IMAGE_BYTES }).ok;
+}
+
+async function validateProductCatalog(db, row, op) {
+  if (op === 'insert' && !row.product_type_id) return { status: 400, error: 'Choose a product type before saving.' };
+  if (!('product_type_id' in row) && !('category_id' in row) && !('attributes' in row)) return null;
+
+  let typeId = row.product_type_id;
+  if (!typeId && op === 'update') return { status: 400, error: 'Choose a product type before saving this product.' };
+  const { data: type, error: typeError } = await db
+    .from('catalog_product_types').select('id,is_active').eq('id', typeId).maybeSingle();
+  if (typeError) return { status: 503, error: 'Flexible catalogue controls are not available yet. The catalogue migration must be applied first.' };
+  if (!type) return { status: 400, error: 'Choose an existing product type.' };
+  if (!type.is_active && (op === 'insert' || row.is_active === true)) return { status: 400, error: 'Choose an active product type for a published product.' };
+
+  if (row.category_id) {
+    const { data: category, error: categoryError } = await db
+      .from('catalog_categories').select('id,product_type_id,is_active').eq('id', row.category_id).maybeSingle();
+    if (categoryError) return { status: 503, error: 'Flexible catalogue controls are not available yet. The catalogue migration must be applied first.' };
+    if (!category || category.product_type_id !== type.id) return { status: 400, error: 'Choose a category belonging to the selected product type.' };
+    if (!category.is_active && (op === 'insert' || row.is_active === true)) return { status: 400, error: 'Choose an active category for a published product.' };
+  }
+
+  if ('attributes' in row) {
+    const { data: definitions, error: definitionError } = await db
+      .from('catalog_attribute_definitions')
+      .select('key,label,field_type,options,is_required,is_active')
+      .eq('product_type_id', type.id);
+    if (definitionError) return { status: 503, error: 'Product attributes could not be checked. Please try again.' };
+    const byKey = new Map((definitions || []).map((definition) => [definition.key, definition]));
+    for (const key of Object.keys(row.attributes)) {
+      const definition = byKey.get(key);
+      if (!definition) return { status: 400, error: `The ${key} attribute is not defined for this product type.` };
+      const value = row.attributes[key];
+      if (value == null || value === '') continue;
+      if (definition.field_type === 'text' && (typeof value !== 'string' || value.length > 1000)) return { status: 400, error: `${definition.label} must be text no longer than 1,000 characters.` };
+      if (definition.field_type === 'number' && (!Number.isFinite(Number(value)) || String(value).length > 30)) return { status: 400, error: `${definition.label} must be a valid number.` };
+      if (definition.field_type === 'boolean' && typeof value !== 'boolean') return { status: 400, error: `${definition.label} must be true or false.` };
+      if (definition.field_type === 'select' && (typeof value !== 'string' || !(definition.options || []).includes(value))) return { status: 400, error: `Choose a valid ${definition.label} option.` };
+    }
+    for (const definition of definitions || []) {
+      if (definition.is_required && definition.is_active && (row.attributes[definition.key] == null || row.attributes[definition.key] === '')) {
+        return { status: 400, error: `${definition.label} is required for this product type.` };
+      }
+    }
+  }
+  return null;
+}
+
+async function catalog(res) {
+  const db = needDb(res);
+  if (!db) return;
+  const [types, categories, attributes] = await Promise.all([
+    db.from('catalog_product_types').select('*').order('sort_order').order('name').limit(200),
+    db.from('catalog_categories').select('*').order('sort_order').order('name').limit(500),
+    db.from('catalog_attribute_definitions').select('*').order('sort_order').order('label').limit(1000),
+  ]);
+  if (types.error || categories.error || attributes.error) {
+    return json(res, 503, { error: 'Flexible catalogue controls are not available yet. The catalogue migration must be applied first.' });
+  }
+  return json(res, 200, {
+    productTypes: types.data || [],
+    categories: categories.data || [],
+    attributeDefinitions: attributes.data || [],
+  });
 }
 
 function needDb(res) {
@@ -280,8 +378,24 @@ async function mutate(req, res) {
   if (!db) return;
 
   if (table === 'store_settings' && row) row.updated_at = new Date().toISOString();
+  if (op === 'update' && row?.is_active === false && (table === 'catalog_product_types' || table === 'catalog_categories')) {
+    const foreignKey = table === 'catalog_product_types' ? 'product_type_id' : 'category_id';
+    const { count, error } = await db.from('products').select('id', { count: 'exact', head: true })
+      .eq(foreignKey, id).eq('is_active', true);
+    if (error) return json(res, 503, { error: 'Active products could not be checked. Try again before archiving.' });
+    if (count > 0) return json(res, 409, { error: 'Move or hide active products before archiving this catalogue item.' });
+  }
+  if (table === 'products' && row) {
+    const catalogError = await validateProductCatalog(db, row, op);
+    if (catalogError) return json(res, catalogError.status, { error: catalogError.error });
+  }
   if (table === 'products' && row && 'image_path' in row && !(await validProductImage(db, row.image_path))) {
     return json(res, 400, { error: 'Product image must be a valid catalogue or verified upload image.' });
+  }
+  if (table === 'products' && row && 'gallery_paths' in row) {
+    for (const path of row.gallery_paths) {
+      if (!(await validProductImage(db, path))) return json(res, 400, { error: 'Every secondary image must be a valid catalogue or verified upload image.' });
+    }
   }
 
   if (table === 'orders') {
@@ -556,6 +670,7 @@ const ROUTES = {
   logout: { method: 'POST', public: true, run: logout },
   session: { method: 'GET', public: true, run: session },
   data: { method: 'GET', run: (req, res) => snapshot(res) },
+  catalog: { method: 'GET', run: (req, res) => catalog(res) },
   reviews: { method: 'GET', run: (req, res) => reviews(res) },
   settings: { method: 'GET', run: (req, res) => settings(res) },
   audit: { method: 'GET', run: auditLog },
