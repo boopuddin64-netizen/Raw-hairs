@@ -33,7 +33,7 @@ export function signToken(payload, secret) {
 
 export function verifyToken(token, secret) {
   const parts = String(token || '').split('.');
-  if (parts.length !== 3) return null;
+  if (parts.length !== 3 || String(token).length > 4096) return null;
   try {
     const header = JSON.parse(Buffer.from(parts[0], 'base64url').toString('utf8'));
     if (header.alg !== 'HS256') return null;
@@ -52,12 +52,14 @@ function readCookie(req, name) {
   const header = req.headers?.cookie || '';
   for (const part of header.split(';')) {
     const index = part.indexOf('=');
-    if (index > -1 && part.slice(0, index).trim() === name) return decodeURIComponent(part.slice(index + 1).trim());
+    if (index > -1 && part.slice(0, index).trim() === name) {
+      try { return decodeURIComponent(part.slice(index + 1).trim()); } catch { return ''; }
+    }
   }
   return '';
 }
 
-const isHttps = (req) => (req.headers?.['x-forwarded-proto'] || '').split(',')[0] === 'https';
+const isHttps = (req) => process.env.NODE_ENV === 'production' || req.socket?.encrypted === true;
 
 export function sessionCookie(req, token, maxAge = SESSION_SECONDS) {
   return [
@@ -84,8 +86,8 @@ export function json(res, status, body) {
 }
 
 /**
- * Guard for admin routes. State-changing requests must also carry the custom header,
- * which a cross-site form post cannot send (defence in depth on top of SameSite=Strict).
+ * Guard for admin routes. State-changing requests must also carry a custom header;
+ * the API handler separately enforces a matching Origin and Host.
  */
 export function requireAdmin(req, res, { mutating = false } = {}) {
   const session = getSession(req);
@@ -98,31 +100,4 @@ export function requireAdmin(req, res, { mutating = false } = {}) {
     return null;
   }
   return session;
-}
-
-/** Small per-instance login throttle. Best effort; the password itself is the real protection. */
-const attempts = new Map();
-const WINDOW_MS = 15 * 60 * 1000;
-const MAX_ATTEMPTS = 8;
-
-export function throttled(ip) {
-  const now = Date.now();
-  const entry = attempts.get(ip);
-  if (!entry || entry.resetAt < now) return false;
-  return entry.count >= MAX_ATTEMPTS;
-}
-
-export function recordFailure(ip) {
-  const now = Date.now();
-  const entry = attempts.get(ip);
-  if (!entry || entry.resetAt < now) attempts.set(ip, { count: 1, resetAt: now + WINDOW_MS });
-  else entry.count += 1;
-}
-
-export function clearFailures(ip) {
-  attempts.delete(ip);
-}
-
-export function clientIp(req) {
-  return (req.headers?.['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
 }

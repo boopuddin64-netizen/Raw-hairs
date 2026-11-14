@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Chip } from '../components';
+import { BrandLogo, Chip } from '../components';
 import { useStaffAuth } from '../auth/StaffAuth';
 import { adminApi } from '../lib/adminApi';
 import { useRealtimeDashboard, buildAnalytics } from '../hooks/useRealtimeDashboard';
@@ -8,6 +8,7 @@ import { useStoreConfig } from '../hooks/useStoreConfig';
 import { useTheme } from '../theme/ThemeContext';
 import ProductsManager from './admin/ProductsManager';
 import PaymentsManager from './admin/PaymentsManager';
+import ServicesManager from './admin/ServicesManager';
 
 const NAV = [
   { id: 'Overview', label: 'Overview' },
@@ -23,10 +24,15 @@ const NAV = [
   { id: 'Settings', label: 'Settings' },
 ];
 
-const ORDER_STATUSES = ['awaiting_payment', 'paid', 'processing', 'dispatched', 'delivered', 'cancelled', 'refunded'];
 const BOOKING_STATUSES = ['pending', 'confirmed', 'completed', 'cancelled'];
 const REQUEST_STATUSES = ['pending', 'quoted', 'approved', 'declined', 'converted'];
-const JOB_STATUSES = ['unassigned', 'assigned', 'picked_up', 'in_transit', 'delivered', 'failed'];
+const orderTransitions = {
+  awaiting_payment: ['cancelled'],
+  pending_admin_approval: ['processing', 'cancelled'],
+  paid: ['processing', 'cancelled'],
+  processing: ['dispatched'],
+};
+const orderStatusOptions = (status) => [...new Set([status, ...(orderTransitions[status] || [])])];
 
 const money = (value) => (value == null || Number.isNaN(Number(value)) ? '—' : '₦' + Number(value).toLocaleString('en-NG'));
 const dateTime = (value) => (value ? new Date(value).toLocaleString('en-NG') : '—');
@@ -36,7 +42,7 @@ const slugify = (value) => value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-'
 
 function StatusSelect({ value, options, onSave, label }) {
   return (
-    <select className="dash-select" aria-label={label} value={value} onChange={(e) => onSave(e.target.value)}>
+    <select className="dash-select" aria-label={label} value={value} disabled={options.length < 2} onChange={(e) => onSave(e.target.value)}>
       {options.map((option) => (
         <option key={option} value={option}>{option.replaceAll('_', ' ')}</option>
       ))}
@@ -142,10 +148,13 @@ export default function Admin() {
   return (
     <div className="dash">
       <header className="dash-top">
-        <div>
-          <p className="eyebrow">Admin console</p>
-          <h1>RAW HAIRS</h1>
-          <p className="muted">{admin?.email || 'Signed in'}</p>
+        <div className="dash-brand-block">
+          <BrandLogo />
+          <div>
+            <p className="eyebrow">OWNER OPERATIONS</p>
+            <h1>Store dashboard</h1>
+            <p className="muted">{admin?.email || 'Signed in'} · business data is read from the store database</p>
+          </div>
         </div>
         <div className="dash-actions">
           <button className="btn btn-ghost" type="button" onClick={toggleTheme} aria-label="Toggle theme">
@@ -153,6 +162,7 @@ export default function Admin() {
           </button>
           <button className="btn btn-ghost" type="button" onClick={refresh} disabled={loading}>Refresh</button>
           <button className="btn btn-ghost" type="button" onClick={exportCsv}>Export CSV</button>
+          <Link className="btn btn-outline" to="/admin/dispatch">Open dispatch</Link>
           <button className="btn btn-ghost" type="button" onClick={signOut}>Sign out</button>
         </div>
       </header>
@@ -160,7 +170,7 @@ export default function Admin() {
       {error && <div className="dash-alert">{error}</div>}
       {statusMsg && <div className="dash-alert ok">{statusMsg}</div>}
 
-      <nav className="dash-nav">
+      <nav className="dash-nav" aria-label="Admin sections">
         {NAV.map((item) => (
           <button
             key={item.id}
@@ -284,7 +294,10 @@ export default function Admin() {
 
       {tab === 'Payments' && <PaymentsManager payments={payments} refresh={refresh} />}
 
-      {tab !== 'Overview' && tab !== 'Rules' && tab !== 'Settings' && tab !== 'Ratings' && tab !== 'Payments' && (
+      {tab === 'Products' && <div className="dash-workspace"><ProductsManager products={products} refresh={refresh} /></div>}
+      {tab === 'Services' && <div className="dash-workspace"><ServicesManager services={services} refresh={refresh} /></div>}
+
+      {tab !== 'Overview' && tab !== 'Rules' && tab !== 'Settings' && tab !== 'Ratings' && tab !== 'Payments' && tab !== 'Products' && tab !== 'Services' && (
         <div className="dash-panel">
           <div className="dash-panel-head">
             <h2>{tab}</h2>
@@ -301,7 +314,7 @@ export default function Admin() {
                       <td>{o.customer_name || o.email || o.customer_id || o.id}</td>
                       <td>{money(o.total || o.amount)}</td>
                       <td>
-                        <StatusSelect value={o.status || 'processing'} options={ORDER_STATUSES} label="Order status" onSave={(v) => saveStatus('orders', o.id, v)} />
+                        <StatusSelect value={o.status || 'awaiting_payment'} options={orderStatusOptions(o.status || 'awaiting_payment')} label="Order status" onSave={(v) => saveStatus('orders', o.id, v)} />
                       </td>
                       <td>{dateTime(o.created_at)}</td>
                     </tr>
@@ -327,24 +340,6 @@ export default function Admin() {
                     </tr>
                   ))}
                   {!bookings.length && <tr><td colSpan={4} className="muted">No bookings</td></tr>}
-                </tbody>
-              </table>
-            </div>
-          )}
-          {tab === 'Products' && <ProductsManager products={products} refresh={refresh} />}
-          {tab === 'Services' && (
-            <div className="table-wrap">
-              <table className="dash-table">
-                <thead><tr><th>Name</th><th>Price</th><th>Active</th></tr></thead>
-                <tbody>
-                  {services.map((s) => (
-                    <tr key={s.id}>
-                      <td>{s.name}</td>
-                      <td>{money(s.price)}</td>
-                      <td>{s.active === false ? 'No' : 'Yes'}</td>
-                    </tr>
-                  ))}
-                  {!services.length && <tr><td colSpan={3} className="muted">No services</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -378,15 +373,16 @@ export default function Admin() {
                     <tr key={j.id}>
                       <td>{j.order_id || j.id}</td>
                       <td>{j.rider_name || j.rider_id || '—'}</td>
-                      <td>
-                        <StatusSelect value={j.status || 'unassigned'} options={JOB_STATUSES} label="Job status" onSave={(v) => saveStatus('rider_jobs', j.id, v)} />
-                      </td>
+                      <td><Chip tone="info">{String(j.status || 'unassigned').replaceAll('_', ' ')}</Chip></td>
                       <td>{dateTime(j.created_at)}</td>
                     </tr>
                   ))}
                   {!riderJobs.length && <tr><td colSpan={4} className="muted">No rider jobs</td></tr>}
                 </tbody>
               </table>
+              <p className="muted small" style={{ padding: '0 12px 12px' }}>
+                Assignment is managed in <Link to="/admin/dispatch">Dispatch</Link>; delivery status advances through the driver workflow and OTP confirmation.
+              </p>
             </div>
           )}
         </div>

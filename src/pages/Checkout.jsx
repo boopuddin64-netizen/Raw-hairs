@@ -138,7 +138,7 @@ export default function Checkout() {
   // ---- Paystack return screen -------------------------------------------
   if (callbackRef) {
     return (
-      <div className="wrap page" style={{ maxWidth: 640 }}>
+      <div className="wrap page checkout-page checkout-result" style={{ maxWidth: 640 }}>
         <h1>Payment status</h1>
         {verified == null && <p className="muted">Confirming your payment…</p>}
         {verified?.ok === true && (
@@ -169,7 +169,7 @@ export default function Checkout() {
 
   if (cart.length === 0 && !order) {
     return (
-      <div className="wrap page">
+      <div className="wrap page checkout-page">
         <h1>Checkout</h1>
         <div className="placeholder-box" style={{ marginTop: 16 }}>
           <span className="big">Your bag is empty.</span>
@@ -182,14 +182,14 @@ export default function Checkout() {
   const lines = order ? [] : cart;
 
   return (
-    <div className="wrap page">
+    <div className="wrap page checkout-page">
       <h1>Checkout</h1>
       {expiry && step !== STEPS.DONE && <Countdown expiresAt={expiry} onExpire={expireReservation} />}
 
       {/* Step: delivery details + payment method */}
       {step === STEPS.DETAILS && (
-        <div className="cart-grid">
-          <form className="stack" onSubmit={startCheckout} style={{ gap: 12 }}>
+        <div className="checkout-grid">
+          <form className="checkout-form stack" onSubmit={startCheckout} style={{ gap: 12 }}>
             <h2 style={{ fontSize: 18, fontWeight: 500 }}>Delivery details</h2>
             <div className="field"><label htmlFor="c-n">Your name</label><input id="c-n" required value={form.name} onChange={set('name')} /></div>
             <div className="field"><label htmlFor="c-p">Phone number</label><input id="c-p" required inputMode="tel" value={form.phone} onChange={set('phone')} /></div>
@@ -217,7 +217,7 @@ export default function Checkout() {
             <p className="muted small">Stock is reserved for {RESERVATION_MINUTES} minutes while you complete payment. Delivery fee is shown on the order after the address is confirmed.</p>
           </form>
 
-          <div className="stack">
+          <div className="checkout-summary stack">
             <h2 style={{ fontSize: 18, fontWeight: 500 }}>Your bag</h2>
             {lines.map((l) => (
               <div key={l.id + String(l.length)} className="summary">
@@ -234,7 +234,7 @@ export default function Checkout() {
 
       {/* Step: bank transfer receipt */}
       {step === STEPS.BANK && order && (
-        <div className="stack" style={{ maxWidth: 560 }}>
+        <div className="checkout-step-panel stack" style={{ maxWidth: 560 }}>
           <div className="notice" role="status">
             <p><strong>Order placed.</strong> Order id: <code>{order.order_id}</code></p>
             <p className="muted small">Amount to transfer: {formatKobo(order.total_kobo)}</p>
@@ -256,7 +256,7 @@ export default function Checkout() {
 
       {/* Step: done (bank transfer) */}
       {step === STEPS.DONE && (
-        <div className="stack" style={{ maxWidth: 560 }}>
+        <div className="checkout-step-panel stack" style={{ maxWidth: 560 }}>
           <div className="notice" role="status">
             <p><strong>Receipt received.</strong> Thank you!</p>
             <p className="muted small">We are verifying your transfer. Keep your order id: <code>{order?.order_id}</code></p>

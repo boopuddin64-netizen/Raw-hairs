@@ -4,8 +4,24 @@ import { supabase, supabaseConfigured } from './lib/supabase';
 import { productImageUrl } from './lib/images';
 import { useStore } from './store';
 
+const slugify = (value) => String(value || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+function deriveCategories(products) {
+  const byName = new Map();
+  products.forEach((product) => {
+    const name = String(product.category || '').trim();
+    if (!name) return;
+    const slug = slugify(name);
+    if (!byName.has(slug)) byName.set(slug, { id: slug, slug, name, product_type_id: product.product_type_id || null });
+  });
+  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export function useCatalog() {
   const [products, setProducts] = useState([]);
+  const [productTypes, setProductTypes] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [attributeDefinitions, setAttributeDefinitions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [tick, setTick] = useState(0);
@@ -14,43 +30,61 @@ export function useCatalog() {
   useEffect(() => {
     let active = true;
     async function load() {
-      // Production must never present sample inventory as real stock.
       if (!supabaseConfigured || !supabase) {
         if (active) {
           setProducts([]);
+          setProductTypes([]);
+          setCategories([]);
+          setAttributeDefinitions([]);
           setError('The RAW HAIRS catalogue is temporarily unavailable. Please try again later.');
           setLoading(false);
         }
         return;
       }
 
-      const { data, error: queryError } = await supabase
-        .from('products')
-        .select('*')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
+      const [productsResult, typesResult, categoriesResult, attributesResult] = await Promise.all([
+        supabase.from('products').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(500),
+        supabase.from('catalog_product_types').select('id,name,slug,sort_order').eq('is_active', true).order('sort_order').order('name'),
+        supabase.from('catalog_categories').select('id,product_type_id,name,slug,sort_order').eq('is_active', true).order('sort_order').order('name'),
+        supabase.from('catalog_attribute_definitions').select('id,product_type_id,key,label,field_type,options,is_required,display_in_specs,sort_order').eq('is_active', true).order('sort_order').order('label'),
+      ]);
 
       if (!active) return;
-
-      if (queryError) {
+      if (productsResult.error) {
         setProducts([]);
         setError('The RAW HAIRS catalogue could not be loaded. Please refresh and try again.');
         setLoading(false);
         return;
       }
 
-      if (!data || data.length === 0) {
-        setProducts([]);
-        setError('');
-        setLoading(false);
-        return;
-      }
+      const rows = (productsResult.data || []).map((product) => ({
+        ...product,
+        image_url: productImageUrl(product.image_path),
+        gallery_urls: (Array.isArray(product.gallery_paths) ? product.gallery_paths : Array.isArray(product.gallery) ? product.gallery : [])
+          .map((path) => productImageUrl(path) || path)
+          .filter(Boolean),
+      }));
+      const types = typesResult.error ? [] : (typesResult.data || []);
+      const metadataCategories = categoriesResult.error ? [] : (categoriesResult.data || []);
+      const categoryList = metadataCategories.length ? metadataCategories : deriveCategories(rows);
+      const typeById = new Map(types.map((type) => [type.id, type]));
+      const categoryById = new Map(categoryList.map((category) => [category.id, category]));
+      const enriched = rows.map((product) => ({
+        ...product,
+        category_label: categoryById.get(product.category_id)?.name || product.category || '',
+        product_type_name: typeById.get(product.product_type_id)?.name || 'Product',
+        product_type_slug: typeById.get(product.product_type_id)?.slug || '',
+      }));
 
-      const withImages = data.map((product) => ({ ...product, image_url: productImageUrl(product.image_path) }));
-      setProducts(withImages);
+      setProducts(enriched);
+      setProductTypes(types);
+      setCategories(categoryList);
+      setAttributeDefinitions(attributesResult.error ? [] : (attributesResult.data || []));
+      setError('');
       setLoading(false);
-      if (store?.syncProductSnapshots) store.syncProductSnapshots(withImages);
+      if (store?.syncProductSnapshots) store.syncProductSnapshots(enriched);
     }
+    setLoading(true);
     load();
     return () => { active = false; };
   }, [tick]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -60,7 +94,7 @@ export function useCatalog() {
     setTick((t) => t + 1);
   };
 
-  return { products, loading, error, refresh };
+  return { products, productTypes, categories, attributeDefinitions, loading, error, refresh };
 }
 
 export function useServices() {
@@ -90,10 +124,8 @@ export function useServices() {
         setLoading(false);
         return;
       }
-      if (active) {
-        setServices(data || []);
-        setLoading(false);
-      }
+      setServices(data || []);
+      setLoading(false);
     }
     load();
     return () => { active = false; };
@@ -115,7 +147,7 @@ export const productSpec = (product) => [
 
 export function LiveProductCard({ product }) {
   return (
-    <article className="card">
+    <article className="card product-card">
       <div className="card-media">
         <Link to={`/product/${product.id}`} aria-label={`View ${product.name}`}>
           <div
@@ -123,22 +155,19 @@ export function LiveProductCard({ product }) {
             role={product.image_url ? undefined : 'img'}
             aria-label={product.image_url ? undefined : `Product photograph pending for ${product.name}`}
           >
-            {product.image_url && <img src={product.image_url} alt={product.name} loading="lazy" onError={hideBrokenImage} />}
-            <span className="photo-tag">{product.category || 'RAW HAIRS'}</span>
+            {product.image_url && <img src={product.image_url} alt={`${product.name} product display`} loading="lazy" onError={hideBrokenImage} />}
+            <span className="photo-tag">{product.category_label || product.product_type_name || 'RAW HAIRS'}</span>
             {product.stock <= 0 && <span className="soldout">SOLD OUT</span>}
           </div>
         </Link>
       </div>
       <div className="card-body">
+        <span className="product-card-type">{product.product_type_name || 'Collection'}</span>
         <h3>{product.name}</h3>
-        <span className="muted small">{[product.category || 'Wig collection', productSpec(product)].filter(Boolean).join(' · ')}</span>
+        <span className="muted small">{[product.category_label || product.category, productSpec(product)].filter(Boolean).join(' · ')}</span>
         <span className="price">{formatNaira(product.price)}</span>
-        <span className="muted small">
-          {product.stock > 0
-            ? (product.stock <= 2 ? 'Limited availability' : 'In stock')
-            : 'Sold out'}
-        </span>
-        <Link to={`/product/${product.id}`} className="btn btn-primary">VIEW DETAILS</Link>
+        <span className="muted small">{product.stock > 0 ? (product.stock <= 2 ? 'Limited availability' : 'In stock') : 'Sold out'}</span>
+        <Link to={`/product/${product.id}`} className="btn btn-primary">View details</Link>
       </div>
     </article>
   );

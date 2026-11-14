@@ -42,6 +42,7 @@ export default function Cart() {
         `WhatsApp: ${form.whatsapp}`,
         `Address: ${form.address}`,
       ].join('\n');
+      if (requestDetails.length > 16000) throw new Error('Please shorten the request notes or remove some cart items.');
 
       const { error: insertError } = await supabase.from('international_requests').insert({
         customer_id: user.id,
@@ -51,7 +52,7 @@ export default function Cart() {
         request_details: requestDetails,
         status: 'pending',
       });
-      if (insertError) throw insertError;
+      if (insertError) throw new Error('Could not send the request. Please check the details and try again.');
       setSent(true);
       store.clearCart();
     } catch (err) {
@@ -63,7 +64,7 @@ export default function Cart() {
 
   if (lines.length === 0 && !sent) {
     return (
-      <div className="wrap page">
+      <div className="wrap page cart-page">
         <h1>Your bag</h1>
         <div className="placeholder-box" style={{ marginTop: 16 }}>
           <span className="big">Your bag is empty.</span>
@@ -74,11 +75,11 @@ export default function Cart() {
   }
 
   return (
-    <div className="wrap page">
+    <div className="wrap page cart-page">
       <h1>Your bag</h1>
       <p className="muted small" style={{ marginBottom: 16 }}>{lines.reduce((a, l) => a + l.qty, 0)} items · Swipe left to remove</p>
       <div className="cart-grid">
-        <div className="stack">
+        <div className="cart-lines stack">
           {lines.map((l) => (
             <CartRow
               key={l.id + String(l.length)}
@@ -89,7 +90,7 @@ export default function Cart() {
           ))}
         </div>
 
-        <div className="stack" style={{ marginTop: 16 }}>
+        <div className="cart-summary stack" style={{ marginTop: 16 }}>
           <h2 style={{ fontSize: 18, fontFamily: 'var(--sans)', fontWeight: 500 }}>Where are we delivering?</h2>
           <div className="seg" role="group" aria-label="Delivery destination">
             <button type="button" aria-pressed={dest === 'ng'} onClick={() => setDest('ng')}>Within Nigeria</button>
@@ -124,12 +125,12 @@ export default function Cart() {
 
           {dest === 'intl' && !sent && (
             <form onSubmit={submitIntl}>
-              <div className="field"><label htmlFor="i-n">Your name</label><input id="i-n" required value={form.name} onChange={set('name')} /></div>
-              <div className="field"><label htmlFor="i-e">Email</label><input id="i-e" type="email" required value={form.email} onChange={set('email')} /></div>
-              <div className="field"><label htmlFor="i-w">WhatsApp number (with country code)</label><input id="i-w" required inputMode="tel" value={form.whatsapp} onChange={set('whatsapp')} /></div>
-              <div className="field"><label htmlFor="i-c">Country</label><input id="i-c" required value={form.country} onChange={set('country')} /></div>
-              <div className="field"><label htmlFor="i-a">Delivery address</label><textarea id="i-a" rows="3" required value={form.address} onChange={set('address')} /></div>
-              <div className="field"><label htmlFor="i-d">Extra notes (optional)</label><textarea id="i-d" rows="2" value={form.details} onChange={set('details')} /></div>
+              <div className="field"><label htmlFor="i-n">Your name</label><input id="i-n" required maxLength={120} value={form.name} onChange={set('name')} /></div>
+              <div className="field"><label htmlFor="i-e">Email</label><input id="i-e" type="email" required maxLength={254} value={form.email} onChange={set('email')} /></div>
+              <div className="field"><label htmlFor="i-w">WhatsApp number (with country code)</label><input id="i-w" required inputMode="tel" maxLength={30} value={form.whatsapp} onChange={set('whatsapp')} /></div>
+              <div className="field"><label htmlFor="i-c">Country</label><input id="i-c" required maxLength={100} value={form.country} onChange={set('country')} /></div>
+              <div className="field"><label htmlFor="i-a">Delivery address</label><textarea id="i-a" rows="3" required maxLength={500} value={form.address} onChange={set('address')} /></div>
+              <div className="field"><label htmlFor="i-d">Extra notes (optional)</label><textarea id="i-d" rows="2" maxLength={4000} value={form.details} onChange={set('details')} /></div>
               {error && <div className="notice auth-error" role="alert">{error}</div>}
               <button className="btn btn-primary btn-lg btn-block" type="submit" disabled={busy}>
                 {busy ? 'Sending…' : 'Send international request'}

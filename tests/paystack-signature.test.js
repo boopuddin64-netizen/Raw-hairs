@@ -53,6 +53,23 @@ describe('verifyPaystackSignature', () => {
     expect(verifyPaystackSignature(RAW, versionedSig(RAW, edge, WHSEC), [WHSEC], now)).toBe(true);
   });
 
+  it('rejects truncated and malformed legacy hex signatures', () => {
+    expect(verifyPaystackSignature(RAW, legacySig(RAW, SECRET).slice(0, 40), [SECRET])).toBe(false);
+    expect(verifyPaystackSignature(RAW, `${legacySig(RAW, SECRET).slice(0, 127)}z`, [SECRET])).toBe(false);
+  });
+
+  it('rejects duplicate or malformed versioned timestamp fields', () => {
+    const now = Math.floor(Date.now() / 1000);
+    const valid = versionedSig(RAW, now, WHSEC);
+    expect(verifyPaystackSignature(RAW, `${valid},t=${now}`, [WHSEC], now)).toBe(false);
+    expect(verifyPaystackSignature(RAW, `t=${now}x,v1=whk_test01:${'a'.repeat(128)}`, [WHSEC], now)).toBe(false);
+  });
+
+  it('accepts a key-id-prefixed versioned signature', () => {
+    const now = Math.floor(Date.now() / 1000);
+    expect(verifyPaystackSignature(RAW, versionedSig(RAW, now, WHSEC), [WHSEC], now)).toBe(true);
+  });
+
   it('rejects a missing/empty header', () => {
     expect(verifyPaystackSignature(RAW, '', [SECRET])).toBe(false);
   });

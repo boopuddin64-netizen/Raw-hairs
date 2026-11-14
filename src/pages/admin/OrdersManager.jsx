@@ -22,7 +22,13 @@ function safeParse(str) {
   try { return JSON.parse(str); } catch { return null; }
 }
 
-const ORDER_STATUSES = ['awaiting_payment', 'paid', 'processing', 'dispatched', 'delivered', 'cancelled', 'refunded'];
+const ORDER_TRANSITIONS = {
+  awaiting_payment: ['cancelled'],
+  pending_admin_approval: ['processing', 'cancelled'],
+  paid: ['processing', 'cancelled'],
+  processing: ['dispatched'],
+};
+const orderStatusOptions = (status) => [...new Set([status, ...(ORDER_TRANSITIONS[status] || [])])];
 
 export default function OrdersManager({ orders, payments, refresh }) {
   const [busy, setBusy] = useState('');
@@ -86,10 +92,10 @@ export default function OrdersManager({ orders, payments, refresh }) {
               className="dash-select"
               aria-label={`Status for order ${String(o.id).slice(0, 8)}`}
               value={o.status || 'awaiting_payment'}
-              disabled={busy === o.id}
+              disabled={busy === o.id || orderStatusOptions(o.status || 'awaiting_payment').length < 2}
               onChange={(e) => saveStatus(o.id, e.target.value)}
             >
-              {ORDER_STATUSES.map((s) => (
+              {orderStatusOptions(o.status || 'awaiting_payment').map((s) => (
                 <option key={s} value={s}>{clean(s)}</option>
               ))}
             </select>

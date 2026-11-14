@@ -26,8 +26,11 @@ async function call(method, body) {
   return data;
 }
 
-function DispatchCard({ job, drivers, busyId, onAssign, onUnassign }) {
+function DispatchCard({ job, drivers, busyId, onAssign, onUnassign, onReissue }) {
   const unassigned = job.status === 'unassigned';
+  const otpExpired = !job.otp_expires_at || new Date(job.otp_expires_at).getTime() <= Date.now();
+  const otpLocked = Number(job.otp_failed_attempts) >= 5;
+  const canReissueOtp = job.status === 'in_transit' && (otpExpired || otpLocked);
   return (
     <article className="row-card" style={{ flexDirection: 'column', gap: 10 }}>
       <div className="row-top">
@@ -42,6 +45,16 @@ function DispatchCard({ job, drivers, busyId, onAssign, onUnassign }) {
       <span className="muted small">Order: {job.order_id || '—'}</span>
       {job.status === 'assigned' && job.rider_id && (
         <span className="muted small">Driver: {drivers.find((d) => d.id === job.rider_id)?.email || job.rider_id}</span>
+      )}
+      {job.status === 'in_transit' && (
+        <span className="muted small">
+          Delivery code: {otpLocked ? 'locked after 5 attempts' : otpExpired ? 'expired' : `valid until ${new Date(job.otp_expires_at).toLocaleString('en-NG')}`}
+        </span>
+      )}
+      {canReissueOtp && (
+        <button className="btn btn-ghost" type="button" disabled={busyId === job.id} onClick={() => onReissue(job.id)}>
+          Issue a new delivery code
+        </button>
       )}
       {unassigned && (
         <select
@@ -110,8 +123,8 @@ export default function Dispatch() {
     setError('');
     setNotice('');
     try {
-      await call('POST', { op: 'assign', jobId, riderId });
-      setNotice('Assigned. The driver will see it in their portal within 30 seconds.');
+      const result = await call('POST', { op: 'assign', jobId, riderId });
+      setNotice(`Assigned. One-time customer delivery code: ${result.otp}. Share it with the customer; it expires in 24 hours.`);
       await refresh();
     } catch (err) {
       setError(err.message);
@@ -128,6 +141,22 @@ export default function Dispatch() {
     try {
       await call('POST', { op: 'unassign', jobId });
       setNotice('Job returned to the unassigned queue.');
+      await refresh();
+    } catch (err) {
+      setError(err.message);
+      await refresh();
+    } finally {
+      setBusyId('');
+    }
+  };
+
+  const reissueOtp = async (jobId) => {
+    setBusyId(jobId);
+    setError('');
+    setNotice('');
+    try {
+      const result = await call('POST', { op: 'reissue-otp', jobId });
+      setNotice(`New one-time customer delivery code: ${result.otp}. Share it with the customer; it expires in 24 hours.`);
       await refresh();
     } catch (err) {
       setError(err.message);
@@ -170,7 +199,7 @@ export default function Dispatch() {
           </div>
           <div className="stack">
             {unassigned.map((job) => (
-              <DispatchCard key={job.id} job={job} drivers={drivers} busyId={busyId} onAssign={assign} onUnassign={unassign} />
+              <DispatchCard key={job.id} job={job} drivers={drivers} busyId={busyId} onAssign={assign} onUnassign={unassign} onReissue={reissueOtp} />
             ))}
             {!unassigned.length && <p className="muted small">Nothing waiting. All jobs have drivers.</p>}
           </div>
@@ -182,7 +211,7 @@ export default function Dispatch() {
           </div>
           <div className="stack">
             {active.map((job) => (
-              <DispatchCard key={job.id} job={job} drivers={drivers} busyId={busyId} onAssign={assign} onUnassign={unassign} />
+              <DispatchCard key={job.id} job={job} drivers={drivers} busyId={busyId} onAssign={assign} onUnassign={unassign} onReissue={reissueOtp} />
             ))}
             {!active.length && <p className="muted small">No active runs right now.</p>}
           </div>
@@ -196,7 +225,7 @@ export default function Dispatch() {
           </div>
           <div className="stack">
             {done.map((job) => (
-              <DispatchCard key={job.id} job={job} drivers={drivers} busyId={busyId} onAssign={assign} onUnassign={unassign} />
+              <DispatchCard key={job.id} job={job} drivers={drivers} busyId={busyId} onAssign={assign} onUnassign={unassign} onReissue={reissueOtp} />
             ))}
           </div>
         </div>
