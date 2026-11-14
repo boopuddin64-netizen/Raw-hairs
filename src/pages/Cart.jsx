@@ -42,6 +42,7 @@ export default function Cart() {
         `WhatsApp: ${form.whatsapp}`,
         `Address: ${form.address}`,
       ].join('\n');
+      if (requestDetails.length > 16000) throw new Error('Please shorten the request notes or remove some cart items.');
 
       const { error: insertError } = await supabase.from('international_requests').insert({
         customer_id: user.id,
@@ -51,7 +52,7 @@ export default function Cart() {
         request_details: requestDetails,
         status: 'pending',
       });
-      if (insertError) throw insertError;
+      if (insertError) throw new Error('Could not send the request. Please check the details and try again.');
       setSent(true);
       store.clearCart();
     } catch (err) {
@@ -124,12 +125,12 @@ export default function Cart() {
 
           {dest === 'intl' && !sent && (
             <form onSubmit={submitIntl}>
-              <div className="field"><label htmlFor="i-n">Your name</label><input id="i-n" required value={form.name} onChange={set('name')} /></div>
-              <div className="field"><label htmlFor="i-e">Email</label><input id="i-e" type="email" required value={form.email} onChange={set('email')} /></div>
-              <div className="field"><label htmlFor="i-w">WhatsApp number (with country code)</label><input id="i-w" required inputMode="tel" value={form.whatsapp} onChange={set('whatsapp')} /></div>
-              <div className="field"><label htmlFor="i-c">Country</label><input id="i-c" required value={form.country} onChange={set('country')} /></div>
-              <div className="field"><label htmlFor="i-a">Delivery address</label><textarea id="i-a" rows="3" required value={form.address} onChange={set('address')} /></div>
-              <div className="field"><label htmlFor="i-d">Extra notes (optional)</label><textarea id="i-d" rows="2" value={form.details} onChange={set('details')} /></div>
+              <div className="field"><label htmlFor="i-n">Your name</label><input id="i-n" required maxLength={120} value={form.name} onChange={set('name')} /></div>
+              <div className="field"><label htmlFor="i-e">Email</label><input id="i-e" type="email" required maxLength={254} value={form.email} onChange={set('email')} /></div>
+              <div className="field"><label htmlFor="i-w">WhatsApp number (with country code)</label><input id="i-w" required inputMode="tel" maxLength={30} value={form.whatsapp} onChange={set('whatsapp')} /></div>
+              <div className="field"><label htmlFor="i-c">Country</label><input id="i-c" required maxLength={100} value={form.country} onChange={set('country')} /></div>
+              <div className="field"><label htmlFor="i-a">Delivery address</label><textarea id="i-a" rows="3" required maxLength={500} value={form.address} onChange={set('address')} /></div>
+              <div className="field"><label htmlFor="i-d">Extra notes (optional)</label><textarea id="i-d" rows="2" maxLength={4000} value={form.details} onChange={set('details')} /></div>
               {error && <div className="notice auth-error" role="alert">{error}</div>}
               <button className="btn btn-primary btn-lg btn-block" type="submit" disabled={busy}>
                 {busy ? 'Sending…' : 'Send international request'}

@@ -40,7 +40,13 @@ export const adminApi = {
   async uploadProductImage(file) {
     const { path, token } = await call('upload-url', { method: 'POST', body: { contentType: file.type, size: file.size } });
     const { error } = await supabase.storage.from(PRODUCT_BUCKET).uploadToSignedUrl(path, token, file, { contentType: file.type });
-    if (error) throw new Error(error.message);
+    if (error) throw new Error('The product image could not be uploaded.');
+    try {
+      await call('verify-upload', { method: 'POST', body: { path } });
+    } catch (verifyError) {
+      await call('remove-image', { method: 'POST', body: { path } }).catch(() => {});
+      throw verifyError;
+    }
     return path;
   },
 };

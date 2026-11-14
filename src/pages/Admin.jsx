@@ -23,10 +23,15 @@ const NAV = [
   { id: 'Settings', label: 'Settings' },
 ];
 
-const ORDER_STATUSES = ['awaiting_payment', 'paid', 'processing', 'dispatched', 'delivered', 'cancelled', 'refunded'];
 const BOOKING_STATUSES = ['pending', 'confirmed', 'completed', 'cancelled'];
 const REQUEST_STATUSES = ['pending', 'quoted', 'approved', 'declined', 'converted'];
-const JOB_STATUSES = ['unassigned', 'assigned', 'picked_up', 'in_transit', 'delivered', 'failed'];
+const orderTransitions = {
+  awaiting_payment: ['cancelled'],
+  pending_admin_approval: ['processing', 'cancelled'],
+  paid: ['processing', 'cancelled'],
+  processing: ['dispatched'],
+};
+const orderStatusOptions = (status) => [...new Set([status, ...(orderTransitions[status] || [])])];
 
 const money = (value) => (value == null || Number.isNaN(Number(value)) ? '—' : '₦' + Number(value).toLocaleString('en-NG'));
 const dateTime = (value) => (value ? new Date(value).toLocaleString('en-NG') : '—');
@@ -36,7 +41,7 @@ const slugify = (value) => value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-'
 
 function StatusSelect({ value, options, onSave, label }) {
   return (
-    <select className="dash-select" aria-label={label} value={value} onChange={(e) => onSave(e.target.value)}>
+    <select className="dash-select" aria-label={label} value={value} disabled={options.length < 2} onChange={(e) => onSave(e.target.value)}>
       {options.map((option) => (
         <option key={option} value={option}>{option.replaceAll('_', ' ')}</option>
       ))}
@@ -301,7 +306,7 @@ export default function Admin() {
                       <td>{o.customer_name || o.email || o.customer_id || o.id}</td>
                       <td>{money(o.total || o.amount)}</td>
                       <td>
-                        <StatusSelect value={o.status || 'processing'} options={ORDER_STATUSES} label="Order status" onSave={(v) => saveStatus('orders', o.id, v)} />
+                        <StatusSelect value={o.status || 'awaiting_payment'} options={orderStatusOptions(o.status || 'awaiting_payment')} label="Order status" onSave={(v) => saveStatus('orders', o.id, v)} />
                       </td>
                       <td>{dateTime(o.created_at)}</td>
                     </tr>
@@ -378,15 +383,16 @@ export default function Admin() {
                     <tr key={j.id}>
                       <td>{j.order_id || j.id}</td>
                       <td>{j.rider_name || j.rider_id || '—'}</td>
-                      <td>
-                        <StatusSelect value={j.status || 'unassigned'} options={JOB_STATUSES} label="Job status" onSave={(v) => saveStatus('rider_jobs', j.id, v)} />
-                      </td>
+                      <td><Chip tone="info">{String(j.status || 'unassigned').replaceAll('_', ' ')}</Chip></td>
                       <td>{dateTime(j.created_at)}</td>
                     </tr>
                   ))}
                   {!riderJobs.length && <tr><td colSpan={4} className="muted">No rider jobs</td></tr>}
                 </tbody>
               </table>
+              <p className="muted small" style={{ padding: '0 12px 12px' }}>
+                Assignment is managed in <Link to="/admin/dispatch">Dispatch</Link>; delivery status advances through the driver workflow and OTP confirmation.
+              </p>
             </div>
           )}
         </div>

@@ -6,9 +6,8 @@ import { supabase, supabaseConfigured, isAdmin } from '../lib/supabase';
 import { Chip } from '../components';
 
 /**
- * Server-enforced (RLS) forward transitions for riders:
- * assigned -> picked_up -> in_transit -> delivered | failed
- * The database rejects anything outside this path, so the UI offers the same set.
+ * Server-enforced forward transitions for riders:
+ * assigned -> picked_up -> in_transit -> delivered
  * Delivery itself is confirmed with the customer's OTP (confirm_delivery_otp),
  * not a plain status button.
  */
@@ -23,6 +22,7 @@ const RIDER_TRANSITIONS = {
 
 const DELIVERY_EVIDENCE_BUCKET = 'delivery-evidence';
 const PHOTO_TYPES = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
+const MAX_DELIVERY_PHOTO_BYTES = 8 * 1024 * 1024;
 
 export default function Rider() {
   const { user, role, signOut } = useStaffAuth();
@@ -44,13 +44,15 @@ export default function Rider() {
     }
     setLoading(true);
     setError('');
-    let query = supabase.from('rider_jobs').select('*').order('created_at', { ascending: false }).limit(50);
+    let query = supabase.from('rider_jobs')
+      .select('id,order_id,rider_id,status,delivery_photo_path,created_at,updated_at')
+      .order('created_at', { ascending: false }).limit(50);
     if (!admin && user?.id) {
       query = query.eq('rider_id', user.id);
     }
     const { data, error: queryError } = await query;
     if (queryError) {
-      setError(queryError.message);
+      setError('Jobs could not be loaded. Check your connection and try again.');
       setLoading(false);
       return;
     }
@@ -81,9 +83,7 @@ export default function Rider() {
     setNotice('');
     const { error: updateError } = await supabase.from('rider_jobs').update({ status }).eq('id', id);
     if (updateError) {
-      setError(updateError.message.includes('row-level security')
-        ? 'That change is not allowed. You can only move your job forward: assigned → picked up → in transit → delivered or failed.'
-        : updateError.message);
+      setError('That status change was rejected. Use the next available step for your assigned job.');
     } else {
       await refresh();
     }
@@ -102,13 +102,15 @@ export default function Rider() {
       p_otp: otp.value.trim(),
     });
     if (rpcError) {
-      setError(rpcError.message);
+      setError('Delivery confirmation could not be completed. Check your connection and try again.');
     } else if (!data || data.ok !== true) {
       setError(data?.error === 'wrong_otp'
         ? 'That code is not correct. Ask the customer for the code on their order.'
-        : data?.error === 'invalid_state'
-          ? 'This job is not in transit yet.'
-          : 'Delivery could not be confirmed.');
+        : data?.error === 'otp_expired' || data?.error === 'otp_locked'
+          ? 'This delivery code has expired or is locked. Ask the owner to issue a new code.'
+          : data?.error === 'invalid_state'
+            ? 'This job is not in transit yet.'
+            : 'Delivery could not be confirmed.');
     } else {
       setNotice('Delivery confirmed. Thank you!');
       setOtp({ jobId: '', value: '' });
@@ -125,29 +127,44 @@ export default function Rider() {
       setError('Use a JPG, PNG or WebP photo.');
       return;
     }
+    if (file.size <= 0 || file.size > MAX_DELIVERY_PHOTO_BYTES) {
+      setError('Choose a photo smaller than 8 MB.');
+      return;
+    }
     setBusy(jobId);
     setError('');
     const path = `jobs/${jobId}/evidence-${Date.now()}.${ext}`;
-    const { error: uploadError } = await supabase.storage
-      .from(DELIVERY_EVIDENCE_BUCKET)
-      .upload(path, file, { contentType: file.type, upsert: false });
-    if (uploadError) {
-      setError(uploadError.message);
-      setBusy('');
-      return;
-    }
-    const { data, error: markError } = await supabase.rpc('mark_delivery_photo', {
-      p_job_id: jobId,
-      p_path: path,
-    });
-    if (markError || !data || data.ok !== true) {
-      setError('Photo uploaded, but we could not attach it to the job. Contact the owner.');
-    } else {
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from(DELIVERY_EVIDENCE_BUCKET)
+        .upload(path, file, { contentType: file.type, upsert: false });
+      if (uploadError) throw new Error('The photo could not be uploaded. Check your connection and try again.');
+
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (sessionError || !accessToken) throw new Error('Your driver session has expired. Sign in again.');
+      const verifyResponse = await fetch('/api/driver/verify-delivery-photo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ job_id: jobId, path }),
+      });
+      const verification = await verifyResponse.json().catch(() => null);
+      if (!verifyResponse.ok || verification?.ok !== true) {
+        throw new Error(verification?.error || 'The photo could not be verified and was not attached.');
+      }
+
+      const { data, error: markError } = await supabase.rpc('mark_delivery_photo', { p_job_id: jobId, p_path: path });
+      if (markError || !data || data.ok !== true) {
+        throw new Error('Photo was not attached. Confirm the job is still assigned to you and try again.');
+      }
       setNotice('Delivery photo attached.');
       setPhoto({ jobId: '', file: null });
       await refresh();
+    } catch (uploadError) {
+      setError(uploadError?.message || 'The photo could not be uploaded or verified. It was not attached to the job.');
+    } finally {
+      setBusy('');
     }
-    setBusy('');
   };
 
   if (!supabaseConfigured) {
@@ -190,21 +207,7 @@ export default function Rider() {
               </div>
               <span className="muted small">Order: {job.order_id}</span>
               {admin && <span className="muted small">Driver: {job.rider_id || 'Unassigned'}</span>}
-              {admin && (
-                <label className="small">
-                  Status{' '}
-                  <select
-                    value={job.status}
-                    disabled={busy === job.id}
-                    onChange={(e) => updateStatus(job.id, e.target.value)}
-                    style={{ minHeight: 44, marginLeft: 8 }}
-                  >
-                    {Object.keys(RIDER_TRANSITIONS).map((s) => (
-                      <option key={s} value={s}>{s.replaceAll('_', ' ')}</option>
-                    ))}
-                  </select>
-                </label>
-              )}
+              {admin && <Link className="btn btn-ghost" to="/admin/dispatch">Manage assignment in Dispatch</Link>}
               {!admin && next.length > 0 && (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {next.map((s) => (
