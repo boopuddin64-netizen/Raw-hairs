@@ -40,9 +40,9 @@ const dateShort = (value) => (value ? new Date(value).toLocaleDateString('en-NG'
 const errorText = (error) => error?.message || 'Something went wrong. Please try again.';
 const slugify = (value) => value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
-function StatusSelect({ value, options, onSave, label }) {
+function StatusSelect({ value, options, onSave, label, disabled = false }) {
   return (
-    <select className="dash-select" aria-label={label} value={value} disabled={options.length < 2} onChange={(e) => onSave(e.target.value)}>
+    <select className="dash-select" aria-label={label} value={value} disabled={disabled || options.length < 2} onChange={(e) => onSave(e.target.value)}>
       {options.map((option) => (
         <option key={option} value={option}>{option.replaceAll('_', ' ')}</option>
       ))}
@@ -64,7 +64,7 @@ export default function Admin() {
   const { admin, adminSignOut: signOut } = useStaffAuth();
   const { theme, toggleTheme } = useTheme();
   const { config, setConfig, save, saving, message } = useStoreConfig();
-  const { orders, bookings, products, services, international, riderJobs, payments, loading, error, refresh } = useRealtimeDashboard();
+  const { orders, bookings, products, services, international, riderJobs, payments, loading, error, unavailable, refresh } = useRealtimeDashboard();
   const [tab, setTab] = useState('Overview');
   const [reviews, setReviews] = useState([]);
   const [reviewForm, setReviewForm] = useState({ customer_name: '', rating: 5, comment: '', product_id: '' });
@@ -168,6 +168,9 @@ export default function Admin() {
       </header>
 
       {error && <div className="dash-alert">{error}</div>}
+      {Object.keys(unavailable || {}).length > 0 && <div className="dash-alert" role="status">
+        Some dashboard data could not be read from the database: {Object.values(unavailable).join(', ')}. Other sections remain available; totals using these tables are incomplete, and unavailable sections are paused rather than shown as empty.
+      </div>}
       {statusMsg && <div className="dash-alert ok">{statusMsg}</div>}
 
       <nav className="dash-nav" aria-label="Admin sections">
@@ -292,10 +295,16 @@ export default function Admin() {
         </>
       )}
 
-      {tab === 'Payments' && <PaymentsManager payments={payments} refresh={refresh} />}
+      {tab === 'Payments' && (unavailable.payments
+        ? <div className="dash-panel"><h2>Payments unavailable</h2><p className="muted">Payment records could not be read from the store database. Review the dashboard warning and refresh before verifying or changing a payment.</p></div>
+        : <PaymentsManager payments={payments} refresh={refresh} />)}
 
-      {tab === 'Products' && <div className="dash-workspace"><ProductsManager products={products} refresh={refresh} /></div>}
-      {tab === 'Services' && <div className="dash-workspace"><ServicesManager services={services} refresh={refresh} /></div>}
+      {tab === 'Products' && <div className="dash-workspace">{unavailable.products
+        ? <div className="dash-panel"><h2>Products unavailable</h2><p className="muted">Product records could not be read from the store database. Editing is paused so missing data is not mistaken for an empty catalogue.</p></div>
+        : <ProductsManager products={products} refresh={refresh} />}</div>}
+      {tab === 'Services' && <div className="dash-workspace">{unavailable.services
+        ? <div className="dash-panel"><h2>Services unavailable</h2><p className="muted">Service records could not be read from the store database. Editing is paused until they can be loaded.</p></div>
+        : <ServicesManager services={services} refresh={refresh} />}</div>}
 
       {tab !== 'Overview' && tab !== 'Rules' && tab !== 'Settings' && tab !== 'Ratings' && tab !== 'Payments' && tab !== 'Products' && tab !== 'Services' && (
         <div className="dash-panel">
@@ -314,12 +323,12 @@ export default function Admin() {
                       <td>{o.customer_name || o.email || o.customer_id || o.id}</td>
                       <td>{money(o.total || o.amount)}</td>
                       <td>
-                        <StatusSelect value={o.status || 'awaiting_payment'} options={orderStatusOptions(o.status || 'awaiting_payment')} label="Order status" onSave={(v) => saveStatus('orders', o.id, v)} />
+                        <StatusSelect value={o.status || 'awaiting_payment'} options={orderStatusOptions(o.status || 'awaiting_payment')} label="Order status" disabled={Boolean(unavailable.orders)} onSave={(v) => saveStatus('orders', o.id, v)} />
                       </td>
                       <td>{dateTime(o.created_at)}</td>
                     </tr>
                   ))}
-                  {!orders.length && <tr><td colSpan={4} className="muted">No orders</td></tr>}
+                  {!orders.length && <tr><td colSpan={4} className="muted">{unavailable.orders ? 'Orders are unavailable; see the dashboard warning.' : 'No orders'}</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -334,12 +343,12 @@ export default function Admin() {
                       <td>{b.customer_name || b.customer_phone || b.customer_id || b.id}</td>
                       <td>{b.service_name || b.service_id || '—'}</td>
                       <td>
-                        <StatusSelect value={b.status || 'pending'} options={BOOKING_STATUSES} label="Booking status" onSave={(v) => saveStatus('bookings', b.id, v)} />
+                        <StatusSelect value={b.status || 'pending'} options={BOOKING_STATUSES} label="Booking status" disabled={Boolean(unavailable.bookings)} onSave={(v) => saveStatus('bookings', b.id, v)} />
                       </td>
                       <td>{dateTime(b.scheduled_at || b.created_at)}</td>
                     </tr>
                   ))}
-                  {!bookings.length && <tr><td colSpan={4} className="muted">No bookings</td></tr>}
+                  {!bookings.length && <tr><td colSpan={4} className="muted">{unavailable.bookings ? 'Bookings are unavailable; see the dashboard warning.' : 'No bookings'}</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -354,12 +363,12 @@ export default function Admin() {
                       <td>{r.customer_name || r.customer_email || r.customer_id || r.id}</td>
                       <td>{r.request_details || '—'}</td>
                       <td>
-                        <StatusSelect value={r.status || 'pending'} options={REQUEST_STATUSES} label="Request status" onSave={(v) => saveStatus('international_requests', r.id, v)} />
+                        <StatusSelect value={r.status || 'pending'} options={REQUEST_STATUSES} label="Request status" disabled={Boolean(unavailable.requests)} onSave={(v) => saveStatus('international_requests', r.id, v)} />
                       </td>
                       <td>{dateTime(r.created_at)}</td>
                     </tr>
                   ))}
-                  {!international.length && <tr><td colSpan={4} className="muted">No international requests</td></tr>}
+                  {!international.length && <tr><td colSpan={4} className="muted">{unavailable.requests ? 'International requests are unavailable; see the dashboard warning.' : 'No international requests'}</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -377,7 +386,7 @@ export default function Admin() {
                       <td>{dateTime(j.created_at)}</td>
                     </tr>
                   ))}
-                  {!riderJobs.length && <tr><td colSpan={4} className="muted">No rider jobs</td></tr>}
+                  {!riderJobs.length && <tr><td colSpan={4} className="muted">{unavailable.jobs ? 'Driver jobs are unavailable; see the dashboard warning.' : 'No rider jobs'}</td></tr>}
                 </tbody>
               </table>
               <p className="muted small" style={{ padding: '0 12px 12px' }}>

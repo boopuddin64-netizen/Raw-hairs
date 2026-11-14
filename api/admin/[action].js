@@ -6,6 +6,7 @@ import { getDb, PRODUCT_BUCKET } from '../_lib/db.js';
 import { consumeRateLimit, clearRateLimit, rateLimitKey } from '../_lib/rateLimit.js';
 import { inspectImageBuffer } from '../_lib/imageValidation.js';
 import { isSameOriginRequest, readJsonBody, trustedRequestOrigin } from '../_lib/request.js';
+import { buildDashboardSnapshot } from '../_lib/dashboardSnapshot.js';
 
 // Tables the admin console may change, and how. Anything else is rejected.
 const MUTABLE_FIELDS = {
@@ -45,8 +46,6 @@ const SNAPSHOT = [
   ['requests', 'international_requests'],
   ['jobs', 'rider_jobs'],
   ['payments', 'payments'],
-  ['returns', 'return_requests'],
-  ['refunds', 'refund_transactions'],
 ];
 
 // return_requests stores its timestamp as submitted_at, not created_at.
@@ -310,7 +309,12 @@ function logout(req, res) {
 function session(req, res) {
   const cfg = adminConfig();
   const current = getSession(req);
-  return json(res, 200, { ok: Boolean(current), email: current?.email || null, configured: cfg.ok });
+  const databaseConfigured = Boolean(getDb());
+  return json(res, 200, {
+    ok: Boolean(current),
+    email: current?.email || null,
+    configured: cfg.ok && databaseConfigured,
+  });
 }
 
 async function snapshot(res) {
@@ -324,9 +328,11 @@ async function snapshot(res) {
     const { data, error } = await db.from(table).select(columns).order(sortCol, { ascending: false }).limit(300);
     return { key, table, data, error };
   }));
-  const failed = results.find((r) => r.error);
-  if (failed) return json(res, 500, { error: `Dashboard data could not be loaded (${failed.table}).` });
-  return json(res, 200, Object.fromEntries(results.map((r) => [r.key, r.data || []])));
+  const snapshotData = buildDashboardSnapshot(results);
+  for (const table of Object.values(snapshotData.unavailable)) {
+    console.error(`[admin data] dashboard table unavailable: ${table}`);
+  }
+  return json(res, 200, { ...snapshotData.data, unavailable: snapshotData.unavailable });
 }
 
 async function reviews(res) {

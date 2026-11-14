@@ -9,6 +9,7 @@ export function useRealtimeDashboard() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [unavailable, setUnavailable] = useState({});
   const [live, setLive] = useState(false);
   const [lastEvent, setLastEvent] = useState(null);
   const [updatedAt, setUpdatedAt] = useState(null);
@@ -20,14 +21,16 @@ export function useRealtimeDashboard() {
     setError('');
     try {
       const payload = await adminApi.data();
+      const missing = payload.unavailable && typeof payload.unavailable === 'object' ? payload.unavailable : {};
+      setUnavailable(missing);
       setData({
-        products: payload.products || [],
-        services: payload.services || [],
-        orders: payload.orders || [],
-        bookings: payload.bookings || [],
-        requests: payload.requests || [],
-        jobs: payload.jobs || [],
-        payments: payload.payments || [],
+        products: missing.products ? [] : payload.products || [],
+        services: missing.services ? [] : payload.services || [],
+        orders: missing.orders ? [] : payload.orders || [],
+        bookings: missing.bookings ? [] : payload.bookings || [],
+        requests: missing.requests ? [] : payload.requests || [],
+        jobs: missing.jobs ? [] : payload.jobs || [],
+        payments: missing.payments ? [] : payload.payments || [],
       });
       setUpdatedAt(new Date());
     } catch (err) {
@@ -66,6 +69,7 @@ export function useRealtimeDashboard() {
     loading,
     error,
     setError,
+    unavailable,
     refresh,
     live,
     lastEvent,
