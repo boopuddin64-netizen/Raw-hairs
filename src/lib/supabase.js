@@ -62,7 +62,7 @@ export function isAdmin(user) {
 
 export function isDriver(user) {
   const role = getStaffRole(user);
-  return role === 'driver' || role === 'admin'; // admin can open driver tools
+  return role === 'driver';
 }
 
 /** @deprecated use isAdmin */
