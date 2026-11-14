@@ -3,8 +3,8 @@
 // pure helpers without Supabase credentials or a browser environment.
 
 import { describe, expect, it } from 'vitest';
-import { naira, stockLabel, isSoldOut } from '../../src/store';
-import { formatKobo, secondsRemaining, checkoutErrorMessage } from '../../src/lib/checkout';
+import { naira, stockLabel, isSoldOut } from '../src/store';
+import { formatKobo, secondsRemaining, checkoutErrorMessage } from '../src/lib/checkout';
 
 // naira() and store helpers come from store.jsx which has JSX in the file
 // (StoreProvider). Vitest handles .jsx with esbuild by default - no plugin
