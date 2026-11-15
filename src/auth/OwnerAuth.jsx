@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { isOwner, supabase, supabaseConfigured } from '../lib/supabase';
+import { userFacingError } from '../lib/userFacingError';
 
 const OwnerAuthContext = createContext(null);
 
@@ -37,7 +38,7 @@ export function OwnerAuthProvider({ children }) {
     authError,
     configured: supabaseConfigured,
     async signIn(email, password) {
-      if (!supabase) throw new Error('Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY.');
+      if (!supabase) throw new Error('Sign-in is temporarily unavailable. Please try again later.');
       setAuthError('');
       const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (error) throw error;
@@ -85,7 +86,7 @@ export function OwnerSignIn() {
   async function submit(event) {
     event.preventDefault(); setError(''); setBusy(true);
     try { await signIn(email, password); }
-    catch (err) { setError(err?.message || 'Sign-in failed. Check your details and try again.'); }
+    catch (err) { setError(userFacingError(err, 'Sign-in failed. Check your details and try again.')); }
     finally { setBusy(false); }
   }
   return (
@@ -94,7 +95,7 @@ export function OwnerSignIn() {
         <p className="eyebrow">RAW HAIRS · OWNER ACCESS</p>
         <h1>Owner sign in</h1>
         <p className="muted small">This area is restricted to the authorized business owner.</p>
-        {!configured && <div className="notice auth-error" role="alert">Supabase is not configured in this environment. Add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY before enabling owner sign-in.</div>}
+        {!configured && <div className="notice auth-error" role="alert">Owner sign-in is temporarily unavailable. Please try again later.</div>}
         {(error || authError) && <div className="notice auth-error" role="alert">{error || authError}</div>}
         <form onSubmit={submit}>
           <div className="field"><label htmlFor="owner-email">Email address</label><input id="owner-email" type="email" autoComplete="username" required value={email} onChange={(event) => setEmail(event.target.value)} /></div>
