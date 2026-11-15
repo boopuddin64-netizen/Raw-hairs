@@ -180,7 +180,7 @@ export default function Dispatch() {
       setNotice(`New one-time customer delivery code: ${result.otp}. Share it with the customer; it expires in 24 hours.`);
       await refresh();
     } catch (err) {
-      setError(err.message);
+      setError(friendlyDispatchError(err));
       await refresh();
     } finally {
       setBusyId('');
