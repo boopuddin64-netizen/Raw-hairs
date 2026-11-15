@@ -54,12 +54,12 @@ Phase 4 is complete only when automated tests cover the above and a designated d
 ## Phase 5 — Operations, exceptions and evidence retention
 
 ### 5.1 Admin exception management
-- Add an owner/admin-only API to list pending/resolved/dismissed exceptions with pagination and safe order/job context.
-- Add resolve and dismiss actions with required resolution notes, actor ID and timestamps.
-- Enforce valid state transitions and optimistic concurrency; repeated resolution must return a conflict rather than overwrite an earlier decision.
-- Add an admin dispatch UI panel for pending exceptions, details, resolution/dismissal and refresh.
-- Do not allow a driver to resolve their own exception or modify exception status directly.
-- Add tests for role denial, invalid status, missing resolution note, concurrent resolution, and audit fields.
+- [x] Add an owner/admin-only API to list pending/resolved/dismissed exceptions with pagination and safe order/job context.
+- [x] Add resolve and dismiss actions with required resolution notes, configured admin email and timestamps. The current password-backed admin session has no Supabase auth.users UUID, so resolved_by remains null and resolved_by_email is the audit identity.
+- [x] Enforce pending-only state transitions and optimistic concurrency; repeated resolution returns HTTP 409 rather than overwriting an earlier decision.
+- [x] Add an admin dispatch UI panel for pending exceptions, job/customer context, resolution/dismissal notes and refresh.
+- [x] Exception decisions are exposed only through the owner/admin session API; the driver role has no decision route.
+- [ ] Add tests for role denial, invalid status, missing resolution note, concurrent resolution, and audit fields.
 
 ### 5.2 Evidence retention and cleanup
 - Implement a server-only scheduled cleanup job for expired evidence, with dry-run support, bounded batches, idempotency and structured counts.
@@ -105,7 +105,7 @@ Phase 4 is complete only when automated tests cover the above and a designated d
 1. Production currently has a 30-minute initial assignment expiry. A forward migration on this branch changes new assignments to 24 hours; it has not been applied to production.
 2. The dispatch UI currently tells the owner that reissued OTPs expire in 24 hours, although the agreed reissue policy is 30 minutes.
 3. Evidence expiry is currently metadata only; no scheduled deletion process exists.
-4. Exception reporting exists, but owner/admin resolution UI/API is not implemented.
+4. Owner/admin exception queue and decision API are now implemented on this branch; automated tests and production migration application remain pending.
 5. The Phase 0–3 approval document still lists end-to-end lifecycle integration checks as pending.
 
 ## Explicit non-goals
