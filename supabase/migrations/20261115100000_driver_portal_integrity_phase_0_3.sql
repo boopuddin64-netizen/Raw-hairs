@@ -115,7 +115,7 @@ begin
  if v_control.locked_at is not null or v_control.failed_attempts>=5 then return jsonb_build_object('ok',false,'error','otp_locked'); end if;
  if coalesce(p_otp,'') ~ '^[0-9]{6}$' and v_job.delivery_otp_hash is not null then
   if left(v_job.delivery_otp_hash,4) in ('$2a$','$2b$','$2y$') then v_valid:=extensions.crypt(p_otp,v_job.delivery_otp_hash)=v_job.delivery_otp_hash;
-  else v_valid:=encode(extensions.digest(p_otp,'sha256'),'hex')=v_job.delivery_otp_hash; end if;
+  else v_valid:=encode(extensions.digest(p_otp,'sha256'),'hex')=replace(v_job.delivery_otp_hash,'\\x',''); end if;
  end if;
  if not v_valid then
   v_attempts:=v_control.failed_attempts+1;
