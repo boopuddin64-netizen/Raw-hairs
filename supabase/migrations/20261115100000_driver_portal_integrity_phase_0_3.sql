@@ -66,7 +66,7 @@ grant all on public.delivery_exceptions to service_role;
 -- update rider_jobs plus rider_otp_controls in the same transaction.
 create or replace function public.assign_rider_job(p_job_id uuid,p_rider_email text)
 returns jsonb language plpgsql security definer set search_path=''
-as $
+as $$
 declare
  v_role text:=coalesce(auth.jwt()->>'role','');
  v_rider uuid;
@@ -89,7 +89,7 @@ begin
  end if;
  -- Four random bytes are reduced to a six-digit code. The code is returned
  -- once to the owner API; only its SHA-256 digest is persisted.
- v_otp:=lpad((('x'||substr(encode(extensions.gen_random_bytes(4),'hex'),1,8))::bit(32)::bigint % 1000000)::text,6,'0');
+ v_otp:=lpad((('x'||substr(encode(extensions.gen_random_bytes(3),'hex'),1,6))::bit(24)::bigint % 1000000)::text,6,'0');
  v_hash:=encode(extensions.digest(v_otp,'sha256'),'hex');
  update public.rider_jobs set rider_id=v_rider,status='assigned',
   delivery_otp_hash=v_hash,delivery_photo_path=null,updated_at=now()
@@ -99,13 +99,13 @@ begin
  on conflict(job_id) do update set expires_at=excluded.expires_at,
   failed_attempts=0,locked_at=null,updated_at=now();
  return jsonb_build_object('ok',true,'job_id',p_job_id,'rider_id',v_rider,'otp',v_otp);
-end $;
+end $$;
 revoke all on function public.assign_rider_job(uuid,text) from public,anon,authenticated;
 grant execute on function public.assign_rider_job(uuid,text) to service_role;
 
 create or replace function public.reissue_delivery_otp(p_job_id uuid)
 returns jsonb language plpgsql security definer set search_path=''
-as $
+as $$
 declare
  v_role text:=coalesce(auth.jwt()->>'role','');
  v_job public.rider_jobs;
@@ -119,7 +119,7 @@ begin
  if v_job.rider_id is null or v_job.status not in ('assigned','picked_up','in_transit') then
   return jsonb_build_object('ok',false,'error','invalid_state');
  end if;
- v_otp:=lpad((('x'||substr(encode(extensions.gen_random_bytes(4),'hex'),1,8))::bit(32)::bigint % 1000000)::text,6,'0');
+ v_otp:=lpad((('x'||substr(encode(extensions.gen_random_bytes(3),'hex'),1,6))::bit(24)::bigint % 1000000)::text,6,'0');
  update public.rider_jobs set delivery_otp_hash=encode(extensions.digest(v_otp,'sha256'),'hex'),updated_at=now()
  where id=p_job_id;
  insert into public.rider_otp_controls(job_id,expires_at,failed_attempts,locked_at,updated_at)
@@ -127,13 +127,13 @@ begin
  on conflict(job_id) do update set expires_at=excluded.expires_at,
   failed_attempts=0,locked_at=null,updated_at=now();
  return jsonb_build_object('ok',true,'job_id',p_job_id,'otp',v_otp);
-end $;
+end $$;
 revoke all on function public.reissue_delivery_otp(uuid) from public,anon,authenticated;
 grant execute on function public.reissue_delivery_otp(uuid) to service_role;
 
 create or replace function public.unassign_rider_job(p_job_id uuid)
 returns jsonb language plpgsql security definer set search_path=''
-as $
+as $$
 declare
  v_role text:=coalesce(auth.jwt()->>'role','');
  v_job public.rider_jobs;
@@ -149,7 +149,7 @@ begin
   delivery_otp_hash=null,delivery_photo_path=null,updated_at=now()
  where id=p_job_id;
  return jsonb_build_object('ok',true,'job_id',p_job_id);
-end $;
+end $$;
 revoke all on function public.unassign_rider_job(uuid) from public,anon,authenticated;
 grant execute on function public.unassign_rider_job(uuid) to service_role;
 
