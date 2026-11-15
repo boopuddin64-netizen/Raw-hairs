@@ -8,6 +8,7 @@ import {
   driverEmails,
 } from '../lib/supabase';
 import { adminApi } from '../lib/adminApi';
+import { userFacingError } from '../lib/userFacingError';
 
 const StaffAuthContext = createContext(null);
 
@@ -71,7 +72,7 @@ export function StaffAuthProvider({ children }) {
 
     async signIn(email, password) {
       if (!supabase) {
-        throw new Error('Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY.');
+        throw new Error('Sign-in is temporarily unavailable. Please try again later.');
       }
       setAuthError('');
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -85,7 +86,7 @@ export function StaffAuthProvider({ children }) {
         await supabase.auth.signOut();
         setUser(null);
         throw new Error(
-          'This account is not on the driver allow-list. Add the email to VITE_DRIVER_EMAILS, or set app_metadata.role in Supabase.'
+          'This account does not have driver access. Please contact the store team.'
         );
       }
       setUser(data.user);
@@ -170,9 +171,9 @@ function StaffSignInForm({ portal, title, subtitle, successPath, requireRole }) 
           <p className="eyebrow">RAW HAIRS · {portal}</p>
           <h1>Wrong portal</h1>
           <p className="muted small">
-            You are signed in as <strong>{role}</strong>. This page is for {portal.toLowerCase()} only.
+            This account is signed in to a different portal.
           </p>
-          <p className="muted small">Sign out and use an account authorized for the driver portal.</p>
+          <p className="muted small">Sign out and use an account with the correct access.</p>
           <button className="btn btn-ghost btn-block" type="button" style={{ marginTop: 8 }} onClick={() => signOut()}>
             Sign out
           </button>
@@ -192,15 +193,13 @@ function StaffSignInForm({ portal, title, subtitle, successPath, requireRole }) 
         throw new Error(`This account does not have ${portal.toLowerCase()} access.`);
       }
     } catch (err) {
-      setError(err?.message || 'Sign-in failed. Check your details and try again.');
+      setError(userFacingError(err, 'Sign-in failed. Check your details and try again.'));
     } finally {
       setBusy(false);
     }
   }
 
-  const allowListHint = driverEmailsConfigured
-    ? `Driver allow-list is configured (${driverEmails.length} email${driverEmails.length === 1 ? '' : 's'}).`
-    : 'Set VITE_DRIVER_EMAILS in the environment (comma-separated) to allow driver emails.';
+  const allowListHint = 'Driver access is managed by the RAW HAIRS team.';
 
   return (
     <section className="wrap page auth-page">
@@ -211,8 +210,7 @@ function StaffSignInForm({ portal, title, subtitle, successPath, requireRole }) 
 
         {!configured && (
           <div className="notice auth-error" role="alert">
-            Supabase is not configured. Add <code>VITE_SUPABASE_URL</code> and{' '}
-            <code>VITE_SUPABASE_PUBLISHABLE_KEY</code> to your environment.
+            Sign-in is temporarily unavailable. Please try again later.
           </div>
         )}
 
@@ -298,14 +296,12 @@ export function AdminSignIn() {
 
         {admin.unavailable && (
           <div className="notice auth-error" role="alert">
-            The admin sign-in service could not be reached from this deployment. Check that its API route is available and review the deployment logs.
+            Sign-in is temporarily unavailable. Please try again in a few minutes.
           </div>
         )}
         {!admin.configured && !admin.unavailable && (
           <div className="notice auth-error" role="alert">
-            Admin login is not configured on the server yet. Set <code>ADMIN_EMAIL</code>, <code>ADMIN_PASSWORD</code>,{' '}
-            <code>ADMIN_SESSION_SECRET</code>, <code>SUPABASE_URL</code> (or <code>VITE_SUPABASE_URL</code>) and{' '}
-            <code>SUPABASE_SERVICE_ROLE_KEY</code> in the Vercel project environment, then redeploy.
+            Admin sign-in is temporarily unavailable. Please contact the store owner.
           </div>
         )}
         {error && <div className="notice auth-error" role="alert">{error}</div>}
