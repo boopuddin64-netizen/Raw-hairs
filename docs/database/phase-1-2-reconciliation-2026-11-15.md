@@ -204,3 +204,63 @@ Build and integration tests should be run against a staging database created fro
 ## Remaining work
 
 This report establishes the reconciliation findings. It does not yet constitute a complete application-code reference scan or a clean-room migration replay. Those are required before declaring Phase 1 and Phase 2 complete.
+
+
+---
+
+## Application-to-database dependency scan — 2026-11-15
+
+**Scope inspected:** driver API handlers, driver portal UI, dispatch API, catalogue loading, product administration, catalogue structure administration, and the Phase 0–3 driver migration.
+
+### Critical: driver portal is not deploy-ready against the current production schema
+
+| Application dependency | Source usage | Production state | Consequence |
+|---|---|---|---|
+| `rider_otp_controls` | `api/admin/dispatch.js` reads expiry/failed attempts; `confirm_delivery_otp` reads and updates it | Missing | Dispatch GET fails; OTP confirmation returns a database error |
+| `verified_delivery_evidence` | `api/driver/verify-delivery-photo.js` inserts verified image metadata; `mark_delivery_photo` reads it | Missing | Photo verification and attachment fail |
+| `delivery_evidence` | `confirm_delivery_otp` requires a non-expired evidence row | Missing | Delivery completion cannot satisfy the photo-proof check |
+| `delivery_exceptions` | `api/driver/report-issue.js` inserts exception reports | Missing | Report-issue action fails |
+| `reissue_delivery_otp(uuid)` | `api/admin/dispatch.js` calls RPC | Function absent in production | Reissue action fails |
+| `unassign_rider_job(uuid)` | `api/admin/dispatch.js` calls RPC | Function absent in production | Unassign action fails |
+| `assign_rider_job(uuid,text)` | `api/admin/dispatch.js` calls RPC | Function exists | Existing assignment function does not create the OTP control row required by the new confirmation flow |
+
+The driver UI's direct calls to `mark_delivery_photo` and `confirm_delivery_otp` also depend on the new tables. The current production confirmation function itself has no control-table protection; replacing it with the branch version before fixing assignment/reissue would strand newly assigned jobs without an OTP-control record.
+
+**Required migration correction:** the driver migration must include reviewed, compatible definitions for `assign_rider_job`, `reissue_delivery_otp`, and (if the UI retains it) `unassign_rider_job`. Assignment and every OTP reissue must atomically create/reset `rider_otp_controls`. The branch migration currently creates the control/evidence/exception tables and replaces photo/confirmation functions, but does not define assignment or reissue functions despite the approval document claiming it does. Do not apply this migration as currently written.
+
+### High: driver workflow sequencing and deployment dependency
+
+- `api/driver/transition.js` writes `rider_jobs.status` directly through the authenticated Supabase client for `assigned → picked_up → in_transit`. This relies on the active `rider_jobs_transition_check` trigger continuing to authorize the assigned rider's two transitions.
+- `api/driver/verify-delivery-photo.js` validates the actual stored bytes, then inserts metadata into `verified_delivery_evidence`; this endpoint requires the table and service-role database client.
+- `src/pages/Rider.jsx` uploads to the private `delivery-evidence` bucket, calls the verification endpoint, attaches the verified path through `mark_delivery_photo`, and finally calls `confirm_delivery_otp`.
+- `api/admin/dispatch.js` GET reads `rider_otp_controls`; its POST calls assignment, unassignment, and reissue RPCs. The missing table means the dispatch dashboard GET is already incompatible with current production even before a driver attempts delivery.
+- Therefore the matching database migration, server API and frontend must be released as one controlled deployment sequence. Do not deploy the new dispatch/driver API/UI ahead of the corrected database migration.
+
+### Catalogue dependency scan
+
+| Application dependency | Source usage | Production state | Consequence |
+|---|---|---|---|
+| `catalog_product_types` | `src/catalog.jsx`, admin catalogue manager | Missing | Flexible product type metadata unavailable |
+| `catalog_categories` | `src/catalog.jsx`, `CatalogStructureManager.jsx` | Missing | Managed category metadata unavailable |
+| `catalog_attribute_definitions` | `src/catalog.jsx`, `Product.jsx`, admin catalogue manager | Missing | Custom typed product attributes unavailable |
+| `products.product_type_id` | Shop filtering, product details, product editor | Missing | Type-based filtering/association unavailable |
+| `products.category_id` | Shop filtering, product editor | Missing | Managed category associations unavailable |
+| `products.attributes` | Search and product specs | Missing | Custom attributes unavailable |
+| `products.gallery_paths` | Product gallery and product editor | Missing | Database-backed secondary gallery unavailable |
+
+The catalogue loader deliberately tolerates failures for the three metadata tables and derives category labels from existing product `category` values when the category table is unavailable. The product editor only writes the new product columns when `catalogReady` is true. This is a compatibility fallback, not proof that the flexible catalogue migration is applied. The current production catalogue can continue using legacy `products.category`, but advanced catalogue features must remain disabled until the migration is staged and applied.
+
+### Additional code-level observations
+
+1. `api/driver/report-issue.js` inserts directly into `delivery_exceptions`; no production table exists.
+2. The admin dispatch API returns the OTP to the authenticated owner after assignment/reissue. Review the admin UI's display lifecycle and ensure OTPs are not persisted in logs, analytics, or browser storage.
+3. The new branch migration's `confirm_delivery_otp` omits a direct notification insert, which is consistent with the documented intent to rely on the existing `orders_notify_change` trigger. Preserve this single-notification behavior and test it.
+4. The branch migration backfills active jobs with a 24-hour OTP-control grace period. This is a policy decision and must be explicitly accepted before applying; it is not equivalent to the old OTP's original issue time.
+5. The branch migration records evidence expiry metadata but does not implement scheduled deletion of expired storage objects. Retention must not be described as automatic until cleanup is separately implemented and verified.
+6. The production function inventory currently contains `assign_rider_job(uuid,text)`, `confirm_delivery_otp(uuid,text)`, and `mark_delivery_photo(uuid,text)`; it does not contain `unassign_rider_job(uuid)` or `reissue_delivery_otp(uuid)`.
+
+### Phase 1–2 disposition after source scan
+
+- **Phase 1: still open.** Production migration history is not yet fully mapped to canonical source migrations; the production-only rate-limit repair SQL and differently named migration bodies still need recovery/mapping.
+- **Phase 2: source dependency scan materially advanced, not closed.** The primary driver and flexible-catalogue dependencies are now mapped to production gaps. A complete function-signature/grant and all-app call-site scan plus clean-room migration replay/integration tests remain outstanding.
+- **No production changes made.** This scan used repository reads and read-only production catalog queries only.
