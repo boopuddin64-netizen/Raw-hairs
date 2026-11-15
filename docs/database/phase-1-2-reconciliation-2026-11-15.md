@@ -264,3 +264,36 @@ The catalogue loader deliberately tolerates failures for the three metadata tabl
 - **Phase 1: still open.** Production migration history is not yet fully mapped to canonical source migrations; the production-only rate-limit repair SQL and differently named migration bodies still need recovery/mapping.
 - **Phase 2: source dependency scan materially advanced, not closed.** The primary driver and flexible-catalogue dependencies are now mapped to production gaps. A complete function-signature/grant and all-app call-site scan plus clean-room migration replay/integration tests remain outstanding.
 - **No production changes made.** This scan used repository reads and read-only production catalog queries only.
+
+
+---
+
+## Production-only rate-limit repair recovery — follow-up
+
+The production-only ledger entry `20261115060245_raw_hairs_admin_rate_limit_repair` has no matching migration file in the inspected repository history/path. A GitHub path-history lookup returned no commit for that exact filename. Therefore the original migration source has **not** been recovered.
+
+The live database does, however, provide enough evidence to document the resulting production state:
+
+### `public.api_rate_limits`
+
+- Columns: `key_hash text NOT NULL` (primary key), `window_started_at timestamptz NOT NULL`, `hit_count integer NOT NULL`, `updated_at timestamptz NOT NULL DEFAULT now()`.
+- RLS enabled; no policy rows were returned.
+- Table ACL contains only the owner role (postgres); no direct anon/authenticated/service_role table grants.
+- Indexes: primary key on `key_hash`, plus `api_rate_limits_updated_idx` on `updated_at`.
+
+### Production functions
+
+- `consume_api_rate_limit(p_key_hash text, p_limit integer, p_window_seconds integer) RETURNS jsonb`
+- `clear_api_rate_limit(p_key_hash text) RETURNS void`
+- Both are SECURITY DEFINER with an empty search_path.
+- Both have execute ACL only for postgres and service_role; no anon/authenticated execute grants.
+- `consume_api_rate_limit` validates a 64-character lowercase hex hash, limits 1–1000 and window 1–86400 seconds, atomically increments or resets the fixed window, returns allowed/remaining/retry-after fields, and prunes rows older than one day.
+- `clear_api_rate_limit` deletes only a row whose key hash matches the same 64-character lowercase hex format.
+
+**Interpretation:** the production state is internally consistent with a server-only rate-limit store and two service-role RPCs. The missing policy on an RLS-enabled table is not by itself evidence of a vulnerability because the table has no client-role grants and the RPCs are service-role-only. Keep the table private; do not add broad RLS policies or grant direct client access as an advisor-only cleanup.
+
+**Recovery classification:** resulting schema/function definitions have been recovered from live catalog metadata; the original migration text, original ordering, comments, and exact deployment SQL remain unrecovered. Do not recreate a migration file and mark it as the original historical migration. If canonical migration replay is required, create a clearly labelled baseline/reconciliation migration for a fresh staging database, and separately document that it represents reconstructed state rather than the missing historical source.
+
+### Phase 1 implications
+
+This resolves the *what exists* question for the production-only rate-limit entry, but not the *what exact migration was executed* question. Phase 1 therefore remains open until all production-only/differently named ledger entries are mapped or explicitly classified as reconstructed/unrecoverable.
