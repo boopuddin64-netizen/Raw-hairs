@@ -102,7 +102,7 @@ Phase 4 is complete only when automated tests cover the above and a designated d
 
 ## Current known defects to address first
 
-1. The production Phase 0–3 SQL currently sets initial assignment expiry to 30 minutes, although the agreed initial assignment policy is 24 hours.
+1. Production currently has a 30-minute initial assignment expiry. A forward migration on this branch changes new assignments to 24 hours; it has not been applied to production.
 2. The dispatch UI currently tells the owner that reissued OTPs expire in 24 hours, although the agreed reissue policy is 30 minutes.
 3. Evidence expiry is currently metadata only; no scheduled deletion process exists.
 4. Exception reporting exists, but owner/admin resolution UI/API is not implemented.
