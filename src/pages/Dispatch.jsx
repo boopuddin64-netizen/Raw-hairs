@@ -13,16 +13,37 @@ import { naira } from '../store';
 
 const ACTIVE_STATUSES = ['assigned', 'picked_up', 'in_transit'];
 
+function friendlyDispatchError(error, fallback = 'We couldn’t complete that request. Please try again.') {
+  const status = error?.status;
+  if (status === 401 || status === 403) return 'Your admin session may have expired. Please sign in again.';
+  if (status === 404) return 'That delivery job could not be found. Refresh the page and try again.';
+  if (status === 409) return 'This delivery has changed and can’t be updated that way. Refresh and try again.';
+  if (status === 429) return 'Too many attempts. Please wait a little and try again.';
+  if (status >= 500 || error instanceof TypeError) return fallback;
+  return error?.message && !/failed to fetch|request failed|undefined|null/i.test(error.message)
+    ? error.message
+    : fallback;
+}
+
 async function call(method, body) {
-  const res = await fetch('/api/admin/dispatch', {
-    method,
-    credentials: 'same-origin',
-    headers: method === 'GET' ? undefined : { 'content-type': 'application/json', 'x-requested-with': 'rh-admin' },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  let res;
+  try {
+    res = await fetch('/api/admin/dispatch', {
+      method,
+      credentials: 'same-origin',
+      headers: method === 'GET' ? undefined : { 'content-type': 'application/json', 'x-requested-with': 'rh-admin' },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    throw new Error('We couldn’t connect. Check your internet connection and try again.');
+  }
   let data = null;
-  try { data = await res.json(); } catch { /* non-JSON error page */ }
-  if (!res.ok) throw new Error(data?.error || `Request failed (${res.status}).`);
+  try { data = await res.json(); } catch { /* use a plain message below */ }
+  if (!res.ok) {
+    const error = new Error(data?.error || 'Request failed.');
+    error.status = res.status;
+    throw error;
+  }
   return data;
 }
 
@@ -97,7 +118,7 @@ export default function Dispatch() {
       setDrivers(data.drivers || []);
       setError('');
     } catch (err) {
-      setError(err.message);
+      setError(friendlyDispatchError(err, 'We couldn’t load delivery information. Please refresh and try again.'));
     } finally {
       setLoading(false);
     }
@@ -127,7 +148,7 @@ export default function Dispatch() {
       setNotice(`Assigned. One-time customer delivery code: ${result.otp}. Share it with the customer; it expires in 24 hours.`);
       await refresh();
     } catch (err) {
-      setError(err.message);
+      setError(friendlyDispatchError(err));
       await refresh(); // show the true current state after a race
     } finally {
       setBusyId('');
@@ -185,14 +206,13 @@ export default function Dispatch() {
       {notice && <div className="notice" role="status">{notice}</div>}
       {loading && <p className="muted">Loading dispatch board…</p>}
 
-      {!loading && drivers.length === 0 && (
+      {!loading && !error && drivers.length === 0 && (
         <div className="notice" role="status">
-          No drivers found. Create driver users in Supabase Auth and add their emails to VITE_DRIVER_EMAILS
-          (or set app_metadata.role = 'driver').
+          No drivers are available yet. Add a driver account to enable delivery assignments.
         </div>
       )}
 
-      <div className="dash-grid-2">
+      {!error && <div className="dash-grid-2">
         <div className="dash-panel">
           <div className="dash-panel-head">
             <h2>Unassigned ({unassigned.length})</h2>
@@ -216,9 +236,9 @@ export default function Dispatch() {
             {!active.length && <p className="muted small">No active runs right now.</p>}
           </div>
         </div>
-      </div>
+      </div>}
 
-      {done.length > 0 && (
+      {done.length > 0 && !error && (
         <div className="dash-panel" style={{ marginTop: 16 }}>
           <div className="dash-panel-head">
             <h2>Completed / failed ({done.length})</h2>
