@@ -94,6 +94,7 @@ export default function Dispatch() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState('');
   const [error, setError] = useState('');
+  const [exceptionError, setExceptionError] = useState('');
   const [notice, setNotice] = useState('');
   const [exceptions, setExceptions] = useState([]);
   const [exceptionsLoading, setExceptionsLoading] = useState(false);
@@ -119,17 +120,18 @@ export default function Dispatch() {
     try {
       const response = await fetch('/api/admin/delivery-exceptions?status=pending', { credentials: 'same-origin' });
       const data = await response.json();
-      if (!response.ok) throw new Error(data?.error || 'Could not load exceptions.');
+      if (!response.ok) { const error = new Error(data?.error || 'Could not load exceptions.'); error.status = response.status; throw error; }
       setExceptions(data.exceptions || []);
+      setExceptionError('');
     } catch (err) {
-      setError(friendlyDispatchError(err, 'Delivery exceptions could not be loaded.'));
+      setExceptionError(friendlyDispatchError(err, 'Delivery exceptions could not be loaded.'));
     } finally { setExceptionsLoading(false); }
   }, []);
 
   const actionException = async (exceptionId, op) => {
     const resolution = String(exceptionNotes[exceptionId] || '').trim();
-    if (!resolution) { setError('Enter a resolution note before actioning this exception.'); return; }
-    setExceptionBusy(exceptionId); setError(''); setNotice('');
+    if (!resolution) { setExceptionError('Enter a resolution note before actioning this exception.'); return; }
+    setExceptionBusy(exceptionId); setExceptionError(''); setNotice('');
     try {
       const response = await fetch('/api/admin/delivery-exceptions', {
         method: 'POST', credentials: 'same-origin',
@@ -141,7 +143,7 @@ export default function Dispatch() {
       setNotice(op === 'resolve' ? 'Exception resolved.' : 'Exception dismissed.');
       setExceptionNotes((current) => ({ ...current, [exceptionId]: '' }));
       await refreshExceptions();
-    } catch (err) { setError(friendlyDispatchError(err)); }
+    } catch (err) { setExceptionError(friendlyDispatchError(err, 'The exception decision could not be saved.')); }
     finally { setExceptionBusy(''); }
   };
 
@@ -196,12 +198,13 @@ export default function Dispatch() {
         <button className="btn btn-ghost" type="button" onClick={refresh} disabled={loading}>Refresh</button>
       </div>
       {error && <div className="notice auth-error" role="alert">{error}</div>}
+      {exceptionError && <div className="notice auth-error" role="alert">{exceptionError}</div>}
       {notice && <div className="notice" role="status">{notice}</div>}
       {loading && <p className="muted">Loading dispatch board…</p>}
       {!loading && !error && drivers.length === 0 && (
         <div className="notice" role="status">No drivers are available yet. Add a driver account to enable delivery assignments.</div>
       )}
-      {!error && <div className="dash-grid-2">
+      {!loading && !error && <div className="dash-grid-2">
         <div className="dash-panel">
           <div className="dash-panel-head"><h2>Unassigned ({unassigned.length})</h2></div>
           <div className="stack">
@@ -220,6 +223,7 @@ export default function Dispatch() {
 
       <div className="dash-panel" style={{ marginTop: 16 }}>
         <div className="dash-panel-head"><h2>Delivery exceptions ({exceptions.length})</h2><button className="btn btn-ghost" type="button" onClick={refreshExceptions} disabled={exceptionsLoading}>Refresh</button></div>
+        {exceptionError && <p className="small" role="alert">{exceptionError}</p>}
         {exceptionsLoading && <p className="muted small">Loading exceptions…</p>}
         {!exceptionsLoading && exceptions.length === 0 && <p className="muted small">No pending delivery exceptions.</p>}
         <div className="stack">
@@ -240,7 +244,7 @@ export default function Dispatch() {
           ))}
         </div>
       </div>
-      {done.length > 0 && !error && (
+      {done.length > 0 && !loading && !error && (
         <div className="dash-panel" style={{ marginTop: 16 }}>
           <div className="dash-panel-head"><h2>Completed / failed ({done.length})</h2></div>
           <div className="stack">

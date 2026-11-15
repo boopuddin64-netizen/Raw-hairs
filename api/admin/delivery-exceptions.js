@@ -48,7 +48,12 @@ export default async function handler(req, res) {
       }]));
       return json(res, 200, { exceptions: rows.map((row) => ({ ...row, job: jobMap.get(row.job_id) || null })) });
     } catch (error) {
-      console.error('[admin delivery exceptions] load failed', error);
+      // The audit column is introduced by the Phase 4–6 migration. Return a
+      // migration-specific response instead of an opaque 500 if code is deployed first.
+      if (error?.code === '42703' || error?.code === 'PGRST204') {
+        return bad(res, 503, 'Delivery-exception schema update is required. Apply the Phase 4–6 audit migration before enabling this feature.');
+      }
+      console.error('[admin delivery exceptions] load failed', { code: error?.code || 'unknown' });
       return bad(res, 500, 'Delivery exceptions could not be loaded.');
     }
   }
@@ -73,7 +78,10 @@ export default async function handler(req, res) {
     if (!data) return bad(res, 409, 'This exception has already been actioned. Refresh the queue.');
     return json(res, 200, { ok: true, exception: data });
   } catch (error) {
-    console.error('[admin delivery exceptions] update failed', error);
+    if (error?.code === '42703' || error?.code === 'PGRST204') {
+      return bad(res, 503, 'Delivery-exception schema update is required. Apply the Phase 4–6 audit migration before enabling this feature.');
+    }
+    console.error('[admin delivery exceptions] update failed', { code: error?.code || 'unknown' });
     return bad(res, 500, 'The exception decision could not be saved.');
   }
 }
