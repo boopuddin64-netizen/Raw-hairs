@@ -1,0 +1,340 @@
+# RAW HAIRS database reconciliation — Phases 1 and 2
+
+**Audit date:** 2026-11-15  
+**Production Supabase project:** `xcipemtyclinuyaadgxy`  
+**Repository:** `boopuddin64-netizen/Raw-hairs`  
+**Repository branch reviewed:** `feature/driver-portal-phases-0-3` (main migration directory also compared)  
+**Execution status:** Read-only audit. No production DDL, DML, migration application, or migration-history edits were performed.
+
+## Executive result
+
+Production currently reports 24 applied migrations. The repository migration directory has 22 SQL files on `main` and 23 on the driver-portal feature branch. The two migration sets are not a reliable one-to-one representation of the production migration history.
+
+The live schema contains the core checkout, order, payment, inventory-reservation, notification, and dispatch objects. However, several repository migrations described as source-only or pending are not reflected in production, and the new driver-portal migration is not applied.
+
+Do not run `supabase db push` against production until the migration ledger and canonical SQL have been reconciled.
+
+## Phase 1 — Migration history reconciliation
+
+### 1.1 Production migration ledger
+
+The production migration API returned these 24 versions:
+
+| Version | Production migration name |
+|---|---|
+| 20261111145644 | restrict_rls_auto_enable_function |
+| 20261111145717 | raw_hairs_initial_schema |
+| 20261111163251 | public_catalog_product_image_read |
+| 20261111212510 | phase_1_foundation_repair |
+| 20261112065539 | grok_catalogue_import |
+| 20261112102441 | grok_catalogue_import |
+| 20261112215733 | phase_1_backend_integrity_corrected |
+| 20261112215837 | fix_order_rpc_delivery_fee_null |
+| 20261112215902 | security_advisor_fixes |
+| 20261112220627 | phase_3_payment_lifecycle |
+| 20261112221039 | phase_3_notifications_settings_seed |
+| 20261112221115 | fix_notifications_order_fk |
+| 20261112231245 | phase_5_booking_validation |
+| 20261112231253 | phase_6_delivery_otp |
+| 20261112231314 | phase_5_6_rpc_grant_hardening |
+| 20261112231925 | fix_notify_order_event_public_grant |
+| 20261112233021 | fix_reserve_cart_items_authenticated_grant |
+| 20261112233219 | fix_checkout_grants_and_anon_exposure |
+| 20261113110935 | guest_tracking_and_fulfillment_automation |
+| 20261113111008 | revoke_trigger_function_execute |
+| 20261113120118 | admin_confirm_bank_transfer_service_role |
+| 20261113134103 | allow_paid_to_processing_transition |
+| 20261113134113 | advance_order_status_service_role |
+| 20261115060245 | raw_hairs_admin_rate_limit_repair |
+
+### 1.2 Repository mismatches
+
+The repository contains files whose timestamp versions do not appear in the production ledger, including:
+
+- `20261111180000_phase_1_foundation_repair.sql`
+- `20261112190000_phase_1_backend_integrity.sql`
+- `20261112190010_phase_1_corrected_part1.sql`
+- `20261112190012_phase_1_corrected_part1b.sql`
+- `20261112190020_phase_1_corrected_part2.sql`
+- `20261112190030_phase_1_corrected_part3.sql`
+- `20261112210000_phase_5_booking_validation.sql`
+- `20261112211000_phase_6_delivery_otp.sql`
+- `20261112212500_fix_checkout_grants.sql`
+- `20261113110000_customer_order_tracking.sql`
+- `20261113130000_guest_tracking_and_fulfillment_automation.sql`
+- `20261113140000_admin_confirm_bank_transfer_service_role.sql`
+- `20261113140000_phase3_payment_rpcs_drift_repair.sql`
+- `20261113143000_advance_order_status_recovery_transitions.sql`
+- `20261114173000_security_phase_hardening.sql`
+- `20261114180000_db_workflow_and_delivery_photo_guard.sql`
+- `20261114181000_limit_client_database_writes.sql`
+- `20261114182000_catalog_flexibility.sql`
+
+This list means “no matching timestamp version in the live migration ledger”; it does **not** prove the SQL was never applied manually or through a differently timestamped migration.
+
+Production versions without a same-version SQL file in the repository include:
+
+- `20261111145644` — restrict RLS auto-enable function
+- `20261111212510` — phase 1 foundation repair
+- `20261112215733` — corrected phase 1 backend integrity
+- `20261112215837` — NULL-safe delivery-fee RPC fix
+- `20261112215902` — security advisor fixes
+- `20261112220627`, `20261112221039`, `20261112221115` — payment lifecycle and notification changes
+- `20261112231245`, `20261112231253`, `20261112231314`, `20261112231925`, `20261112233021`, `20261112233219` — booking, OTP, and RPC grant hardening
+- `20261113110935`, `20261113111008` — guest tracking/fulfillment and trigger-function execute revocation
+- `20261113120118`, `20261113134103`, `20261113134113` — bank-transfer and order-transition changes
+- `20261115060245` — admin rate-limit repair
+
+Some repository SQL explicitly documents that it corresponds to a differently named/versioned production migration. For example, the corrected Phase 1 files describe the live migration `phase_1_backend_integrity_corrected`; the Phase 1 parent file `20261112190000_phase_1_backend_integrity.sql` is intentionally inert/superseded. These files must not be treated as independent pending migrations.
+
+### 1.3 Duplicate repository version
+
+Two repository files share version prefix `20261113140000`:
+
+- `20261113140000_admin_confirm_bank_transfer_service_role.sql`
+- `20261113140000_phase3_payment_rpcs_drift_repair.sql`
+
+Resolve the duplicate version before relying on timestamp ordering in a clean migration replay. Do not rename or insert history rows in production as a quick fix; first determine the canonical SQL and whether each change is already present in the live schema.
+
+### 1.4 Production-only migration
+
+The live ledger contains `20261115060245_raw_hairs_admin_rate_limit_repair`, but no corresponding SQL file was found in the reviewed repository migration directory. Recover its exact SQL from the original deployment/commit or reconstruct it from verified live definitions before declaring the repository canonical.
+
+### 1.5 Recommended Phase 1 disposition
+
+1. Freeze production migration application while reconciling.
+2. Recover SQL for every production-only ledger entry.
+3. Map differently timestamped source migrations to the production ledger by SQL content and resulting schema, not by filename alone.
+4. Mark inert/superseded source files clearly; exclude them from a fresh baseline replay or retain them only as historical documentation.
+5. Resolve the duplicate `20261113140000` version.
+6. Generate and test a canonical baseline/replay against a disposable database.
+7. Do not manually insert or delete rows in `supabase_migrations.schema_migrations` merely to make the lists look aligned.
+
+## Phase 2 — Live schema and function reconciliation
+
+### 2.1 Confirmed production objects
+
+The following objects exist in production:
+
+- Core: `profiles`, `products`, `services`, `bookings`, `orders`, `order_items`
+- Commerce: `inventory_reservations`, `product_availability`, `payments`, `return_requests`, `refund_transactions`
+- Operations: `rider_jobs`, `notifications`, `audit_log`, `store_settings`, `reviews`, `api_rate_limits`
+
+The live `orders` schema supports guest checkout (nullable `customer_id` plus guest/customer contact and delivery fields), NGN/kobo monetary columns, payment method, and reservation expiry. The live `rider_jobs` table uses text OTP hashes and contains the existing assignment/status/photo columns.
+
+### 2.2 Catalog flexibility migration is not live
+
+The repository migration `20261114182000_catalog_flexibility.sql` is not represented in production history, and the live database confirms these objects are absent:
+
+- `catalog_product_types`
+- `catalog_categories`
+- `catalog_attribute_definitions`
+
+The live `products` table also lacks the migration's expected `product_type_id`, `category_id`, `attributes`, and `gallery_paths` columns. It still has the legacy `category` text field and hair-specific columns.
+
+**Impact:** Any application code that assumes the flexible catalog schema exists will fail against production. Keep catalog UI/API usage on the legacy schema until a reviewed catalog migration is staged and applied.
+
+### 2.3 Driver portal integrity objects are not live
+
+The following objects are absent in production:
+
+- `rider_otp_controls`
+- `verified_delivery_evidence`
+- `delivery_evidence`
+- `delivery_exceptions`
+
+The live `delivery-evidence` storage bucket exists but has no configured file-size limit or allowed MIME-type list. The live assignment RPC still generates OTP using `random()`, stores a SHA-256 digest, and does not create the proposed OTP control row. The live `confirm_delivery_otp(uuid,text)` still checks the OTP alone and has no photo-evidence requirement or attempt lockout.
+
+**Impact:** The new driver portal flow must not be deployed as if the database were ready. Its migration needs to be corrected, tested, and applied before enabling the dependent UI/API behavior.
+
+### 2.4 Workflow guard migration is not live
+
+The repository's `20261114180000_db_workflow_and_delivery_photo_guard.sql` explicitly labels itself source-only/not applied. Production does not have the `orders_status_workflow_guard` trigger. The live rider transition trigger exists, but its current function body allows service-role/owner bypass and otherwise validates rider-owned transitions; it does not implement the newer transaction-local workflow guard from the source-only file.
+
+**Impact:** Do not assume the newer order-status or delivery-photo database guardrails are active in production.
+
+### 2.5 Client-write restriction migration is not live
+
+The repository's `20261114181000_limit_client_database_writes.sql` explicitly labels itself source-only/not applied. Production still has broad owner-manage policies for multiple tables, and the current rider assignment/transition path depends on the service-role API and existing grants/policies.
+
+**Impact:** Application security assumptions must be checked against actual production grants and policies. Do not deploy frontend changes that rely on the proposed restriction migration until it has been staged and applied.
+
+### 2.6 Trigger and notification dependencies
+
+Production currently has these relevant triggers:
+
+- `orders_auto_advance`
+- `orders_auto_dispatch`
+- `orders_notify_change`
+- `orders_money_sync`
+- `order_items_money_sync`
+- `rider_jobs_transition_check`
+- `audit_rider_jobs`
+
+Preserve the automatic dispatch-job creation and customer notification trigger behavior. Avoid adding a second delivery notification insert in the delivery RPC if the order status update already fires `orders_notify_change`.
+
+### 2.7 Other observed schema/security notes
+
+- All inspected public application tables have RLS enabled; `api_rate_limits` has no RLS policy (advisor INFO finding). This may be intentional for service-role-only access, but verify its grants.
+- The security advisor reports 8 SECURITY DEFINER functions executable by anon and 14 executable by authenticated. Review each function's internal authorization before changing grants; guest checkout/tracking may intentionally be public.
+- The live `assign_rider_job(uuid,text)` has EXECUTE granted to service_role only, while its function body still uses non-cryptographic `random()` OTP generation.
+- `delivery-evidence` is private, but current bucket constraints are unset.
+- The advisor reports 16 foreign keys without covering indexes, including `rider_jobs.order_id`; prioritize indexes based on query patterns and table growth rather than applying all blindly.
+
+## Phase 2 — Required application/schema compatibility checks
+
+Before the next deployment, search all application code and serverless endpoints for references to:
+
+1. Catalog-flexibility columns/tables absent from production.
+2. Driver evidence/OTP tables absent from production.
+3. RPC signatures and arguments that differ from production definitions.
+4. Order/rider status transitions and their trigger guard assumptions.
+5. Any direct browser writes blocked only by the unapplied client-write restriction migration.
+
+Build and integration tests should be run against a staging database created from the reconciled canonical migration set.
+
+## Change log / safety
+
+- Read production migration history and schema metadata.
+- Read repository migration files on `main` and `feature/driver-portal-phases-0-3`.
+- Queried live columns, constraints, triggers, functions, function grants, RLS state, storage bucket settings, and Supabase advisors.
+- **No production data or schema was changed.**
+- No migration was applied, and no migration-history row was inserted or deleted.
+
+## Remaining work
+
+This report establishes the reconciliation findings. It does not yet constitute a complete application-code reference scan or a clean-room migration replay. Those are required before declaring Phase 1 and Phase 2 complete.
+
+
+---
+
+## Application-to-database dependency scan — 2026-11-15
+
+**Scope inspected:** driver API handlers, driver portal UI, dispatch API, catalogue loading, product administration, catalogue structure administration, and the Phase 0–3 driver migration.
+
+### Critical: driver portal is not deploy-ready against the current production schema
+
+| Application dependency | Source usage | Production state | Consequence |
+|---|---|---|---|
+| `rider_otp_controls` | `api/admin/dispatch.js` reads expiry/failed attempts; `confirm_delivery_otp` reads and updates it | Missing | Dispatch GET fails; OTP confirmation returns a database error |
+| `verified_delivery_evidence` | `api/driver/verify-delivery-photo.js` inserts verified image metadata; `mark_delivery_photo` reads it | Missing | Photo verification and attachment fail |
+| `delivery_evidence` | `confirm_delivery_otp` requires a non-expired evidence row | Missing | Delivery completion cannot satisfy the photo-proof check |
+| `delivery_exceptions` | `api/driver/report-issue.js` inserts exception reports | Missing | Report-issue action fails |
+| `reissue_delivery_otp(uuid)` | `api/admin/dispatch.js` calls RPC | Function absent in production | Reissue action fails |
+| `unassign_rider_job(uuid)` | `api/admin/dispatch.js` calls RPC | Function absent in production | Unassign action fails |
+| `assign_rider_job(uuid,text)` | `api/admin/dispatch.js` calls RPC | Function exists | Existing assignment function does not create the OTP control row required by the new confirmation flow |
+
+The driver UI's direct calls to `mark_delivery_photo` and `confirm_delivery_otp` also depend on the new tables. The current production confirmation function itself has no control-table protection; replacing it with the branch version before fixing assignment/reissue would strand newly assigned jobs without an OTP-control record.
+
+**Required migration correction:** the driver migration must include reviewed, compatible definitions for `assign_rider_job`, `reissue_delivery_otp`, and (if the UI retains it) `unassign_rider_job`. Assignment and every OTP reissue must atomically create/reset `rider_otp_controls`. The branch migration currently creates the control/evidence/exception tables and replaces photo/confirmation functions, but does not define assignment or reissue functions despite the approval document claiming it does. Do not apply this migration as currently written.
+
+### High: driver workflow sequencing and deployment dependency
+
+- `api/driver/transition.js` writes `rider_jobs.status` directly through the authenticated Supabase client for `assigned → picked_up → in_transit`. This relies on the active `rider_jobs_transition_check` trigger continuing to authorize the assigned rider's two transitions.
+- `api/driver/verify-delivery-photo.js` validates the actual stored bytes, then inserts metadata into `verified_delivery_evidence`; this endpoint requires the table and service-role database client.
+- `src/pages/Rider.jsx` uploads to the private `delivery-evidence` bucket, calls the verification endpoint, attaches the verified path through `mark_delivery_photo`, and finally calls `confirm_delivery_otp`.
+- `api/admin/dispatch.js` GET reads `rider_otp_controls`; its POST calls assignment, unassignment, and reissue RPCs. The missing table means the dispatch dashboard GET is already incompatible with current production even before a driver attempts delivery.
+- Therefore the matching database migration, server API and frontend must be released as one controlled deployment sequence. Do not deploy the new dispatch/driver API/UI ahead of the corrected database migration.
+
+### Catalogue dependency scan
+
+| Application dependency | Source usage | Production state | Consequence |
+|---|---|---|---|
+| `catalog_product_types` | `src/catalog.jsx`, admin catalogue manager | Missing | Flexible product type metadata unavailable |
+| `catalog_categories` | `src/catalog.jsx`, `CatalogStructureManager.jsx` | Missing | Managed category metadata unavailable |
+| `catalog_attribute_definitions` | `src/catalog.jsx`, `Product.jsx`, admin catalogue manager | Missing | Custom typed product attributes unavailable |
+| `products.product_type_id` | Shop filtering, product details, product editor | Missing | Type-based filtering/association unavailable |
+| `products.category_id` | Shop filtering, product editor | Missing | Managed category associations unavailable |
+| `products.attributes` | Search and product specs | Missing | Custom attributes unavailable |
+| `products.gallery_paths` | Product gallery and product editor | Missing | Database-backed secondary gallery unavailable |
+
+The catalogue loader deliberately tolerates failures for the three metadata tables and derives category labels from existing product `category` values when the category table is unavailable. The product editor only writes the new product columns when `catalogReady` is true. This is a compatibility fallback, not proof that the flexible catalogue migration is applied. The current production catalogue can continue using legacy `products.category`, but advanced catalogue features must remain disabled until the migration is staged and applied.
+
+### Additional code-level observations
+
+1. `api/driver/report-issue.js` inserts directly into `delivery_exceptions`; no production table exists.
+2. The admin dispatch API returns the OTP to the authenticated owner after assignment/reissue. Review the admin UI's display lifecycle and ensure OTPs are not persisted in logs, analytics, or browser storage.
+3. The new branch migration's `confirm_delivery_otp` omits a direct notification insert, which is consistent with the documented intent to rely on the existing `orders_notify_change` trigger. Preserve this single-notification behavior and test it.
+4. The branch migration backfills active jobs with a 24-hour OTP-control grace period. This is a policy decision and must be explicitly accepted before applying; it is not equivalent to the old OTP's original issue time.
+5. The branch migration records evidence expiry metadata but does not implement scheduled deletion of expired storage objects. Retention must not be described as automatic until cleanup is separately implemented and verified.
+6. The production function inventory currently contains `assign_rider_job(uuid,text)`, `confirm_delivery_otp(uuid,text)`, and `mark_delivery_photo(uuid,text)`; it does not contain `unassign_rider_job(uuid)` or `reissue_delivery_otp(uuid)`.
+
+### Phase 1–2 disposition after source scan
+
+- **Phase 1: still open.** Production migration history is not yet fully mapped to canonical source migrations; the production-only rate-limit repair SQL and differently named migration bodies still need recovery/mapping.
+- **Phase 2: source dependency scan materially advanced, not closed.** The primary driver and flexible-catalogue dependencies are now mapped to production gaps. A complete function-signature/grant and all-app call-site scan plus clean-room migration replay/integration tests remain outstanding.
+- **No production changes made.** This scan used repository reads and read-only production catalog queries only.
+
+
+---
+
+## Production-only rate-limit repair recovery — follow-up
+
+The production-only ledger entry `20261115060245_raw_hairs_admin_rate_limit_repair` has no matching migration file in the inspected repository history/path. A GitHub path-history lookup returned no commit for that exact filename. Therefore the original migration source has **not** been recovered.
+
+The live database does, however, provide enough evidence to document the resulting production state:
+
+### `public.api_rate_limits`
+
+- Columns: `key_hash text NOT NULL` (primary key), `window_started_at timestamptz NOT NULL`, `hit_count integer NOT NULL`, `updated_at timestamptz NOT NULL DEFAULT now()`.
+- RLS enabled; no policy rows were returned.
+- Table ACL contains only the owner role (postgres); no direct anon/authenticated/service_role table grants.
+- Indexes: primary key on `key_hash`, plus `api_rate_limits_updated_idx` on `updated_at`.
+
+### Production functions
+
+- `consume_api_rate_limit(p_key_hash text, p_limit integer, p_window_seconds integer) RETURNS jsonb`
+- `clear_api_rate_limit(p_key_hash text) RETURNS void`
+- Both are SECURITY DEFINER with an empty search_path.
+- Both have execute ACL only for postgres and service_role; no anon/authenticated execute grants.
+- `consume_api_rate_limit` validates a 64-character lowercase hex hash, limits 1–1000 and window 1–86400 seconds, atomically increments or resets the fixed window, returns allowed/remaining/retry-after fields, and prunes rows older than one day.
+- `clear_api_rate_limit` deletes only a row whose key hash matches the same 64-character lowercase hex format.
+
+**Interpretation:** the production state is internally consistent with a server-only rate-limit store and two service-role RPCs. The missing policy on an RLS-enabled table is not by itself evidence of a vulnerability because the table has no client-role grants and the RPCs are service-role-only. Keep the table private; do not add broad RLS policies or grant direct client access as an advisor-only cleanup.
+
+**Recovery classification:** resulting schema/function definitions have been recovered from live catalog metadata; the original migration text, original ordering, comments, and exact deployment SQL remain unrecovered. Do not recreate a migration file and mark it as the original historical migration. If canonical migration replay is required, create a clearly labelled baseline/reconciliation migration for a fresh staging database, and separately document that it represents reconstructed state rather than the missing historical source.
+
+### Phase 1 implications
+
+This resolves the *what exists* question for the production-only rate-limit entry, but not the *what exact migration was executed* question. Phase 1 therefore remains open until all production-only/differently named ledger entries are mapped or explicitly classified as reconstructed/unrecoverable.
+
+---
+
+## Cross-branch migration recovery and driver migration source verification — follow-up
+
+**Additional repository history inspected:** the current driver feature branch, production-readiness branch, main branch, and available development/fix branches covering dispatch, driver review, security hardening, payment drift repair, admin console, and Phase 1 migration work.
+
+### 1. Cross-branch recovery result
+
+- No alternate branch contained a second/corrected `20261115100000_driver_portal_integrity_phase_0_3.sql` source.
+- No alternate branch contained a source file for the production-only `20261115060245_raw_hairs_admin_rate_limit_repair` migration.
+- The production-readiness branch contains an older, separate `db/migrations/001_initial_schema.sql` / `002_approved_commerce_rules.sql` baseline. These are not the current Supabase timestamp migration series and must not be merged into its migration history without a deliberate baseline design.
+- The duplicate `20261113140000` source timestamp remains unresolved in the current feature branch; the inspected development branches do not provide a distinct canonical replacement that resolves it.
+
+**Conclusion:** the missing rate-limit SQL and corrected driver migration cannot currently be recovered from the repository's available branches. The rate-limit repair must remain classified as reconstructed from live production metadata. The driver migration must be corrected as new reviewed source, not represented as recovered historical SQL.
+
+### 2. Driver migration approval document is inaccurate
+
+The file `docs/production/driver-portal-migration-approval.md` claims the proposed migration replaces `assign_rider_job`, adds `reissue_delivery_otp`, and defines assignment/reissue OTP lifecycle behavior.
+
+Direct inspection of the complete current migration file shows that it creates the OTP/evidence/exception tables and replaces the rider transition, photo-attachment, and OTP-confirmation functions, but it does **not** define `assign_rider_job`, `reissue_delivery_otp`, or `unassign_rider_job`.
+
+The approval document therefore overstates the SQL actually present in the migration. This is a release-blocking documentation/source mismatch. The migration must not be approved or applied until the SQL and approval document agree and the RPC dependencies are implemented and tested.
+
+### 3. Additional driver migration review points
+
+The current SQL needs a proper staging review beyond adding the missing RPCs:
+
+- Assignment and reissue must atomically create/reset the OTP control record in the same transaction as the OTP hash update.
+- Unassignment must clear or invalidate the OTP and control row so a previously issued code cannot complete a job after reassignment.
+- The confirmation function should be checked for the intended order status transition set and trigger interactions; do not assume that `processing` and `dispatched` cover every legitimate production path.
+- The owner override path in `mark_delivery_photo` should be checked against the evidence verifier's `verified_by=v_user` condition. An owner attaching a driver's verified evidence may fail by design; make the intended actor contract explicit.
+- The current migration does not add cleanup for 90-day evidence retention. Storage object cleanup and metadata cleanup remain a separate required job or a consciously revised retention policy.
+- Storage bucket limits are updated only if the bucket already exists; the migration does not assert that exactly one expected bucket row was changed. Add a precondition/verification check in staging and release procedure.
+- The active-job backfill gives existing OTPs a fresh 24-hour grace window. Keep this as an explicit business/security decision, not an incidental implementation detail.
+
+### 4. Updated disposition
+
+- **Phase 1 remains open:** cross-branch source recovery did not resolve the missing rate-limit migration or the production ledger/source mapping gaps.
+- **Phase 2 remains open:** the app dependency scan is complete for the inspected driver and catalogue paths, but the driver migration has a confirmed source/documentation defect and still needs staging replay plus integration tests.
+- **Production remains unchanged:** this follow-up inspected GitHub branches and SQL source only. No production SQL, schema changes, or migration history changes were executed.

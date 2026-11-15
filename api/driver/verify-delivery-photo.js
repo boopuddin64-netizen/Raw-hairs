@@ -89,6 +89,8 @@ export default async function handler(req, res) {
     path,
     verified_by: authData.user.id,
     sha256,
+    mime_type: inspection.mime,
+    bytes: inspection.bytes,
   });
   if (insertError) {
     await removeInvalidObject(db, path);

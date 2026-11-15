@@ -20,6 +20,7 @@ import './skeletons.css';
 import './spatial.css';
 import './admin-tables.css';
 import './brand-experience.css';
+import './driver-portal.css';
 
 // Route-level code splitting: every page except Home loads on first visit,
 // so the storefront's first paint only ships Home.

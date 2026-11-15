@@ -1,208 +1,44 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback,useEffect,useMemo,useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useStaffAuth } from '../auth/StaffAuth';
 import { useTheme } from '../theme/ThemeContext';
-import { supabase, supabaseConfigured } from '../lib/supabase';
-import { BrandLogo, Chip } from '../components';
-
-const RIDER_TRANSITIONS = { assigned: ['picked_up'], picked_up: ['in_transit'] };
-const STEPS = [
-  ['assigned', 'Assigned'],
-  ['picked_up', 'Picked up'],
-  ['in_transit', 'In transit'],
-  ['delivered', 'Delivered'],
-];
-const DELIVERY_EVIDENCE_BUCKET = 'delivery-evidence';
-const PHOTO_TYPES = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
-const MAX_DELIVERY_PHOTO_BYTES = 8 * 1024 * 1024;
-
-function StatusFlow({ status }) {
-  if (status === 'failed') return <div className="driver-terminal-state failed"><span aria-hidden="true">!</span><div><strong>Delivery needs attention</strong><small>Contact the store for help with this delivery.</small></div></div>;
-  const current = STEPS.findIndex(([key]) => key === status);
-  return <ol className="driver-stepper" aria-live="polite" aria-label={`Delivery status: ${String(status).replaceAll('_', ' ')}`}>
-    {STEPS.map(([key, label], index) => <li key={key} className={`${index < current ? 'complete' : ''}${index === current ? ' current' : ''}`} aria-current={index === current ? 'step' : undefined}>
-      <span className="driver-step-dot">{index < current ? '✓' : index + 1}</span><span>{label}</span>
-    </li>)}
-  </ol>;
-}
-
-export default function Rider() {
-  const { user, signOut } = useStaffAuth();
-  const { theme, toggleTheme } = useTheme();
-  const [jobs, setJobs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [connectionError, setConnectionError] = useState(false);
-  const [busy, setBusy] = useState('');
-  const [otp, setOtp] = useState({ jobId: '', value: '' });
-  const [photo, setPhoto] = useState({ jobId: '', file: null });
-  const [notice, setNotice] = useState('');
-  const [lastUpdated, setLastUpdated] = useState(null);
-
-  const refresh = useCallback(async (silent = false) => {
-    if (!supabaseConfigured || !supabase) {
-      setConnectionError(true);
-      setError('The driver portal is not connected to the store database.');
-      setLoading(false);
-      return;
-    }
-    if (!user?.id) {
-      setConnectionError(true);
-      setError('Your driver session is unavailable. Sign in again to load assigned deliveries.');
-      setLoading(false);
-      return;
-    }
-    if (!silent) setLoading(true);
-    try {
-      const { data, error: queryError } = await supabase.from('rider_jobs')
-        .select('id,order_id,rider_id,status,delivery_photo_path,created_at,updated_at')
-        .eq('rider_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(50);
-      if (queryError) throw queryError;
-      setJobs((data || []).filter((job) => job.rider_id === user.id));
-      setLastUpdated(new Date());
-      setConnectionError(false);
-      setError('');
-    } catch {
-      setConnectionError(true);
-      setError('Assigned deliveries could not be refreshed. Check your connection and try again.');
-    } finally {
-      if (!silent) setLoading(false);
-    }
-  }, [user?.id]);
-
-  useEffect(() => { refresh(); }, [refresh]);
-  useEffect(() => {
-    const interval = window.setInterval(() => { if (document.visibilityState === 'visible') refresh(true); }, 30000);
-    const onFocus = () => refresh(true);
-    window.addEventListener('focus', onFocus);
-    return () => { window.clearInterval(interval); window.removeEventListener('focus', onFocus); };
-  }, [refresh]);
-
-  const updateStatus = async (job, status) => {
-    setBusy(job.id); setError(''); setNotice('');
-    try {
-      const { error: updateError } = await supabase.from('rider_jobs').update({ status }).eq('id', job.id).eq('rider_id', user.id);
-      if (updateError) setError('That status change was rejected. Refresh the job and use its next available step.');
-      else {
-        setNotice(`Job ${job.id.slice(0, 8)} updated to ${status.replaceAll('_', ' ')}.`);
-        await refresh(true);
-      }
-    } catch {
-      setError('The status update did not complete. Refresh the job and try again.');
-    } finally {
-      setBusy('');
-    }
-  };
-
-  const confirmDelivery = async (jobId) => {
-    if (!/^\d{6}$/.test(otp.value.trim())) { setError('Enter the customer’s six-digit delivery code.'); return; }
-    setBusy(jobId); setError(''); setNotice('');
-    try {
-      const { data, error: rpcError } = await supabase.rpc('confirm_delivery_otp', { p_job_id: jobId, p_otp: otp.value.trim() });
-      if (rpcError) setError('Delivery confirmation could not be completed. Check the connection and try again.');
-      else if (!data || data.ok !== true) setError(data?.error === 'wrong_otp'
-        ? 'That code was not accepted. Check the digits with the customer; repeated failures may lock the code.'
-        : data?.error === 'otp_expired' || data?.error === 'otp_locked'
-          ? 'The delivery code is expired or locked. Ask the owner to issue a new code.'
-          : data?.error === 'invalid_state'
-            ? 'Move the job to In transit before confirming delivery.'
-            : 'Delivery could not be confirmed. Refresh and try again.');
-      else {
-        setNotice('Delivery confirmed. Thank you.');
-        setOtp({ jobId: '', value: '' });
-        await refresh(true);
-      }
-    } catch {
-      setError('Delivery confirmation did not complete. Check your connection and try again.');
-    } finally {
-      setBusy('');
-    }
-  };
-
-  const uploadPhoto = async (jobId) => {
-    const file = photo.file;
-    if (!file) return;
-    const ext = PHOTO_TYPES[file.type];
-    if (!ext) { setError('Use a JPG, PNG or WebP photo.'); return; }
-    if (file.size <= 0 || file.size > MAX_DELIVERY_PHOTO_BYTES) { setError('Choose a photo smaller than 8 MB.'); return; }
-    setBusy(jobId); setError(''); setNotice('');
-    const path = `jobs/${jobId}/evidence-${Date.now()}.${ext}`;
-    try {
-      const { error: uploadError } = await supabase.storage.from(DELIVERY_EVIDENCE_BUCKET).upload(path, file, { contentType: file.type, upsert: false });
-      if (uploadError) throw new Error('The photo could not be uploaded. Check your connection and try again.');
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
-      if (sessionError || !accessToken) throw new Error('Your driver session has expired. Sign in again.');
-      const verifyResponse = await fetch('/api/driver/verify-delivery-photo', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ job_id: jobId, path }),
-      });
-      const verification = await verifyResponse.json().catch(() => null);
-      if (!verifyResponse.ok || verification?.ok !== true) throw new Error(verification?.error || 'The photo could not be verified and was not attached.');
-      const { data, error: markError } = await supabase.rpc('mark_delivery_photo', { p_job_id: jobId, p_path: path });
-      if (markError || !data || data.ok !== true) throw new Error('Photo was not attached. Refresh the job and try again.');
-      setNotice('Optional delivery photo attached.'); setPhoto({ jobId: '', file: null }); await refresh(true);
-    } catch (uploadError) { setError(uploadError?.message || 'The photo could not be verified and attached.'); }
-    finally { setBusy(''); }
-  };
-
-  if (!supabaseConfigured) return <div className="driver-app"><div className="driver-content"><h1>Driver portal</h1><div className="notice">The driver portal is not connected to the store database.</div></div></div>;
-
-  const assignedJobs = jobs.filter((job) => job.rider_id === user?.id);
-  const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Driver';
-
-  return (
-    <div className="driver-app">
-      <header className="driver-topbar"><Link to="/" aria-label="Raw.hairs home"><BrandLogo /></Link><div className="driver-header-title"><span>DRIVER PORTAL</span><small>Delivery operations</small></div><div className="driver-header-actions"><button className="icon-btn" type="button" onClick={toggleTheme} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>{theme === 'dark' ? '☼' : '☾'}</button><button className="btn btn-ghost" type="button" onClick={() => signOut()}>Sign out</button></div></header>
-      <main className="driver-content">
-        <section className="driver-welcome">
-          <div>
-            <p className="eyebrow">YOUR DELIVERY WORKSPACE</p>
-            <h1>Hello, <em>{displayName}</em></h1>
-            <p className="muted driver-intro">One clear next step at a time. Your assigned deliveries stay here.</p>
-            <p className="driver-user-line">{user?.email}</p>
-          </div>
-          <div className={`driver-refresh-state${connectionError ? ' offline' : ''}`} role="status">
-            <span className="driver-refresh-dot" />
-            <div>
-              <strong>{connectionError ? 'Connection needs attention' : lastUpdated ? 'Assignments up to date' : 'Syncing assignments'}</strong>
-              <small>{lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · auto-refresh every 30 seconds` : 'Waiting for the database response'}</small>
-            </div>
-            <button className="btn btn-ghost" type="button" onClick={() => refresh()} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</button>
-          </div>
-        </section>
-
-        {error && <div className="driver-message error" role="alert">{error}</div>}
-        {notice && <div className="driver-message success" role="status">{notice}</div>}
-
-        <section className="driver-jobs-section" aria-labelledby="driver-jobs-title">
-          <div className="driver-section-heading">
-            <div><p className="eyebrow">ASSIGNED TO YOU</p><h2 id="driver-jobs-title">Your deliveries</h2><p className="muted">Move each job forward through its next available step.</p></div>
-            <span className="driver-job-count">{assignedJobs.length} {assignedJobs.length === 1 ? 'delivery' : 'deliveries'}</span>
-          </div>
-          {loading && <div className="driver-empty" role="status"><span className="driver-empty-mark" aria-hidden="true">···</span><h3>Checking your assignments</h3><p className="muted">The latest jobs are being loaded from the store database.</p></div>}
-          {!loading && assignedJobs.length === 0 && <div className="driver-empty"><span className="driver-empty-mark" aria-hidden="true">✓</span><h3>You’re all caught up.</h3><p className="muted">New deliveries will appear here when they are assigned to you.</p></div>}
-          <div className="driver-job-list">
-            {assignedJobs.map((job) => {
-              const nextStatus = (RIDER_TRANSITIONS[job.status] || [])[0];
-              return <article key={job.id} className="driver-job">
-                <div className="driver-job-head"><div><p className="eyebrow">JOB {job.id.slice(0, 8).toUpperCase()}</p><h3>Order {job.order_id?.slice(0, 8) || '—'}</h3></div><Chip tone={job.status === 'delivered' ? 'ok' : job.status === 'failed' ? 'bad' : 'info'}>{String(job.status || 'assigned').replaceAll('_', ' ')}</Chip></div>
-                <StatusFlow status={job.status} />
-                {nextStatus && <div className="driver-next-action"><div><p className="eyebrow">NEXT STEP</p><strong>{nextStatus === 'picked_up' ? 'Collect the order' : 'Start the delivery'}</strong><span className="muted small">This updates the job status in the store database.</span></div><button className="btn btn-primary btn-lg" type="button" disabled={busy === job.id} onClick={() => updateStatus(job, nextStatus)}>{busy === job.id ? 'Updating…' : nextStatus === 'picked_up' ? 'Mark picked up' : 'Mark in transit'}<span aria-hidden="true"> →</span></button></div>}
-                {job.status === 'in_transit' && <div className="driver-delivery-action"><div className="driver-action-title"><div><p className="eyebrow">FINAL STEP · EXISTING WORKFLOW</p><h3>Confirm delivery</h3><p className="muted small">Enter the six-digit code the customer shares with you. If it has expired or locked, ask the owner for a reissued code.</p></div><span className="driver-step-badge">OTP</span></div>
-                  <div className="driver-otp-row"><label htmlFor={`otp-${job.id}`}>Customer delivery code</label><input id={`otp-${job.id}`} inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={otp.jobId === job.id ? otp.value : ''} onChange={(event) => setOtp({ jobId: job.id, value: event.target.value.replace(/\D/g, '').slice(0, 6) })} placeholder="••••••" aria-describedby={`otp-help-${job.id}`} /><button className="btn btn-primary btn-lg" type="button" disabled={busy === job.id} onClick={() => confirmDelivery(job.id)}>{busy === job.id ? 'Confirming…' : 'Confirm delivered'}</button><small id={`otp-help-${job.id}`} className="muted">Delivery is marked complete only after the code is accepted.</small></div>
-                  <div className="driver-photo-upload"><div><strong>Delivery photo <span className="muted">· optional</span></strong><p className="muted small">JPG, PNG or WebP · max 8 MB · verified before attachment</p></div><label className="btn btn-outline file-button" htmlFor={`photo-${job.id}`}>Choose photo<input id={`photo-${job.id}`} type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setPhoto({ jobId: job.id, file: event.target.files?.[0] || null })} /></label>{photo.jobId === job.id && photo.file && <><span className="driver-photo-name">{photo.file.name}</span><button className="btn btn-ghost" type="button" disabled={busy === job.id} onClick={() => uploadPhoto(job.id)}>{busy === job.id ? 'Uploading…' : 'Upload optional photo'}</button></>}</div>
-                </div>}
-                {job.status === 'delivered' && <div className="driver-terminal-state"><span aria-hidden="true">✓</span><div><strong>Delivery completed</strong><small>The job status is saved in the store database.</small></div></div>}
-              </article>;
-            })}
-          </div>
-        </section>
-
-        <footer className="driver-footer"><span>Status is read from the store database and refreshed about every 30 seconds while this page is open.</span><span>No live location tracking or in-portal map is enabled.</span></footer>
-      </main>
-    </div>
-  );
+import { supabase,supabaseConfigured } from '../lib/supabase';
+import { BrandLogo,Chip } from '../components';
+const BUCKET='delivery-evidence', TYPES={'image/jpeg':'jpg','image/png':'png','image/webp':'webp'}, MAX=8*1024*1024;
+const TABS=[['today','Today'],['deliveries','Deliveries'],['history','History'],['profile','Profile']];
+const REASONS=[['customer_unavailable','Customer unavailable'],['customer_refused','Customer refused'],['incorrect_address','Incorrect address'],['unable_to_contact','Unable to contact'],['reschedule_requested','Reschedule requested'],['other','Other']];
+const label=s=>String(s||'').replaceAll('_',' ');
+const address=o=>[o?.delivery_address,o?.delivery_city,o?.delivery_state,'Nigeria'].filter(Boolean).join(', ');
+const maps=o=>address(o).length>14?'https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(address(o)):null;
+async function token(){const r=await supabase.auth.getSession();if(r.error||!r.data?.session?.access_token)throw Error('Session expired. Sign in again.');return r.data.session.access_token;}
+async function api(path,body){const t=await token();const r=await fetch(path,{method:body?'POST':'GET',headers:{Authorization:'Bearer '+t,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});const d=await r.json().catch(()=>null);if(!r.ok)throw Error(d?.error||'Request failed.');return d;}
+function Stepper({status}){const all=['assigned','picked_up','in_transit','delivered'],n=all.indexOf(status);return <ol className="dp-stepper">{all.map((s,i)=><li key={s} className={i<n?'done':i===n?'current':''}><span>{i<n?'✓':i+1}</span><small>{label(s)}</small></li>)}</ol>}
+function Card({job,busy,action,detail,issue}){const o=job.order||{},next=job.status==='assigned'?'picked_up':job.status==='picked_up'?'in_transit':null;return <article className="dp-job-card"><div className="dp-job-head"><div><span className="dp-kicker">JOB {job.id.slice(0,8).toUpperCase()}</span><h3>Order {job.order_id.slice(0,8)}</h3></div><Chip tone={job.status==='delivered'?'ok':'info'}>{label(job.status)}</Chip></div><Stepper status={job.status}/><div className="dp-job-details"><strong>{o.customer_name||'Customer details unavailable'}</strong>{o.customer_phone&&<a href={'tel:'+o.customer_phone}>{o.customer_phone}</a>}<span>{address(o)||'Delivery address unavailable'}</span>{o.delivery_instructions&&<small>{o.delivery_instructions}</small>}</div><div className="dp-job-actions"><button className="btn btn-outline" onClick={()=>detail(job)}>Details</button>{maps(o)&&<a className="btn btn-outline" href={maps(o)} target="_blank" rel="noreferrer">Google Maps ↗</a>}{next&&<button className="btn btn-primary" disabled={busy===job.id} onClick={()=>action(job,next)}>{busy===job.id?'Saving…':next==='picked_up'?'Mark picked up':'Start delivery'}</button>}{['assigned','picked_up','in_transit'].includes(job.status)&&<button className="dp-text-button" onClick={()=>issue(job)}>Report issue</button>}</div></article>}
+export default function Rider(){
+ const {user,signOut}=useStaffAuth(),{theme,toggleTheme}=useTheme();
+ const [tab,setTab]=useState('today'),[jobs,setJobs]=useState([]),[history,setHistory]=useState([]),[loading,setLoading]=useState(true),[busy,setBusy]=useState(''),[error,setError]=useState(''),[notice,setNotice]=useState(''),[selected,setSelected]=useState(null),[photo,setPhoto]=useState(null),[otp,setOtp]=useState(''),[issueJob,setIssueJob]=useState(null),[reason,setReason]=useState(REASONS[0][0]),[notes,setNotes]=useState(''),[filter,setFilter]=useState('all'),[lastUpdated,setLastUpdated]=useState(null);
+ const refresh=useCallback(async(silent=false)=>{if(!silent)setLoading(true);try{const r=await api('/api/driver/jobs');setJobs(r.jobs||[]);setLastUpdated(new Date());setError('');}catch(e){setError(e.message);}finally{if(!silent)setLoading(false);}},[]);
+ const loadHistory=useCallback(async()=>{try{const r=await api('/api/driver/history');setHistory(r.jobs||[]);}catch(e){setError(e.message);}},[]);
+ useEffect(()=>{refresh();},[refresh]);useEffect(()=>{const id=setInterval(()=>{if(document.visibilityState==='visible')refresh(true);},30000);return()=>clearInterval(id);},[refresh]);useEffect(()=>{if(tab==='history')loadHistory();},[tab,loadHistory]);
+ const active=useMemo(()=>jobs.filter(j=>!['delivered','failed'].includes(j.status)),[jobs]);
+ const visible=filter==='new'?active.filter(j=>j.status==='assigned'):filter==='active'?active.filter(j=>j.status!=='assigned'):active;
+ const transition=async(job,status)=>{setBusy(job.id);setError('');try{await api('/api/driver/transition',{job_id:job.id,status});setNotice('Delivery moved to '+label(status)+'.');await refresh(true);}catch(e){setError(e.message);}finally{setBusy('');}};
+ const open=job=>{setSelected(job);setOtp('');setPhoto(null);};
+ const upload=async()=>{if(!photo||!selected)return;const ext=TYPES[photo.type];if(!ext||photo.size<=0||photo.size>MAX){setError('Use a JPG, PNG or WebP photo no larger than 8 MB.');return;}setBusy(selected.id);setError('');const path='jobs/'+selected.id+'/evidence-'+Date.now()+'.'+ext;try{const up=await supabase.storage.from(BUCKET).upload(path,photo,{contentType:photo.type,upsert:false});if(up.error)throw Error('Photo upload failed.');const v=await api('/api/driver/verify-delivery-photo',{job_id:selected.id,path});if(!v.ok)throw Error('Photo verification failed.');const m=await supabase.rpc('mark_delivery_photo',{p_job_id:selected.id,p_path:path});if(m.error||!m.data?.ok)throw Error('Verified photo could not be attached.');setNotice('Delivery photo verified. Enter the customer OTP to complete.');setPhoto(null);await refresh(true);setSelected(s=>s?{...s,delivery_photo_path:path}:s);}catch(e){setError(e.message);}finally{setBusy('');}};
+ const complete=async()=>{if(!selected?.delivery_photo_path){setError('A verified delivery photo is required.');return;}if(!/^\d{6}$/.test(otp)){setError('Enter the six-digit customer OTP.');return;}setBusy(selected.id);setError('');try{const r=await supabase.rpc('confirm_delivery_otp',{p_job_id:selected.id,p_otp:otp});if(r.error)throw Error('Delivery confirmation failed.');const errors={photo_required:'Verified delivery photo required.',wrong_otp:'OTP not accepted.',otp_expired:'OTP expired. Ask the owner to reissue it.',otp_locked:'OTP locked. Ask the owner to reissue it.',invalid_state:'Job is not ready for completion.'};if(!r.data?.ok)throw Error(errors[r.data.error]||'Delivery could not be confirmed.');setSelected(null);setOtp('');setNotice('Delivery completed with both required proofs.');await refresh(true);}catch(e){setError(e.message);}finally{setBusy('');}};
+ const report=async()=>{if(!issueJob)return;setBusy(issueJob.id);try{await api('/api/driver/report-issue',{job_id:issueJob.id,reason,notes});setIssueJob(null);setNotes('');setNotice('Issue sent to the store team.');}catch(e){setError(e.message);}finally{setBusy('');}};
+ const name=user?.user_metadata?.full_name||user?.email?.split('@')[0]||'Driver';
+ if(!supabaseConfigured||!supabase)return <div className="driver-app">Driver services are unavailable.</div>;
+ return <div className="driver-app dp-shell"><header className="dp-topbar"><Link to="/"><BrandLogo/></Link><div><span className="dp-kicker">RAW HAIRS</span><small>Driver operations</small></div><button className="icon-btn" onClick={toggleTheme} aria-label="Toggle theme">{theme==='dark'?'☼':'☾'}</button></header>
+ <main className="dp-main"><div className="dp-page-heading"><div><span className="dp-kicker">DELIVERY WORKSPACE</span><h1>{tab==='today'?<>Good day, <em>{name}</em></>:TABS.find(x=>x[0]===tab)[1]}</h1><p>{tab==='today'?'Your assigned deliveries, clearly organised.':tab==='deliveries'?'Manage active deliveries.':tab==='history'?'Completed and unsuccessful delivery attempts.':'Driver account and preferences.'}</p></div><button className="btn btn-outline" disabled={loading} onClick={()=>refresh()}>{loading?'Refreshing…':'Refresh'}</button></div>
+ {error&&<div className="dp-alert error" role="alert">{error}</div>}{notice&&<div className="dp-alert success" role="status">{notice}</div>}
+ {tab==='today'&&<><div className="dp-stats"><div><strong>{active.length}</strong><span>Active jobs</span></div><div><strong>{jobs.filter(j=>j.status==='assigned').length}</strong><span>To collect</span></div><div><strong>{jobs.filter(j=>j.status==='in_transit').length}</strong><span>On the way</span></div><div><strong>{jobs.filter(j=>j.status==='delivered'&&new Date(j.updated_at).toDateString()===new Date().toDateString()).length}</strong><span>Completed today</span></div></div><div className="dp-section-title"><div><span className="dp-kicker">YOUR QUEUE</span><h2>Next deliveries</h2></div><button className="dp-text-button" onClick={()=>setTab('deliveries')}>View all</button></div>{loading?<div className="dp-empty">Loading assigned deliveries…</div>:active.length?active.slice(0,3).map(j=><Card key={j.id} job={j} busy={busy} action={transition} detail={open} issue={setIssueJob}/>):<div className="dp-empty"><strong>You’re all caught up.</strong><span>New assignments will appear here.</span></div>}</>}
+ {tab==='deliveries'&&<><div className="dp-filter-row">{[['all','All'],['new','New'],['active','In progress']].map(([v,t])=><button key={v} className={filter===v?'selected':''} onClick={()=>setFilter(v)}>{t}</button>)}</div>{visible.length?visible.map(j=><Card key={j.id} job={j} busy={busy} action={transition} detail={open} issue={setIssueJob}/>):<div className="dp-empty">No deliveries in this view.</div>}</>}
+ {tab==='history'&&(history.length?history.map(j=><article className="dp-job-card" key={j.id}><div className="dp-job-head"><div><span className="dp-kicker">ORDER {j.order_id.slice(0,8)}</span><h3>{j.order?.customer_name||'Customer'}</h3></div><Chip tone={j.status==='delivered'?'ok':'bad'}>{label(j.status)}</Chip></div><p>{address(j.order)}</p><small>{new Date(j.updated_at).toLocaleString()}</small></article>):<div className="dp-empty">No delivery history yet.</div>)}
+ {tab==='profile'&&<section className="dp-profile"><div><span className="dp-kicker">ACCOUNT</span><h2>{name}</h2><p>{user?.email}</p><p>Only deliveries assigned to this driver account are accessible.</p></div><div className="dp-profile-row"><span>Appearance</span><button className="btn btn-outline" onClick={toggleTheme}>Switch to {theme==='dark'?'light':'dark'} mode</button></div><div className="dp-profile-row"><span>Last sync</span><strong>{lastUpdated?.toLocaleTimeString()||'Not synced'}</strong></div><button className="btn btn-outline" onClick={()=>signOut()}>Sign out</button></section>}
+ </main><nav className="dp-bottom-nav" aria-label="Driver navigation">{TABS.map(([id,title])=><button key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}><span>{({today:'⌂',deliveries:'▤',history:'◷',profile:'○'})[id]}</span>{title}</button>)}</nav>
+ {selected&&<div className="dp-modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setSelected(null);}}><section className="dp-modal" role="dialog" aria-modal="true" aria-labelledby="dp-detail-title"><button className="dp-modal-close" onClick={()=>setSelected(null)} aria-label="Close">×</button><span className="dp-kicker">DELIVERY DETAILS</span><h2 id="dp-detail-title">Order {selected.order_id.slice(0,8)}</h2><h3>{selected.order?.customer_name||'Customer'}</h3>{selected.order?.customer_phone&&<a href={'tel:'+selected.order.customer_phone}>{selected.order.customer_phone}</a>}<p>{address(selected.order)||'Delivery address unavailable'}</p>{selected.order?.delivery_instructions&&<p>{selected.order.delivery_instructions}</p>}{maps(selected.order)&&<a className="btn btn-outline btn-block" href={maps(selected.order)} target="_blank" rel="noreferrer">Open directions in Google Maps ↗</a>}
+ {selected.status==='in_transit'&&<div className="dp-proof"><h3>Proof of delivery</h3><p>Both a verified photograph and the customer’s six-digit OTP are mandatory.</p><label className="dp-upload">Delivery photograph<input type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setPhoto(e.target.files?.[0]||null)}/></label>{photo&&<small>{photo.name}</small>}<button className="btn btn-outline btn-block" disabled={busy===selected.id||!photo} onClick={upload}>Upload and verify photo</button><label className="dp-field">Customer OTP<input inputMode="numeric" maxLength={6} value={otp} onChange={e=>setOtp(e.target.value.replace(/\D/g,'').slice(0,6))} placeholder="6-digit code"/></label><button className="btn btn-primary btn-block" disabled={busy===selected.id||!selected.delivery_photo_path} onClick={complete}>Confirm delivery</button>{selected.delivery_photo_path&&<small className="dp-proof-ok">Verified photo attached. OTP still required.</small>}</div>}
+ <button className="btn btn-outline btn-block" onClick={()=>setSelected(null)}>Close</button></section></div>}
+ {issueJob&&<div className="dp-modal-backdrop"><section className="dp-modal" role="dialog" aria-modal="true" aria-labelledby="dp-issue-title"><button className="dp-modal-close" onClick={()=>setIssueJob(null)} aria-label="Close">×</button><span className="dp-kicker">DELIVERY EXCEPTION</span><h2 id="dp-issue-title">Report an issue</h2><label className="dp-field">Reason<select value={reason} onChange={e=>setReason(e.target.value)}>{REASONS.map(([v,t])=><option key={v} value={v}>{t}</option>)}</select></label><label className="dp-field">Details<textarea rows={4} maxLength={1000} value={notes} onChange={e=>setNotes(e.target.value)}/></label><button className="btn btn-primary btn-block" disabled={busy===issueJob.id} onClick={report}>Send to store</button></section></div>}</div>;
 }
