@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Chip } from '../components';
 import { supabase, supabaseConfigured } from '../lib/supabase';
+import { userFacingError } from '../lib/userFacingError';
 
 const TONE = {
   awaiting_payment: 'info',
@@ -87,7 +88,7 @@ export default function Account() {
     setBusy(true);
     try {
       if (!supabaseConfigured || !supabase) {
-        throw new Error('Account services are not configured in this deployment.');
+        throw new Error('Account services are temporarily unavailable. Please try again later.');
       }
       if (mode === 'signin') {
         const { error: signError } = await supabase.auth.signInWithPassword({
@@ -117,7 +118,7 @@ export default function Account() {
       }
       await refreshSession();
     } catch (err) {
-      setError(err?.message || 'Authentication failed.');
+      setError(userFacingError(err, 'We couldn’t sign you in. Check your details and try again.'));
     } finally {
       setBusy(false);
     }
@@ -141,7 +142,7 @@ export default function Account() {
       setResetMsg('If that email has a RAW HAIRS account, a password-reset link is on its way. Check your inbox (and spam folder).');
       setResetEmail('');
     } catch (err) {
-      setResetError(err?.message || 'Could not send the reset email.');
+      setResetError(userFacingError(err, 'We couldn’t send the password reset email. Please try again.'));
     } finally {
       setResetBusy(false);
     }
@@ -157,7 +158,7 @@ export default function Account() {
       setBookings([]);
       setMsg('Signed out.');
     } catch (err) {
-      setError(err?.message || 'Could not sign out.');
+      setError(userFacingError(err, 'We couldn’t sign you out. Please try again.'));
     } finally {
       setBusy(false);
     }
@@ -171,7 +172,7 @@ export default function Account() {
     return (
       <div className="wrap page" style={{ maxWidth: 640 }}>
         <h1>My account</h1>
-        <div className="notice auth-error">Supabase is not configured in this environment.</div>
+        <div className="notice auth-error">Account services are temporarily unavailable. Please try again later.</div>
       </div>
     );
   }
