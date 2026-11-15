@@ -43,7 +43,3 @@ end $$;
 revoke all on function public.assign_rider_job(uuid,text) from public,anon,authenticated;
 grant execute on function public.assign_rider_job(uuid,text) to service_role;
 
-insert into public.schema_migrations(name)
-select 'driver_portal_phase_4_6_otp_assignment_24h.sql'
-where to_regclass('public.schema_migrations') is not null
-  and not exists(select 1 from public.schema_migrations where name='driver_portal_phase_4_6_otp_assignment_24h.sql');
