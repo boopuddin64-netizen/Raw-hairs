@@ -56,7 +56,7 @@ export default function Cart() {
       setSent(true);
       store.clearCart();
     } catch (err) {
-      setError(err?.message || 'Could not send request. Please try again.');
+      setError('We couldn’t send your request. Please try again.');
     } finally {
       setBusy(false);
     }
