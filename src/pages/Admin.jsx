@@ -485,7 +485,7 @@ export default function Admin() {
           <button className="btn" type="button" onClick={() => save()} disabled={saving}>{saving ? 'Saving…' : 'Save settings'}</button>
           {message && <p className="muted">{message}</p>}
           <p className="muted" style={{ marginTop: 12 }}>
-            Cloud save requires the <code>store_settings</code> table. Run <code>docs/ADMIN-SETTINGS.sql</code> in the Supabase SQL editor if needed.
+            Cloud saving is temporarily unavailable. Please try again later or contact support.
           </p>
         </div>
       )}
