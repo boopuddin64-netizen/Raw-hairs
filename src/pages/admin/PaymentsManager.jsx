@@ -65,7 +65,7 @@ export default function PaymentsManager({ payments, refresh }) {
         : `Payment rejected${ownerNote ? ` (${ownerNote})` : ''}.`);
       refresh();
     } catch (e) {
-      setMsg(e.message || 'Could not update the payment.');
+      setMsg('We couldn’t update the payment. Please try again.');
     } finally {
       setBusy('');
     }
