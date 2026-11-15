@@ -37,7 +37,7 @@ const orderStatusOptions = (status) => [...new Set([status, ...(orderTransitions
 const money = (value) => (value == null || Number.isNaN(Number(value)) ? '—' : '₦' + Number(value).toLocaleString('en-NG'));
 const dateTime = (value) => (value ? new Date(value).toLocaleString('en-NG') : '—');
 const dateShort = (value) => (value ? new Date(value).toLocaleDateString('en-NG', { day: 'numeric', month: 'short' }) : '—');
-const errorText = (error) => error?.message || 'Something went wrong. Please try again.';
+const errorText = () => 'We couldn’t complete that change. Please try again.';
 const slugify = (value) => value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 function StatusSelect({ value, options, onSave, label, disabled = false }) {
