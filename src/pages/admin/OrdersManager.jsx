@@ -50,7 +50,7 @@ export default function OrdersManager({ orders, payments, refresh }) {
       setMsg('Order updated.');
       refresh();
     } catch (e) {
-      setMsg(e.message || 'Could not update the order.');
+      setMsg('We couldn’t update the order. Please try again.');
     } finally {
       setBusy('');
     }
