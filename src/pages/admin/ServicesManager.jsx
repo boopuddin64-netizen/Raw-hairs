@@ -3,7 +3,7 @@ import { adminApi } from '../../lib/adminApi';
 
 const blank = () => ({ id: null, name: '', description: '', price: '', duration_minutes: '', is_active: true });
 const money = (value) => value == null || value === '' ? 'Price on request' : `₦${Number(value).toLocaleString('en-NG')}`;
-const errorText = (error) => error?.message || 'Could not save the service.';
+const errorText = () => 'We couldn’t save the service. Please try again.';
 
 export default function ServicesManager({ services = [], refresh }) {
   const [form, setForm] = useState(null);
