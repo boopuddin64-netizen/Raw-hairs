@@ -126,8 +126,6 @@ begin
  update public.rider_jobs set status='delivered',updated_at=now() where id=p_job_id;
  perform set_config('raw_hairs.allow_order_workflow','on',true);
  update public.orders set status='delivered',updated_at=now() where id=v_job.order_id and status in ('processing','dispatched');
- insert into public.notifications(user_id,channel,event_type,title,body,related_order)
- select o.customer_id,'whatsapp','order_delivered','Order delivered','Your order was delivered. Thank you for shopping with RAW HAIRS.',o.id from public.orders o where o.id=v_job.order_id and o.customer_id is not null;
  return jsonb_build_object('ok',true,'status','delivered');
 end $$;
 revoke all on function public.confirm_delivery_otp(uuid,text) from public,anon;
