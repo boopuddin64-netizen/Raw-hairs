@@ -17,25 +17,27 @@ function authorized(req) {
 
 /**
  * Server-only retention worker. Dry-run is the default; actual deletion requires
- * an authenticated request with ?dry_run=false. Storage objects are removed
+ * an authenticated POST with dry_run=false. Storage objects are removed
  * before their metadata, so a storage failure leaves a retryable metadata row.
  */
 export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    res.setHeader('Allow', 'GET');
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST');
     return reply(res, 405, { error: 'Method not allowed.' });
   }
   if (!authorized(req)) return reply(res, 401, { error: 'Unauthorized.' });
 
-  const dryRun = String(req.query?.dry_run ?? 'true').toLowerCase() !== 'false';
+  // Destructive cleanup is opt-in in the POST body; query strings cannot trigger deletion.
+  const requestedDryRun = req.body?.dry_run;
+  const dryRun = requestedDryRun !== false;
   const db = getDb();
   if (!db) return reply(res, 503, { error: 'Database not configured.' });
 
   const result = {
     dryRun,
     batchSize: BATCH_SIZE,
-    expiredEvidence: { scanned: 0, wouldDelete: 0, deleted: 0, failed: 0 },
-    staleVerifiedUploads: { scanned: 0, wouldDelete: 0, deleted: 0, failed: 0 },
+    expiredEvidence: { scanned: 0, wouldDelete: 0, deleted: 0, failed: 0, hasMore: false },
+    staleVerifiedUploads: { scanned: 0, wouldDelete: 0, deleted: 0, failed: 0, hasMore: false },
   };
 
   try {
@@ -45,6 +47,7 @@ export default async function handler(req, res) {
       .order('expires_at', { ascending: true }).limit(BATCH_SIZE);
     if (expiredError) throw expiredError;
     result.expiredEvidence.scanned = (expired || []).length;
+    result.expiredEvidence.hasMore = result.expiredEvidence.scanned === BATCH_SIZE;
 
     const cutoff = new Date(Date.now() - VERIFIED_TTL_MINUTES * 60 * 1000).toISOString();
     const { data: stale, error: staleError } = await db.from('verified_delivery_evidence')
@@ -52,6 +55,7 @@ export default async function handler(req, res) {
       .order('verified_at', { ascending: true }).limit(BATCH_SIZE);
     if (staleError) throw staleError;
     result.staleVerifiedUploads.scanned = (stale || []).length;
+    result.staleVerifiedUploads.hasMore = result.staleVerifiedUploads.scanned === BATCH_SIZE;
 
     if (dryRun) {
       result.expiredEvidence.wouldDelete = result.expiredEvidence.scanned;
@@ -91,6 +95,8 @@ export default async function handler(req, res) {
       result.staleVerifiedUploads.deleted += 1;
     }
 
+    result.expiredEvidence.hasMore = result.expiredEvidence.scanned === BATCH_SIZE;
+    result.staleVerifiedUploads.hasMore = result.staleVerifiedUploads.scanned === BATCH_SIZE;
     console.info('[delivery-retention] cleanup complete', result);
     return reply(res, 200, result);
   } catch (error) {
