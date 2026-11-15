@@ -1,7 +1,7 @@
 # Production migration approval — RAW HAIRS Driver Portal
 
 ## Status
-**NOT APPROVED — STAGING VALIDATION REQUIRED.** The source now contains the missing assignment/reissue/unassign RPC definitions, but it has not been replayed on a disposable staging database or integration-tested. It has NOT been executed against production. Do not apply it to production or release the matching driver API/UI.
+**PRODUCTION DATABASE MIGRATION APPLIED — DRIVER APP RELEASE STILL GATED.** The migration was applied to Supabase production project `xcipemtyclinuyaadgxy` on 2026-11-15. Post-apply checks confirmed all four tables, the three assignment lifecycle RPCs, execute grants, the private bucket restrictions, and zero active OTP-bearing jobs missing a control row. The driver API/UI is not yet released; do not merge/deploy until production-safe lifecycle verification and rollout checks are complete.
 
 Migration:
 `supabase/migrations/20261115100000_driver_portal_integrity_phase_0_3.sql`
@@ -18,6 +18,13 @@ Supabase project: `xcipemtyclinuyaadgxy`
 - `notifications` has the fields used by the existing order notification trigger.
 - `delivery-evidence` is a private bucket. Current storage policies already scope upload/read access to the assigned rider or owner.
 
+## Production application record
+- Applied through Supabase migration tooling as `driver_portal_integrity_phase_0_3`.
+- Production migration ledger version: `20261115180458`.
+- Application result: success.
+- Post-apply verification: all four new tables present; assignment/reissue/unassign RPCs present; no anon/authenticated execute grant on those three admin RPCs; private `delivery-evidence` bucket restricted to JPG/PNG/WebP and 8 MiB; zero active OTP-bearing jobs missing an OTP-control row.
+- No test assignment, OTP reissue, unassignment, delivery completion, or customer notification was triggered against a real order during verification.
+
 ## What the migration changes
 1. Creates `rider_otp_controls` with expiry, failed-attempt counter and lock timestamp; backfills currently active OTP jobs with a one-time 24-hour grace window.
 2. Creates transient `verified_delivery_evidence` and durable `delivery_evidence` metadata tables.
@@ -29,7 +36,7 @@ Supabase project: `xcipemtyclinuyaadgxy`
 8. Restricts the bucket to JPG, PNG and WebP, with an 8 MB maximum.
 
 ## Approval risks / limitations to resolve
-- The migration has not been executed on a staging database. A SQL syntax and integration test is still required before production execution. The OTP generator expression was separately exercised as a read-only production SELECT and returned a six-digit value; this is not a substitute for migration replay.
+- The migration was applied directly to production at the owner's instruction, without a paid development branch. A full staging replay and integration test were therefore not performed. The OTP generator expression was separately exercised as a read-only production SELECT and returned a six-digit value; this is not a substitute for lifecycle testing.
 - The source definitions for assignment/reissue/unassign have now been added. They still require disposable staging execution and tests for assignment, reassignment, reissue, unassignment and OTP invalidation before approval.
 - The new RPCs atomically create/reset OTP controls with the hash. Verify that reassignment rotates the OTP, and unassignment removes the control and clears the prior hash.
 - The 90-day `expires_at` value is metadata only. A scheduled process to delete expired Storage objects and evidence rows is NOT included in this migration. Do not describe evidence as automatically deleted after 90 days until that cleanup is implemented and verified.
@@ -56,17 +63,17 @@ from storage.buckets where id='delivery-evidence';
 select status, count(*) from public.rider_jobs group by status;
 ```
 
-## Apply procedure — disabled until blockers are cleared
-Do not execute the following procedure until staging replay and the complete lifecycle tests pass, the remaining review items are resolved, and the source and this document are re-reviewed.
+## Apply procedure — completed; do not repeat
+The migration has already been applied. Do not re-run it. The remaining release procedure is limited to application rollout and lifecycle verification; do not merge/deploy the driver app until the tests below pass.
 
-1. Take a fresh database backup / confirm point-in-time recovery availability.
-2. Confirm the target project is `xcipemtyclinuyaadgxy`.
-3. Apply this migration exactly once through the approved Supabase migration workflow. Do not paste partial fragments or manually insert migration-history rows.
-4. Verify the four new tables, updated function definitions, existing trigger attachment and bucket restrictions.
-5. Verify admin dispatch GET and test assignment/reissue using a designated test order and driver.
-6. Test wrong OTP attempts, fifth-attempt lockout, expiry, photo-only rejection, OTP-only rejection and valid photo+OTP completion.
-7. Confirm the order notification is generated once by `orders_notify_change`.
-8. Only then approve/merge and deploy the matching API/UI changes.
+1. Completed: the migration was applied through Supabase migration tooling. Do not execute it again.
+2. Completed: target was `xcipemtyclinuyaadgxy`.
+3. Completed: migration ledger entry `20261115180458` records the application.
+4. Completed: verified tables, RPCs/grants, and bucket restrictions.
+5. Pending: test admin dispatch GET and assignment/reissue with a designated test order and driver.
+6. Pending: test wrong OTP attempts, fifth-attempt lockout, expiry, photo-only rejection, OTP-only rejection and valid photo+OTP completion.
+7. Pending: confirm one customer notification is generated by `orders_notify_change` after a test delivery.
+8. Only after those checks, approve/merge and deploy the matching API/UI changes.
 
 ## Rollback
 Do not run a blind DROP-based rollback. The migration replaces production functions and creates tables that may contain real evidence or exception records after deployment. If a problem occurs, stop new driver assignments, preserve evidence, restore the prior function definitions from the pre-apply backup, and perform a reviewed forward-fix. A full database restore should be a last resort and must account for orders created after the backup.
