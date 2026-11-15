@@ -4,7 +4,7 @@ import { adminApi } from '../../lib/adminApi';
 const slugify = (value) => String(value || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const makeKey = (value) => slugify(value).replace(/-/g, '_');
 const parseOptions = (value) => String(value || '').split(',').map((item) => item.trim()).filter(Boolean);
-const errorText = (error) => error?.message || 'Could not save catalogue settings.';
+const errorText = () => 'We couldn’t save catalogue settings. Please try again.';
 
 export default function CatalogStructureManager({ catalog, products = [], onSaved }) {
   const [typeForm, setTypeForm] = useState(null);
