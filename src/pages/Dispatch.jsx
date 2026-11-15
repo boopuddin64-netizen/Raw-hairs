@@ -164,7 +164,7 @@ export default function Dispatch() {
       setNotice('Job returned to the unassigned queue.');
       await refresh();
     } catch (err) {
-      setError(err.message);
+      setError(friendlyDispatchError(err));
       await refresh();
     } finally {
       setBusyId('');
