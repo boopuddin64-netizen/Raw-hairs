@@ -95,6 +95,10 @@ export default function Dispatch() {
   const [busyId, setBusyId] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [exceptions, setExceptions] = useState([]);
+  const [exceptionsLoading, setExceptionsLoading] = useState(false);
+  const [exceptionBusy, setExceptionBusy] = useState('');
+  const [exceptionNotes, setExceptionNotes] = useState({});
 
   const refresh = useCallback(async () => {
     try {
@@ -109,7 +113,39 @@ export default function Dispatch() {
     }
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
+
+  const refreshExceptions = useCallback(async () => {
+    setExceptionsLoading(true);
+    try {
+      const response = await fetch('/api/admin/delivery-exceptions?status=pending', { credentials: 'same-origin' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || 'Could not load exceptions.');
+      setExceptions(data.exceptions || []);
+    } catch (err) {
+      setError(friendlyDispatchError(err, 'Delivery exceptions could not be loaded.'));
+    } finally { setExceptionsLoading(false); }
+  }, []);
+
+  const actionException = async (exceptionId, op) => {
+    const resolution = String(exceptionNotes[exceptionId] || '').trim();
+    if (!resolution) { setError('Enter a resolution note before actioning this exception.'); return; }
+    setExceptionBusy(exceptionId); setError(''); setNotice('');
+    try {
+      const response = await fetch('/api/admin/delivery-exceptions', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'content-type': 'application/json', 'x-requested-with': 'rh-admin' },
+        body: JSON.stringify({ op, exceptionId, resolution }),
+      });
+      const data = await response.json();
+      if (!response.ok) { const err = new Error(data?.error || 'Could not update exception.'); err.status = response.status; throw err; }
+      setNotice(op === 'resolve' ? 'Exception resolved.' : 'Exception dismissed.');
+      setExceptionNotes((current) => ({ ...current, [exceptionId]: '' }));
+      await refreshExceptions();
+    } catch (err) { setError(friendlyDispatchError(err)); }
+    finally { setExceptionBusy(''); }
+  };
+
+  useEffect(() => { refresh(); refreshExceptions(); }, [refresh, refreshExceptions]);
   useEffect(() => {
     const timer = window.setInterval(() => {
       if (document.visibilityState === 'visible') refresh();
@@ -181,6 +217,29 @@ export default function Dispatch() {
           </div>
         </div>
       </div>}
+
+      <div className="dash-panel" style={{ marginTop: 16 }}>
+        <div className="dash-panel-head"><h2>Delivery exceptions ({exceptions.length})</h2><button className="btn btn-ghost" type="button" onClick={refreshExceptions} disabled={exceptionsLoading}>Refresh</button></div>
+        {exceptionsLoading && <p className="muted small">Loading exceptions…</p>}
+        {!exceptionsLoading && exceptions.length === 0 && <p className="muted small">No pending delivery exceptions.</p>}
+        <div className="stack">
+          {exceptions.map((item) => (
+            <article className="row-card" key={item.id} style={{ flexDirection: 'column', gap: 8 }}>
+              <div className="row-top"><strong>{String(item.reason || 'other').replaceAll('_', ' ')}</strong><Chip tone="warn">Pending</Chip></div>
+              <span className="muted small">Job {String(item.job_id).slice(0, 8)} · Reported {new Date(item.created_at).toLocaleString('en-NG')}</span>
+              {item.job?.order?.customer_name && <span className="small">Customer: {item.job.order.customer_name}</span>}
+              {item.job?.order?.customer_phone && <span className="small">Phone: {item.job.order.customer_phone}</span>}
+              {item.job?.order?.delivery_address && <span className="small">Address: {item.job.order.delivery_address}</span>}
+              {item.notes && <p className="small">{item.notes}</p>}
+              <textarea aria-label="Resolution note" maxLength={1000} rows={3} value={exceptionNotes[item.id] || ''} onChange={(event) => setExceptionNotes((current) => ({ ...current, [item.id]: event.target.value }))} placeholder="Required resolution / dismissal note" />
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button className="btn btn-primary" type="button" disabled={exceptionBusy === item.id} onClick={() => actionException(item.id, 'resolve')}>Resolve</button>
+                <button className="btn btn-ghost" type="button" disabled={exceptionBusy === item.id} onClick={() => actionException(item.id, 'dismiss')}>Dismiss</button>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
       {done.length > 0 && !error && (
         <div className="dash-panel" style={{ marginTop: 16 }}>
           <div className="dash-panel-head"><h2>Completed / failed ({done.length})</h2></div>
