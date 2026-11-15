@@ -27,7 +27,7 @@ export default function Services() {
     setFormError('');
     setBusy(true);
     try {
-      if (!supabaseConfigured || !supabase) throw new Error('Bookings are not connected yet. Please message RAW HAIRS on Instagram or WhatsApp.');
+      if (!supabaseConfigured || !supabase) throw new Error('Booking is temporarily unavailable. Please contact RAW HAIRS.');
       const { data: sessionData } = await supabase.auth.getSession();
       const user = sessionData?.session?.user;
       if (!user) throw new Error(BOOKING_ERRORS.sign_in_required);
@@ -45,7 +45,7 @@ export default function Services() {
       setDone(true);
       setForm({ name: '', whatsapp: '', serviceId: '', message: '', scheduledAt: '' });
     } catch (err) {
-      setFormError(err?.message || 'Could not send booking request.');
+      setFormError('We couldn’t send your booking request. Please try again.');
     } finally {
       setBusy(false);
     }
