@@ -120,8 +120,9 @@ export default function Dispatch() {
     try {
       const response = await fetch('/api/admin/delivery-exceptions?status=pending', { credentials: 'same-origin' });
       const data = await response.json();
-      if (!response.ok) throw new Error(data?.error || 'Could not load exceptions.');
+      if (!response.ok) { const error = new Error(data?.error || 'Could not load exceptions.'); error.status = response.status; throw error; }
       setExceptions(data.exceptions || []);
+      setExceptionError('');
     } catch (err) {
       setExceptionError(friendlyDispatchError(err, 'Delivery exceptions could not be loaded.'));
     } finally { setExceptionsLoading(false); }
