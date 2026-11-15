@@ -1,7 +1,7 @@
 # Production migration approval — RAW HAIRS Driver Portal
 
 ## Status
-Prepared for review only. This document and the migration have NOT been executed against production.
+**NOT APPROVED — BLOCKED BY SOURCE DEFECTS.** This document and the migration have NOT been executed against production. The current SQL is incomplete and must not be applied to production or used to release the matching driver API/UI.
 
 Migration:
 `supabase/migrations/20261115100000_driver_portal_integrity_phase_0_3.sql`
@@ -22,7 +22,7 @@ Supabase project: `xcipemtyclinuyaadgxy`
 1. Creates `rider_otp_controls` with expiry, failed-attempt counter and lock timestamp; backfills currently active OTP jobs with a one-time 24-hour grace window.
 2. Creates transient `verified_delivery_evidence` and durable `delivery_evidence` metadata tables.
 3. Creates `delivery_exceptions` for driver-reported delivery problems.
-4. Replaces `assign_rider_job` and adds `reissue_delivery_otp` so assignment/reissue always creates or resets the OTP control row. New assignment OTPs expire after 24 hours; reissued OTPs expire after 30 minutes.
+4. **Does not currently replace `assign_rider_job` or define `reissue_delivery_otp`.** The existing production assignment RPC therefore will not create the new OTP control row. `unassign_delivery_job` is also not defined, although the admin dispatch API calls `unassign_rider_job(uuid)`. These missing RPCs are release blockers.
 5. Replaces the existing rider transition trigger function with a narrower driver state machine.
 6. Replaces `mark_delivery_photo` so only server-verified image evidence can be attached.
 7. Replaces `confirm_delivery_otp` so completion requires both a registered verified photo and an unexpired valid six-digit OTP; five failed attempts lock the code.
@@ -30,6 +30,8 @@ Supabase project: `xcipemtyclinuyaadgxy`
 
 ## Approval risks / limitations to resolve
 - The migration has not been executed on a staging database. A SQL syntax and integration test is still required before production execution.
+- The source currently omits `assign_rider_job`, `reissue_delivery_otp`, and `unassign_rider_job`. The previous version of this approval document incorrectly claimed that assignment/reissue RPCs were implemented. That claim has been withdrawn; do not approve until the SQL is corrected and the admin dispatch API dependencies are satisfied.
+- Assignment/reissue must atomically create or reset the OTP control row together with the OTP hash. Unassignment/reassignment must invalidate any previously issued OTP.
 - The 90-day `expires_at` value is metadata only. A scheduled process to delete expired Storage objects and evidence rows is NOT included in this migration. Do not describe evidence as automatically deleted after 90 days until that cleanup is implemented and verified.
 - Existing active OTPs are granted a 24-hour grace period from migration time. This is a deliberate one-time transition policy; the owner should be aware that currently issued codes remain valid for that period.
 - The new `delivery_exceptions` table stores reports, but admin resolution UI/API is a later integration task.
@@ -54,7 +56,9 @@ from storage.buckets where id='delivery-evidence';
 select status, count(*) from public.rider_jobs group by status;
 ```
 
-## Apply procedure after approval
+## Apply procedure — disabled until blockers are cleared
+Do not execute the following procedure until the missing RPCs are implemented, the source and this document are re-reviewed, and staging tests pass.
+
 1. Take a fresh database backup / confirm point-in-time recovery availability.
 2. Confirm the target project is `xcipemtyclinuyaadgxy`.
 3. Apply this migration exactly once through the approved Supabase migration workflow. Do not paste partial fragments or manually insert migration-history rows.
