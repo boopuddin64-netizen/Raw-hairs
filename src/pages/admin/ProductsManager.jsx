@@ -12,7 +12,7 @@ const money = (value) => (value == null || Number.isNaN(Number(value)) ? '—' :
 const slugify = (value) => String(value || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const parseList = (text) => String(text || '').split(',').map((value) => value.trim()).filter(Boolean);
 const parseLengths = (text) => [...new Set(parseList(text).map(Number).filter((value) => Number.isInteger(value) && value > 0))].sort((a, b) => a - b);
-const errorText = (error) => error?.message || 'Something went wrong. Please try again.';
+const errorText = () => 'We couldn’t save this product. Please try again.';
 
 function blank(catalog) {
   const type = (catalog?.productTypes || []).find((item) => item.slug === 'hair' && item.is_active)
