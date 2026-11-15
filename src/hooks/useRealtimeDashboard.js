@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { adminApi } from '../lib/adminApi';
+import { userFacingError } from '../lib/userFacingError';
 
 const POLL_MS = 15000;
 
@@ -34,7 +35,7 @@ export function useRealtimeDashboard() {
       });
       setUpdatedAt(new Date());
     } catch (err) {
-      setError(err.message);
+      setError(userFacingError(err, 'We couldn’t load the dashboard. Please refresh and try again.'));
     } finally {
       setLoading(false);
     }
