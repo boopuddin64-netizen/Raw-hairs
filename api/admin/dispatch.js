@@ -78,7 +78,7 @@ export default async function handler(req, res) {
           ? db.from('rider_otp_controls').select('job_id,expires_at,failed_attempts').in('job_id', jobIds)
           : Promise.resolve({ data: [], error: null }),
         orderIds.length
-          ? db.from('orders').select('id,customer_name,customer_phone,total,status').in('id', orderIds)
+          ? db.from('orders').select('id,customer_name,customer_phone,delivery_address,delivery_city,delivery_state,delivery_instructions,total,status').in('id', orderIds)
           : Promise.resolve({ data: [], error: null }),
       ]);
       if (controlsError) throw controlsError;
@@ -94,6 +94,10 @@ export default async function handler(req, res) {
             ...job,
             customer_name: order?.customer_name || null,
             customer_phone: order?.customer_phone || null,
+            delivery_address: order?.delivery_address || null,
+            delivery_city: order?.delivery_city || null,
+            delivery_state: order?.delivery_state || null,
+            delivery_instructions: order?.delivery_instructions || null,
             order_total: order?.total || null,
             order_status: order?.status || null,
             otp_expires_at: control?.expires_at || null,
