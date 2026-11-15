@@ -297,3 +297,44 @@ The live database does, however, provide enough evidence to document the resulti
 ### Phase 1 implications
 
 This resolves the *what exists* question for the production-only rate-limit entry, but not the *what exact migration was executed* question. Phase 1 therefore remains open until all production-only/differently named ledger entries are mapped or explicitly classified as reconstructed/unrecoverable.
+
+---
+
+## Cross-branch migration recovery and driver migration source verification — follow-up
+
+**Additional repository history inspected:** the current driver feature branch, production-readiness branch, main branch, and available development/fix branches covering dispatch, driver review, security hardening, payment drift repair, admin console, and Phase 1 migration work.
+
+### 1. Cross-branch recovery result
+
+- No alternate branch contained a second/corrected `20261115100000_driver_portal_integrity_phase_0_3.sql` source.
+- No alternate branch contained a source file for the production-only `20261115060245_raw_hairs_admin_rate_limit_repair` migration.
+- The production-readiness branch contains an older, separate `db/migrations/001_initial_schema.sql` / `002_approved_commerce_rules.sql` baseline. These are not the current Supabase timestamp migration series and must not be merged into its migration history without a deliberate baseline design.
+- The duplicate `20261113140000` source timestamp remains unresolved in the current feature branch; the inspected development branches do not provide a distinct canonical replacement that resolves it.
+
+**Conclusion:** the missing rate-limit SQL and corrected driver migration cannot currently be recovered from the repository's available branches. The rate-limit repair must remain classified as reconstructed from live production metadata. The driver migration must be corrected as new reviewed source, not represented as recovered historical SQL.
+
+### 2. Driver migration approval document is inaccurate
+
+The file `docs/production/driver-portal-migration-approval.md` claims the proposed migration replaces `assign_rider_job`, adds `reissue_delivery_otp`, and defines assignment/reissue OTP lifecycle behavior.
+
+Direct inspection of the complete current migration file shows that it creates the OTP/evidence/exception tables and replaces the rider transition, photo-attachment, and OTP-confirmation functions, but it does **not** define `assign_rider_job`, `reissue_delivery_otp`, or `unassign_rider_job`.
+
+The approval document therefore overstates the SQL actually present in the migration. This is a release-blocking documentation/source mismatch. The migration must not be approved or applied until the SQL and approval document agree and the RPC dependencies are implemented and tested.
+
+### 3. Additional driver migration review points
+
+The current SQL needs a proper staging review beyond adding the missing RPCs:
+
+- Assignment and reissue must atomically create/reset the OTP control record in the same transaction as the OTP hash update.
+- Unassignment must clear or invalidate the OTP and control row so a previously issued code cannot complete a job after reassignment.
+- The confirmation function should be checked for the intended order status transition set and trigger interactions; do not assume that `processing` and `dispatched` cover every legitimate production path.
+- The owner override path in `mark_delivery_photo` should be checked against the evidence verifier's `verified_by=v_user` condition. An owner attaching a driver's verified evidence may fail by design; make the intended actor contract explicit.
+- The current migration does not add cleanup for 90-day evidence retention. Storage object cleanup and metadata cleanup remain a separate required job or a consciously revised retention policy.
+- Storage bucket limits are updated only if the bucket already exists; the migration does not assert that exactly one expected bucket row was changed. Add a precondition/verification check in staging and release procedure.
+- The active-job backfill gives existing OTPs a fresh 24-hour grace window. Keep this as an explicit business/security decision, not an incidental implementation detail.
+
+### 4. Updated disposition
+
+- **Phase 1 remains open:** cross-branch source recovery did not resolve the missing rate-limit migration or the production ledger/source mapping gaps.
+- **Phase 2 remains open:** the app dependency scan is complete for the inspected driver and catalogue paths, but the driver migration has a confirmed source/documentation defect and still needs staging replay plus integration tests.
+- **Production remains unchanged:** this follow-up inspected GitHub branches and SQL source only. No production SQL, schema changes, or migration history changes were executed.
