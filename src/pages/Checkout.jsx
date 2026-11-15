@@ -64,7 +64,7 @@ export default function Checkout() {
         setVerified(result);
         store.clearCart();
       } catch (e) {
-        setError(e.message);
+        setError(userFacingError(e, 'We couldn’t verify the payment yet. Please refresh or contact the store team.'));
         setVerified({ ok: false });
       } finally {
         payingRef.current = false;
@@ -105,7 +105,7 @@ export default function Checkout() {
     } catch (err) {
       setError(checkoutErrorMessage(err.code) !== 'Something went wrong. Please try again.'
         ? checkoutErrorMessage(err.code)
-        : (err.message || 'Could not start checkout. Please try again.'));
+        : userFacingError(err, 'We couldn’t start checkout. Please try again.'));
     } finally {
       setBusy(false);
     }
@@ -123,7 +123,7 @@ export default function Checkout() {
       });
       setStep(STEPS.DONE);
     } catch (err) {
-      setError(err.message || 'Could not submit the receipt. Please try again.');
+      setError(userFacingError(err, 'We couldn’t submit your payment receipt. Please try again.'));
     } finally {
       setBusy(false);
     }
