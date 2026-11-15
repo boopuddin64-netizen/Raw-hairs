@@ -62,13 +62,13 @@ Phase 4 is complete only when automated tests cover the above and a designated d
 - [ ] Add tests for role denial, invalid status, missing resolution note, concurrent resolution, and audit fields.
 
 ### 5.2 Evidence retention and cleanup
-- Implement a server-only scheduled cleanup job for expired evidence, with dry-run support, bounded batches, idempotency and structured counts.
-- For each expired evidence record, delete the corresponding object from the private Storage bucket and then delete the metadata row only after Storage deletion succeeds (or confirmed object absence).
+- [x] Implement a server-only cleanup endpoint for expired evidence, with dry-run-by-default support, bounded batches, retry-safe ordering and structured counts. It is not scheduled or enabled automatically.
+- [x] For each expired evidence record, delete the corresponding object from the private Storage bucket and then delete the metadata row only after Storage deletion succeeds.
 - Handle partial failures safely: retain metadata when object deletion fails; retry on a later run.
-- Clean stale unconsumed verified_delivery_evidence records and their associated uploaded objects using an explicit short TTL.
-- Protect cleanup endpoint with a strong server-only secret/cron authorization; never expose it to browser clients.
-- Add tests for expiry boundaries, missing objects, Storage failures, partial batches, idempotency and authorization.
-- Do not claim 90-day automatic deletion until the scheduled job is deployed and observed completing successfully.
+- [x] Clean stale unconsumed verified_delivery_evidence records and their associated uploaded objects after a 15-minute verification TTL.
+- [x] Protect cleanup endpoint with a server-only CRON_SECRET bearer check (minimum 32 characters); never expose it to browser clients.
+- [ ] Add tests for expiry boundaries, missing objects, Storage failures, partial batches, idempotency and authorization.
+- Do not claim 90-day automatic deletion until the endpoint is scheduled, deployed and observed completing successfully. Actual deletion requires an authenticated request with dry_run=false; dry-run is the default.
 
 ### 5.3 Operations visibility
 - Add structured logs for assignment, reissue, unassignment, exception resolution, evidence verification, cleanup outcomes and delivery completion.
