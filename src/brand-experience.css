@@ -88,7 +88,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .home-hero .lead { max-width: 470px; color: #e2d6de; font-size: 16px; line-height: 1.75; }
 .home-hero .hero-actions { display: flex; flex-direction: row; flex-wrap: wrap; gap: 12px; margin-top: 10px; }
 .home-hero .btn-outline { color: white; border-color: #d9c3d0; }
-.home-hero .hero-note { right: clamp(18px,4vw,48px); bottom: 20px; border-color: #ffffff44; color: #f5e8ef; }
+.home-hero .hero-note { top: auto; left: auto; right: clamp(18px,4vw,48px); bottom: 20px; width: fit-content; max-width: calc(100% - 36px); border: 1px solid #ffffff44; border-radius: 3px; background: rgba(23,20,22,.58); color: #f5e8ef; }
 .wrap { width: min(1360px,100%); }
 .section { padding-top: clamp(42px,6vw,76px); }
 .section-head { gap: 16px; }
