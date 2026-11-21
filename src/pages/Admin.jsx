@@ -162,6 +162,7 @@ export default function Admin() {
           </button>
           <button className="btn btn-ghost" type="button" onClick={refresh} disabled={loading}>Refresh</button>
           <button className="btn btn-ghost" type="button" onClick={exportCsv}>Export CSV</button>
+          <Link className="btn btn-outline" to="/admin/orders">Open orders</Link>
           <Link className="btn btn-outline" to="/admin/dispatch">Open dispatch</Link>
           <button className="btn btn-ghost" type="button" onClick={signOut}>Sign out</button>
         </div>
@@ -311,6 +312,7 @@ export default function Admin() {
           <div className="dash-panel-head">
             <h2>{tab}</h2>
             <span className="muted">{loading ? 'Loading…' : ''}</span>
+            {tab === 'Orders' && <Link className="btn btn-outline" to="/admin/orders">Open the full orders console</Link>}
           </div>
           {/* list views for Products, Services, Orders, Bookings, International, Rider jobs */}
           {tab === 'Orders' && (
