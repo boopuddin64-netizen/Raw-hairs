@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { adminApi } from '../../lib/adminApi';
+import { formatNaira as money } from '../../lib/money';
 
 const blank = () => ({ id: null, name: '', description: '', price: '', duration_minutes: '', is_active: true });
-const money = (value) => value == null || value === '' ? 'Price on request' : `₦${Number(value).toLocaleString('en-NG')}`;
 const errorText = () => 'We couldn’t save the service. Please try again.';
 
 export default function ServicesManager({ services = [], refresh }) {

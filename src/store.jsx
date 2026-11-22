@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
+import { formatNaira } from './lib/money';
 
 // Cart is browser-local until checkout creates a real order in Supabase.
 // Product details always come from the live catalogue (useCatalog), never from seed data.
@@ -16,7 +17,8 @@ function loadCart() {
   return [];
 }
 
-export const naira = (n) => (n == null || n === '' ? 'Price on request' : '₦' + Number(n).toLocaleString('en-NG'));
+// Kept as the storefront's public name; formatting lives in lib/money.js.
+export const naira = formatNaira;
 
 export function stockLabel(p) {
   if (!p) return 'Unavailable';

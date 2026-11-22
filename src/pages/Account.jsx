@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Chip } from '../components';
 import { supabase, supabaseConfigured } from '../lib/supabase';
+import { formatKoboDash, formatNairaDash } from '../lib/money';
 import { userFacingError } from '../lib/userFacingError';
 
 const TONE = {
@@ -198,7 +199,7 @@ export default function Account() {
               </div>
               <div className="row-top">
                 <span className="muted small">{o.created_at ? new Date(o.created_at).toLocaleString('en-NG') : ''}</span>
-                <span className="price">{o.total_kobo != null ? `₦${Math.round(Number(o.total_kobo) / 100).toLocaleString('en-NG')}` : (o.total != null ? `₦${Number(o.total).toLocaleString('en-NG')}` : '')}</span>
+                <span className="price">{o.total_kobo != null ? formatKoboDash(o.total_kobo) : (o.total != null ? formatNairaDash(o.total) : '')}</span>
               </div>
               <Link to={`/order/${o.id}`} className="muted small" style={{ textDecoration: 'none' }}>View tracking →</Link>
             </article>

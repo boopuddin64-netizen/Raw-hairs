@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { adminApi } from '../../lib/adminApi';
+import { formatKoboDash, formatNairaDash } from '../../lib/money';
 
 /**
  * Bank-transfer verification queue (admin console).
@@ -12,7 +13,10 @@ import { adminApi } from '../../lib/adminApi';
  * business rules: stock, reservations and order status change atomically.
  */
 
-const KOBO = (value) => (value == null ? '—' : '₦' + Math.round(Number(value) / 100).toLocaleString('en-NG'));
+/** Payments store kobo; a legacy naira amount is only a fallback, never divided. */
+const paymentAmount = (payment) => (
+  payment.amount_kobo != null ? formatKoboDash(payment.amount_kobo) : formatNairaDash(payment.amount)
+);
 
 function safeParse(str) {
   try { return JSON.parse(str); } catch { return null; }
@@ -90,7 +94,7 @@ export default function PaymentsManager({ payments, refresh }) {
           <article key={p.id} className="dash-panel" style={{ padding: 16 }}>
             <div className="row-top">
               <h3 style={{ fontSize: 16 }}>Order {String(p.order_id || '').slice(0, 8)}</h3>
-              <span className="chip chip-info">{KOBO(p.amount_kobo)}</span>
+              <span className="chip chip-info">{paymentAmount(p)}</span>
             </div>
             <ul className="muted small" style={{ listStyle: 'none', padding: 0, margin: '10px 0', display: 'grid', gap: 4 }}>
               <li><strong>Sender:</strong> {d?.sender_name || '—'}</li>
@@ -145,7 +149,7 @@ export default function PaymentsManager({ payments, refresh }) {
                   <tr key={p.id}>
                     <td>{String(p.order_id || '').slice(0, 8)}</td>
                     <td>{String(p.payment_method || '').replaceAll('_', ' ')}</td>
-                    <td>{KOBO(p.amount_kobo || p.amount)}</td>
+                    <td>{paymentAmount(p)}</td>
                     <td>{String(p.status || '').replaceAll('_', ' ')}</td>
                     <td>{p.created_at ? new Date(p.created_at).toLocaleString('en-NG') : '—'}</td>
                   </tr>

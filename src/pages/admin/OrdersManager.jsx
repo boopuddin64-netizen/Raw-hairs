@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 import { adminApi } from '../../lib/adminApi';
+import { formatNairaDash as money } from '../../lib/money';
+import { orderStatusOptions } from '../../lib/orders';
 
 /**
  * Orders tab (admin console) — replaces the bare Customer/Total/Status/Date
@@ -14,21 +16,12 @@ import { adminApi } from '../../lib/adminApi';
  * the only write is the existing status select.
  */
 
-const money = (v) => (v == null || Number.isNaN(Number(v)) ? '—' : '₦' + Number(v).toLocaleString('en-NG'));
 const dateTime = (v) => (v ? new Date(v).toLocaleString('en-NG') : '—');
 const clean = (s) => String(s || '').replaceAll('_', ' ');
 
 function safeParse(str) {
   try { return JSON.parse(str); } catch { return null; }
 }
-
-const ORDER_TRANSITIONS = {
-  awaiting_payment: ['cancelled'],
-  pending_admin_approval: ['processing', 'cancelled'],
-  paid: ['processing', 'cancelled'],
-  processing: ['dispatched'],
-};
-const orderStatusOptions = (status) => [...new Set([status, ...(ORDER_TRANSITIONS[status] || [])])];
 
 export default function OrdersManager({ orders, payments, refresh }) {
   const [busy, setBusy] = useState('');

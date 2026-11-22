@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { useCatalog, formatNaira, hideBrokenImage, productSpec } from '../catalog';
+import { useCatalog, hideBrokenImage, productSpec } from '../catalog';
+import { formatNaira } from '../lib/money';
 import { productImageUrl } from '../lib/images';
 import { useStore, isSoldOut, stockLabel } from '../store';
 import { useToast } from '../components';
