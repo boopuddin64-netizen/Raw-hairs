@@ -341,8 +341,3 @@ export function DriverSignIn() {
     />
   );
 }
-
-export const OwnerAuthProvider = StaffAuthProvider;
-export const useOwnerAuth = useStaffAuth;
-export const OwnerRoute = AdminRoute;
-export const OwnerSignIn = AdminSignIn;

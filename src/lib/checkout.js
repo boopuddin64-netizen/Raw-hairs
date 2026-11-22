@@ -171,10 +171,7 @@ export function secondsRemaining(expiresAt) {
   return Math.max(0, Math.floor(ms / 1000));
 }
 
-/** Format kobo amounts as naira for display. */
-export function formatKobo(kobo) {
-  const n = (Number(kobo) || 0) / 100;
-  return '\u20a6' + n.toLocaleString('en-NG', { maximumFractionDigits: 0 });
-}
+/** Format kobo amounts as naira for display (shared formatter). */
+export { formatKobo } from './money';
 
 export { supabase };

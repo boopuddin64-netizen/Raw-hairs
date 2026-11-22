@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { formatNaira } from './lib/money';
 import { supabase, supabaseConfigured } from './lib/supabase';
 import { productImageUrl } from './lib/images';
 import { useStore } from './store';
@@ -17,6 +18,23 @@ function deriveCategories(products) {
   return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
+// The three metadata tables only exist once the catalog-flexibility migration
+// is applied. Remember a failure for a while so repeat visits do not pay for
+// three guaranteed 404s, but retry periodically so the app self-heals once the
+// migration lands.
+const META_RETRY_KEY = 'rawhairs:catalog-meta-retry-at';
+const META_RETRY_MS = 6 * 60 * 60 * 1000;
+
+function metaRetryAt() {
+  try { return Number(localStorage.getItem(META_RETRY_KEY)) || 0; } catch { return 0; }
+}
+function rememberMetaUnavailable() {
+  try { localStorage.setItem(META_RETRY_KEY, String(Date.now() + META_RETRY_MS)); } catch { /* ignore */ }
+}
+function clearMetaUnavailable() {
+  try { localStorage.removeItem(META_RETRY_KEY); } catch { /* ignore */ }
+}
+
 export function useCatalog() {
   const [products, setProducts] = useState([]);
   const [productTypes, setProductTypes] = useState([]);
@@ -29,6 +47,18 @@ export function useCatalog() {
 
   useEffect(() => {
     let active = true;
+
+    const enrich = (rows, types, categoryList) => {
+      const typeById = new Map(types.map((type) => [type.id, type]));
+      const categoryById = new Map(categoryList.map((category) => [category.id, category]));
+      return rows.map((product) => ({
+        ...product,
+        category_label: categoryById.get(product.category_id)?.name || product.category || '',
+        product_type_name: typeById.get(product.product_type_id)?.name || 'Product',
+        product_type_slug: typeById.get(product.product_type_id)?.slug || '',
+      }));
+    };
+
     async function load() {
       if (!supabaseConfigured || !supabase) {
         if (active) {
@@ -42,12 +72,14 @@ export function useCatalog() {
         return;
       }
 
-      const [productsResult, typesResult, categoriesResult, attributesResult] = await Promise.all([
-        supabase.from('products').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(500),
-        supabase.from('catalog_product_types').select('id,name,slug,sort_order').eq('is_active', true).order('sort_order').order('name'),
-        supabase.from('catalog_categories').select('id,product_type_id,name,slug,sort_order').eq('is_active', true).order('sort_order').order('name'),
-        supabase.from('catalog_attribute_definitions').select('id,product_type_id,key,label,field_type,options,is_required,display_in_specs,sort_order').eq('is_active', true).order('sort_order').order('label'),
-      ]);
+      // Products are the critical path. Render them first so the storefront is
+      // never blocked by the optional catalogue-metadata queries below.
+      const productsResult = await supabase
+        .from('products')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(500);
 
       if (!active) return;
       if (productsResult.error) {
@@ -64,25 +96,51 @@ export function useCatalog() {
           .map((path) => productImageUrl(path) || path)
           .filter(Boolean),
       }));
-      const types = typesResult.error ? [] : (typesResult.data || []);
-      const metadataCategories = categoriesResult.error ? [] : (categoriesResult.data || []);
-      const categoryList = metadataCategories.length ? metadataCategories : deriveCategories(rows);
-      const typeById = new Map(types.map((type) => [type.id, type]));
-      const categoryById = new Map(categoryList.map((category) => [category.id, category]));
-      const enriched = rows.map((product) => ({
-        ...product,
-        category_label: categoryById.get(product.category_id)?.name || product.category || '',
-        product_type_name: typeById.get(product.product_type_id)?.name || 'Product',
-        product_type_slug: typeById.get(product.product_type_id)?.slug || '',
-      }));
+      const derivedCategories = deriveCategories(rows);
+      const initialProducts = enrich(rows, [], derivedCategories);
 
-      setProducts(enriched);
-      setProductTypes(types);
-      setCategories(categoryList);
-      setAttributeDefinitions(attributesResult.error ? [] : (attributesResult.data || []));
+      setProducts(initialProducts);
+      setCategories(derivedCategories);
       setError('');
       setLoading(false);
-      if (store?.syncProductSnapshots) store.syncProductSnapshots(enriched);
+      if (store?.syncProductSnapshots) store.syncProductSnapshots(initialProducts);
+
+      // Flexible-catalogue metadata is optional: the storefront falls back to
+      // legacy `products.category` while these tables are unavailable.
+      //
+      // The metadata tables ship in the same migration as products.category_id
+      // and products.product_type_id, so a populated catalogue can tell us
+      // whether the migration is applied without spending three 404s.
+      const hasMetadataColumns = (row) => 'category_id' in row && 'product_type_id' in row;
+      if (rows.length > 0 && !rows.some(hasMetadataColumns)) {
+        if (metaRetryAt() <= Date.now()) rememberMetaUnavailable();
+        return;
+      }
+      if (metaRetryAt() > Date.now()) return;
+
+      const [typesResult, categoriesResult, attributesResult] = await Promise.all([
+        supabase.from('catalog_product_types').select('id,name,slug,sort_order').eq('is_active', true).order('sort_order').order('name'),
+        supabase.from('catalog_categories').select('id,product_type_id,name,slug,sort_order').eq('is_active', true).order('sort_order').order('name'),
+        supabase.from('catalog_attribute_definitions').select('id,product_type_id,key,label,field_type,options,is_required,display_in_specs,sort_order').eq('is_active', true).order('sort_order').order('label'),
+      ]);
+
+      if (!active) return;
+      if (typesResult.error || categoriesResult.error || attributesResult.error) {
+        rememberMetaUnavailable();
+        return;
+      }
+
+      clearMetaUnavailable();
+      const types = typesResult.data || [];
+      const metadataCategories = categoriesResult.data || [];
+      const categoryList = metadataCategories.length ? metadataCategories : derivedCategories;
+      const enrichedProducts = enrich(rows, types, categoryList);
+
+      setProducts(enrichedProducts);
+      setProductTypes(types);
+      setCategories(categoryList);
+      setAttributeDefinitions(attributesResult.data || []);
+      if (store?.syncProductSnapshots) store.syncProductSnapshots(enrichedProducts);
     }
     setLoading(true);
     load();
@@ -133,10 +191,6 @@ export function useServices() {
 
   return { services, loading, error };
 }
-
-export const formatNaira = (value) => value == null
-  ? 'Price on request'
-  : new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(Number(value));
 
 export const hideBrokenImage = (event) => { event.currentTarget.style.display = 'none'; };
 

@@ -9,6 +9,8 @@ import { useTheme } from '../theme/ThemeContext';
 import ProductsManager from './admin/ProductsManager';
 import PaymentsManager from './admin/PaymentsManager';
 import ServicesManager from './admin/ServicesManager';
+import { formatNairaDash as money } from '../lib/money';
+import { orderStatusOptions } from '../lib/orders';
 
 const NAV = [
   { id: 'Overview', label: 'Overview' },
@@ -26,15 +28,7 @@ const NAV = [
 
 const BOOKING_STATUSES = ['pending', 'confirmed', 'completed', 'cancelled'];
 const REQUEST_STATUSES = ['pending', 'quoted', 'approved', 'declined', 'converted'];
-const orderTransitions = {
-  awaiting_payment: ['cancelled'],
-  pending_admin_approval: ['processing', 'cancelled'],
-  paid: ['processing', 'cancelled'],
-  processing: ['dispatched'],
-};
-const orderStatusOptions = (status) => [...new Set([status, ...(orderTransitions[status] || [])])];
 
-const money = (value) => (value == null || Number.isNaN(Number(value)) ? '—' : '₦' + Number(value).toLocaleString('en-NG'));
 const dateTime = (value) => (value ? new Date(value).toLocaleString('en-NG') : '—');
 const dateShort = (value) => (value ? new Date(value).toLocaleDateString('en-NG', { day: 'numeric', month: 'short' }) : '—');
 const errorText = () => 'We couldn’t complete that change. Please try again.';

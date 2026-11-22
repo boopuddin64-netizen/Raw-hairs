@@ -2,13 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { adminApi } from '../../lib/adminApi';
 import { categories as legacyCategories } from '../../data';
 import { isStoragePath, productImageUrl } from '../../lib/images';
+import { formatNairaDash as money } from '../../lib/money';
 import CatalogStructureManager from './CatalogStructureManager';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_GALLERY_IMAGES = 7;
 const IMAGE_EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
 const DEFAULT_LENGTHS = '12, 14, 16, 18, 20, 22, 24, 26';
-const money = (value) => (value == null || Number.isNaN(Number(value)) ? '—' : '₦' + Number(value).toLocaleString('en-NG'));
 const slugify = (value) => String(value || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const parseList = (text) => String(text || '').split(',').map((value) => value.trim()).filter(Boolean);
 const parseLengths = (text) => [...new Set(parseList(text).map(Number).filter((value) => Number.isInteger(value) && value > 0))].sort((a, b) => a - b);

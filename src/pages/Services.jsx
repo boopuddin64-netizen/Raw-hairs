@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useServices, formatNaira } from '../catalog';
+import { useServices } from '../catalog';
+import { formatNaira } from '../lib/money';
 import { Chip } from '../components';
 import { supabase, supabaseConfigured } from '../lib/supabase';
 
