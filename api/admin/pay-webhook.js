@@ -1,10 +1,15 @@
 import crypto from 'node:crypto';
 import { getDb } from '../_lib/db.js';
 import { verifyPaystackSignature } from '../_lib/paystackSignature.js';
-import { readLimitedRequestBody } from '../_lib/request.js';
 
 const PAY_REF = /^[A-Za-z0-9._-]{6,100}$/;
 const MAX_WEBHOOK_BYTES = 1024 * 1024;
+
+// Web-standard handlers (named method exports) are required for Vercel to send
+// the Response we return. A default export with a Request argument is treated
+// as a Node (req, res) handler, so the Response is discarded and the request
+// hangs until the timeout — which is what used to happen to Paystack here.
+export const config = { maxDuration: 30 };
 
 function response(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -13,11 +18,25 @@ function response(payload, status = 200) {
   });
 }
 
-export default async function handler(request) {
-  if (request.method !== 'POST') return response({ error: 'Method not allowed.' }, 405);
+async function readRawBody(request) {
+  const declared = Number(request.headers.get('content-length') || 0);
+  if (Number.isFinite(declared) && declared > MAX_WEBHOOK_BYTES) {
+    const err = new Error('Request body is too large.');
+    err.status = 413;
+    throw err;
+  }
+  const rawBody = Buffer.from(await request.arrayBuffer());
+  if (rawBody.byteLength > MAX_WEBHOOK_BYTES) {
+    const err = new Error('Request body is too large.');
+    err.status = 413;
+    throw err;
+  }
+  return rawBody;
+}
 
+export async function POST(request) {
   let rawBody;
-  try { rawBody = await readLimitedRequestBody(request, MAX_WEBHOOK_BYTES); }
+  try { rawBody = await readRawBody(request); }
   catch (err) { return response({ error: err.message || 'Invalid request body.' }, err.status || 400); }
 
   const secrets = [process.env.PAYSTACK_WEBHOOK_SECRET, process.env.PAYSTACK_SECRET_KEY];
@@ -72,4 +91,8 @@ export default async function handler(request) {
     return response({ error: 'Could not record the payment.' }, 500);
   }
   return response({ ok: true, status: data.status || 'successful' });
+}
+
+export function GET() {
+  return response({ error: 'Method not allowed.' }, 405);
 }
