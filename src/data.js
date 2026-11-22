@@ -24,4 +24,16 @@ export const policyLinks = [
   { id: 'terms', label: 'Terms & conditions' },
 ];
 
+// Customer-facing help and policy copy supplied by the owner.
+// `null` means the owner has not supplied the wording yet: the page renders an
+// honest "being finalised" state instead of publishing placeholder text.
+export const helpContent = {
+  contact: 'Message us on Instagram and we’ll reply there. For order questions, include your order number so we can find it quickly.',
+  faqs: null,
+  delivery: null,
+  returns: null,
+  privacy: null,
+  terms: null,
+};
+
 export const jobSteps = ['Assigned to you', 'Picked up', 'On the way', 'Delivered and confirmed'];
